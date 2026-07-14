@@ -1,0 +1,208 @@
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: sans-serif;
+    background-color: #F2F2F2;
+    color: #000054;
+  }
+
+  header {
+    background-color: #E60028;
+    min-height: 70px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 12px 24px;
+    color: #FFFFFF;
+  }
+
+  .logo {
+    font-size: 24px;
+    font-weight: bold;
+    letter-spacing: 1px;
+  }
+
+  .searchbar {
+    height: 36px;
+    width: 220px;
+    border-radius: 18px;
+    border: none;
+    padding: 0px 16px;
+    font-size: 14px;
+  }
+
+  nav {
+    margin-left: auto; 
+  }
+
+  nav ul {
+    display: flex;
+    list-style: none;
+    gap: 24px;
+  }
+
+  nav ul li a {
+    color: #FFFFFF;
+    text-decoration: none;
+    font-size: 15px;
+  }
+
+  nav ul li a:hover {
+    text-decoration: underline;
+  }
+
+  .page {
+    display: grid;
+    grid-template-columns: 220px 1fr 260px;
+    grid-template-areas: "left feed right";
+    gap: 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 16px;
+    align-items: start;
+  }
+
+  .leftbar  { grid-area: left; }
+  .middle  { grid-area: feed; }
+  .rightbar { grid-area: right; }
+
+  .profile-card {
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    margin-bottom: 16px;
+    border-top: 4px solid #E60028;
+  }
+
+  .profile-pic {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background-color: #000054;
+    margin: 0 auto 8px auto;
+  }
+
+  .profile-name {
+    font-weight: bold;
+    font-size: 16px;
+  }
+
+  .profile-course {
+    font-size: 13px;
+    color: #555555;
+    margin-top: 4px;
+  }
+
+  .menu-card {
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    padding: 8px 0px;
+    margin-bottom: 16px;
+  }
+
+  .menu-card ul {
+    list-style: none;
+  }
+
+  .menu-card ul li a {
+    display: block;
+    padding: 10px 16px;
+    color: #000054;
+    text-decoration: none;
+    font-size: 14px;
+  }
+
+  .menu-card ul li a:hover {
+    background-color: #FFDEA8;
+  }
+
+  .postbox {
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .postbox textarea {
+    width: 100%;
+    height: 60px;
+    border: 1px solid #CCCCCC;
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 14px;
+    resize: none;
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .postfooter {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .postbtn {
+    background-color: #E60028;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 20px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  .itembar {
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .itemtitle {
+    font-size: 15px;
+    font-weight: bold;
+    margin-bottom: 12px;
+    border-bottom: 2px solid #E60028;
+    padding-bottom: 8px;
+  }
+
+  .eventitem {
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+
+  .eventitem:last-child {
+    margin-bottom: 0;
+  }
+
+  .eventdate {
+    color: #E60028;
+    font-weight: bold;
+  }
+
+  .frienditem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .frienditem:last-child {
+    margin-bottom: 0;
+  }
+
+  .friendavatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #000054;
+    flex-shrink: 0;
+  }
+
+  .friendname {
+    font-size: 13px;
+  }
