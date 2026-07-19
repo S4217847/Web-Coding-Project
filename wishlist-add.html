@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<!--
+    Visual inspiration: "Forum dedicated to University Community" by Tomasz Osowski
+    for Bejamas on Dribbble, and the public RMIT Vietnam myRMIT information page.
+    Sample photography is sourced from Unsplash. Source URLs are listed in wishlist.css.
+
+    Random numbers are placed in some of the examples as illustrative demonstrations. 
+-->
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Browse campus items and add them to the RMIT Connect Wishlist and Favourites prototype.">
+    <title>Browse Items | RMIT Connect</title>
+    <link href="wishlist.css" rel="stylesheet">
+</head>
+
+<body id="top">
+    <a class="skipLink" href="#mainContent">Skip to main content</a>
+
+    <header class="siteHeader">
+        <div class="logo"><a href="wishlist.html">RMIT CONNECT</a></div>
+
+        <form class="headerSearch" action="wishlist-add.html" method="get" role="search">
+            <label class="visuallyHidden" for="siteSearch">Search RMIT Connect items</label>
+            <input class="searchBar" id="siteSearch" name="q" type="search" placeholder="Search RMIT Connect...">
+        </form>
+
+        <nav class="mainNav" aria-label="Main navigation">
+            <ul>
+                <li><a class="currentPage" href="wishlist-add.html" aria-current="page">Browse Items</a></li>
+                <li><a href="wishlist.html#savedItems">Wishlist</a></li>
+                <li><a href="wishlist.html#purchasedItems">Purchased</a></li>
+                <li><a href="wishlist.html#profileSummary">Profile</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <section class="pageBanner" aria-labelledby="pageTitle">
+        <div class="pageBannerInner">
+            <div class="pageBannerText">
+                <h1 class="pageTitle" id="pageTitle">Browse Campus Items</h1>
+                <p class="pageSubtitle">Find activities and passes, then save them for later.</p>
+            </div>
+            <div class="pageBannerButtonCell">
+                <a class="bannerButton" href="wishlist.html">View Wishlist</a>
+            </div>
+        </div>
+    </section>
+
+    <main id="mainContent">
+        <div class="section statusArea" aria-live="polite">
+            <div class="statusMessage" id="addedStatus" tabindex="-1">
+                <div>
+                    <strong>Item added to wishlist</strong>
+                    <p>The final application will save one entry for this user and product. A second copy will be blocked.</p>
+                </div>
+                <a href="wishlist.html#savedItems">View Wishlist</a>
+            </div>
+        </div>
+
+        <section class="section" aria-labelledby="filterTitle">
+            <div class="sectionCard">
+                <h2 class="sectionLabel" id="filterTitle">Find an Item</h2>
+                <form class="filterForm" action="wishlist-add.html" method="get">
+                    <div class="formField wideField">
+                        <label for="itemSearch">Search by item name</label>
+                        <input id="itemSearch" name="item" type="search" placeholder="Try: photography or workshop">
+                    </div>
+                    <div class="formField">
+                        <label for="itemCategory">Category</label>
+                        <select id="itemCategory" name="category">
+                            <option value="all">All categories</option>
+                            <option value="workshops">Workshops</option>
+                            <option value="events">Events</option>
+                            <option value="activities">Club activities</option>
+                            <option value="trips">Field trips</option>
+                            <option value="short-courses">Short courses</option>
+                        </select>
+                    </div>
+                    <div class="formField">
+                        <label for="itemSort">Sort by</label>
+                        <select id="itemSort" name="sort">
+                            <option value="popular">Most popular</option>
+                            <option value="newest">Newest</option>
+                            <option value="price-low">Lowest price</option>
+                        </select>
+                    </div>
+                    <div class="formButtonCell">
+                        <button class="filterButton" type="submit">Search</button>
+                    </div>
+                </form>
+                <p class="formHelp">Static prototype: these controls show the planned catalogue filters.</p>
+            </div>
+        </section>
+
+        <section class="section" id="catalogueItems" aria-labelledby="catalogueTitle">
+            <div class="sectionCard">
+                <div class="sectionHeading">
+                    <div>
+                        <h2 class="sectionLabel" id="catalogueTitle">Popular with Students</h2>
+                        <p class="sectionIntro">Five sample items from the RMIT Connect community catalogue.</p>
+                    </div>
+                    <a class="smallButton" href="wishlist.html#savedItems">Saved Items: 4</a>
+                </div>
+
+                <div class="catalogueGrid">
+                    <article class="catalogueItem" id="item-workshop">
+                        <img src="images/peer-workshop.jpg" alt="Students working together around two laptops">
+                        <div class="catalogueContent">
+                            <div class="itemTopLine">
+                                <span class="itemCategory">Workshop</span>
+                                <span class="itemPrice">30,000 VND</span>
+                            </div>
+                            <h3>Peer Coding Workshop Pass</h3>
+                            <p>A Saturday peer-learning session for first-year students who want help with HTML and CSS.</p>
+                            <dl class="catalogueStats" aria-label="Peer Coding Workshop item statistics">
+                                <div><dt>Wishlisted</dt><dd>126</dd></div>
+                                <div><dt>In carts</dt><dd>74</dd></div>
+                                <div><dt>Purchased</dt><dd>51</dd></div>
+                            </dl>
+                            <button class="btnDisabled" type="button" disabled>Already in Wishlist</button>
+                            <p class="duplicateNote">Duplicate prevented: this item is already saved once.</p>
+                        </div>
+                    </article>
+
+                    <article class="catalogueItem" id="item-drone">
+                        <img src="images/connect-hoodie.jpg" alt="Student in a hoodie practising outdoor drone filming">
+                        <div class="catalogueContent">
+                            <div class="itemTopLine">
+                                <span class="itemCategory">Field Trip</span>
+                                <span class="itemPrice">120,000 VND</span>
+                            </div>
+                            <h3>Drone Filming Field Trip</h3>
+                            <p>A supervised afternoon session covering safe drone setup and basic campus video shots.</p>
+                            <dl class="catalogueStats" aria-label="Drone Filming Field Trip item statistics">
+                                <div><dt>Wishlisted</dt><dd>89</dd></div>
+                                <div><dt>In carts</dt><dd>42</dd></div>
+                                <div><dt>Purchased</dt><dd>26</dd></div>
+                            </dl>
+                            <button class="btnDisabled" type="button" disabled>Already in Wishlist</button>
+                            <p class="duplicateNote">Duplicate prevented: this item is already saved once.</p>
+                        </div>
+                    </article>
+
+                    <article class="catalogueItem" id="item-music-night">
+                        <img src="images/design-market.jpg" alt="Audience members taking photos at a live music event">
+                        <div class="catalogueContent">
+                            <div class="itemTopLine">
+                                <span class="itemCategory">Event</span>
+                                <span class="itemPrice">80,000 VND</span>
+                            </div>
+                            <h3>Student Music Night Ticket</h3>
+                            <p>Entry to an evening of student bands, acoustic sets, and community performances.</p>
+                            <dl class="catalogueStats" aria-label="Student Music Night item statistics">
+                                <div><dt>Wishlisted</dt><dd>241</dd></div>
+                                <div><dt>In carts</dt><dd>168</dd></div>
+                                <div><dt>Purchased</dt><dd>119</dd></div>
+                            </dl>
+                            <button class="btnDisabled" type="button" disabled>Already in Wishlist</button>
+                            <p class="duplicateNote">Duplicate prevented: this item is already saved once.</p>
+                        </div>
+                    </article>
+
+                    <article class="catalogueItem" id="item-photo-walk">
+                        <img src="images/photo-walk.jpg" alt="Camera and lenses prepared for a photography activity">
+                        <div class="catalogueContent">
+                            <div class="itemTopLine">
+                                <span class="itemCategory">Club Activity</span>
+                                <span class="itemPrice">Free</span>
+                            </div>
+                            <h3>Campus Photography Walk</h3>
+                            <p>A beginner-friendly photo walk through campus with equipment tips from the Photography Club.</p>
+                            <dl class="catalogueStats" aria-label="Campus Photography Walk item statistics">
+                                <div><dt>Wishlisted</dt><dd>158</dd></div>
+                                <div><dt>In carts</dt><dd>97</dd></div>
+                                <div><dt>Purchased</dt><dd>82</dd></div>
+                            </dl>
+                            <button class="btnDisabled" type="button" disabled>Already in Wishlist</button>
+                            <p class="duplicateNote">Duplicate prevented: this item is already saved once.</p>
+                        </div>
+                    </article>
+
+                    <article class="catalogueItem" id="item-data-bootcamp">
+                        <img src="images/data-bootcamp.jpg" alt="Two students pointing at information on a laptop screen">
+                        <div class="catalogueContent">
+                            <div class="itemTopLine">
+                                <span class="itemCategory">Short Course</span>
+                                <span class="itemPrice">95,000 VND</span>
+                            </div>
+                            <h3>Data Visualisation Bootcamp</h3>
+                            <p>A practical evening session covering simple charts, dashboard planning, and presentation tips.</p>
+                            <dl class="catalogueStats" aria-label="Data Visualisation Bootcamp item statistics">
+                                <div><dt>Wishlisted</dt><dd>63</dd></div>
+                                <div><dt>In carts</dt><dd>28</dd></div>
+                                <div><dt>Purchased</dt><dd>17</dd></div>
+                            </dl>
+                            <a class="btnPrimary fullButton" href="#addedStatus">Add to Wishlist</a>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="siteFooter">
+        <div class="footerInner">
+            <div class="footerBrand">
+                <strong>RMIT CONNECT</strong>
+                <p>A static student community prototype.</p>
+            </div>
+            <nav class="footerNav" aria-label="Footer navigation">
+                <a href="wishlist.html">Wishlist</a>
+                <a href="wishlist-add.html">Browse Items</a>
+                <a href="#top">Back to Top</a>
+            </nav>
+            <div class="sourceAcknowledgement">
+                <p><a href="https://unsplash.com" target="_blank" rel="noopener noreferrer">Sample photography from Unsplash</a><//p>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>
