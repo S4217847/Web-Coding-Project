@@ -1,0 +1,564 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: sans-serif;
+  background-color: #f2f2f2;
+  color: #000054;
+}
+
+header {
+  background-color: #e60028;
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 24px;
+  color: #ffffff;
+}
+
+.logo {
+  font-size: 24px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.searchbar {
+  height: 36px;
+  width: 220px;
+  border-radius: 18px;
+  border: none;
+  padding: 0px 16px;
+  font-size: 14px;
+}
+
+nav {
+  margin-left: auto;
+}
+
+nav ul {
+  display: flex;
+  list-style: none;
+  gap: 24px;
+}
+
+nav ul li a {
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 15px;
+}
+
+nav ul li a:hover {
+  text-decoration: underline;
+}
+
+.page {
+  display: grid;
+  grid-template-columns: 220px 1fr 260px;
+  grid-template-areas: "left feed right";
+  gap: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px;
+  align-items: start;
+}
+
+.leftbar {
+  grid-area: left;
+}
+.middle {
+  grid-area: feed;
+}
+.rightbar {
+  grid-area: right;
+}
+
+.profile-card {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  margin-bottom: 16px;
+  border-top: 4px solid #e60028;
+}
+
+.profile-pic {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background-color: #000054;
+  margin: 0 auto 8px auto;
+}
+
+.profile-name {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.profile-course {
+  font-size: 13px;
+  color: #555555;
+  margin-top: 4px;
+}
+
+.menu-card {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 8px 0px;
+  margin-bottom: 16px;
+}
+
+.menu-card ul {
+  list-style: none;
+}
+
+.menu-card ul li a {
+  display: block;
+  padding: 10px 16px;
+  color: #000054;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.menu-card ul li a:hover {
+  background-color: #ffdea8;
+}
+
+.postbox {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.postbox textarea {
+  width: 100%;
+  height: 60px;
+  border: 1px solid #cccccc;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 14px;
+  resize: none;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.postfooter {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.postbtn {
+  background-color: #e60028;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 20px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.itembar {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.itemtitle {
+  font-size: 15px;
+  font-weight: bold;
+  margin-bottom: 12px;
+  border-bottom: 2px solid #e60028;
+  padding-bottom: 8px;
+}
+
+.eventitem {
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.eventitem:last-child {
+  margin-bottom: 0;
+}
+
+.eventdate {
+  color: #e60028;
+  font-weight: bold;
+}
+
+.frienditem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.frienditem:last-child {
+  margin-bottom: 0;
+}
+
+.friendavatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #000054;
+  flex-shrink: 0;
+}
+
+.friendname {
+  font-size: 13px;
+}
+
+/* ------------------ Discussion Forum ------------------ */
+.discussion-list {
+  display: grid;
+  gap: 12px;
+}
+
+.discussion-list h1 {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+.discussion-post {
+  background-color: #ffffff;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.discussion-post-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.post-author {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.post-course,
+.post-time,
+.discussion-post-footer {
+  color: #555555;
+  font-size: 13px;
+}
+
+.discussion-post h2 {
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+
+.discussion-post > .post-image {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.post-content {
+  color: #333333;
+  font-size: 14px;
+}
+
+.discussion-post-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+}
+
+.discussion-post-footer a {
+  color: #e60028;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.discussion-post-footer a:hover {
+  text-decoration: underline;
+}
+
+/* ------------------ Discussion Detail ------------------ */
+.discussion-detail {
+  display: grid;
+  gap: 12px;
+}
+
+.back-link {
+  color: #e60028;
+  font-size: 14px;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.discussion-detail h1 {
+  font-size: 24px;
+}
+
+.reply-list {
+  display: grid;
+  gap: 12px;
+}
+
+.reply-list h2,
+.reply-box h2 {
+  font-size: 18px;
+}
+
+.reply-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.reply-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.reply-content {
+  color: #333333;
+  font-size: 14px;
+}
+
+.reply-box {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 0;
+}
+
+.reply-box textarea {
+  width: 100%;
+  height: 60px;
+  border: 1px solid #cccccc;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 14px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.reply-box h2 {
+  margin-bottom: 12px;
+}
+
+/* ------------------ Common class ------------------ */
+
+:root {
+  --tbd: #4b2e83;
+}
+
+.common-link {
+  color: #000054;
+  text-decoration: underline;
+}
+
+.account-help {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.tbd {
+  color: var(--tbd);
+  font-size: 13px;
+}
+
+/* ------------------ Forgot Password ------------------ */
+
+.forgot-password-page {
+  display: block;
+  max-width: 620px;
+  margin: 50px auto;
+  padding: 0 20px;
+}
+
+.forgot-password-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 32px;
+}
+
+.forgot-password-card h1 {
+  margin-bottom: 10px;
+  font-size: 26px;
+}
+
+.forgot-password-text {
+  color: #555555;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.forgot-password-form {
+  display: grid;
+  gap: 10px;
+}
+
+.forgot-password-form label {
+  font-weight: bold;
+}
+
+.forgot-password-form input {
+  padding: 10px;
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.resetbutton {
+  background-color: #e60028;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.reset-message {
+  background-color: #f3f3f3;
+  border-radius: 4px;
+  color: #555555;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-top: 20px;
+  padding: 12px;
+}
+
+/* ------------------ Common account result (logout, resetpassword,deactivated-success) ------------------ */
+
+.common-account-result-page {
+  display: block;
+  max-width: 620px;
+  margin: 50px auto;
+  padding: 0 20px;
+}
+
+.common-account-result-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 32px;
+  text-align: center;
+}
+
+.common-account-result-card h1 {
+  margin-bottom: 12px;
+  font-size: 26px;
+}
+
+.common-account-result-text {
+  color: #555555;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.common-account-result-message {
+  background-color: #f3f3f3;
+  border-radius: 4px;
+  color: #555555;
+  line-height: 1.5;
+  padding: 12px;
+}
+
+/* ------------------ Logout ------------------ */
+
+.logout-link {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+}
+
+/* ------------------ Deactivate ID ------------------ */
+
+.deactivate-page {
+  display: block;
+  max-width: 620px;
+  margin: 50px auto;
+  padding: 0 20px;
+}
+
+.deactivate-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 32px;
+}
+
+.deactivate-card h1 {
+  margin-bottom: 10px;
+  font-size: 26px;
+}
+
+.deactivate-text {
+  color: #555555;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.deactivate-warning {
+  background-color: #fff0f0;
+  border-radius: 4px;
+  color: #8b0000;
+  line-height: 1.5;
+  margin-bottom: 24px;
+  padding: 12px;
+}
+
+.deactivate-form {
+  display: grid;
+  gap: 18px;
+}
+
+.deactivate-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.5;
+}
+
+.deactivate-checkbox input {
+  margin-top: 4px;
+}
+
+.deactivatebutton {
+  background-color: #e60028;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
