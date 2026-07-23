@@ -1,9 +1,5 @@
 /*
-    Visual references:
-    https://dribbble.com/shots/15385888-Forum-dedicated-to-University-Community
-    https://www.rmit.edu.vn/students/my-studies/myrmit
-
-    Sample photo sources:
+    Sample photograph sources:
     https://images.unsplash.com/photo-1522202176988-66273c2fd55f
     https://images.unsplash.com/photo-1556821840-3a63f95609a7
     https://images.unsplash.com/photo-1501281668745-f7f57925c3b4
@@ -12,279 +8,146 @@
 */
 
 * {
-    margin: 0px;
-    padding: 0px;
+
     box-sizing: border-box;
 }
 
-html {
-    scroll-behavior: smooth;
-}
-
-body {
+body{
+    margin: 0;
     font-family: Arial, Helvetica, sans-serif;
-    background-color: #F2F2F2;
+    background-color: #f2f2f2;
     color: #000054;
     line-height: 1.5;
 }
 
-#mainContent {
-    min-height: 60vh;
-}
-
-a {
-    color: #000054;
-}
-
-img {
-    display: block;
-    max-width: 100%;
-}
-
-.visuallyHidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0px;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0px;
-}
-
-.skipLink {
-    position: absolute;
-    top: -50px;
-    left: 16px;
-    z-index: 10;
-    background-color: #FFFFFF;
-    color: #000054;
-    padding: 10px 14px;
-    border: 2px solid #000054;
-}
-
-.skipLink:focus {
-    top: 10px;
-}
-
-.siteHeader {
-    background-color: #E60028;
-    min-height: 70px;
+.siteHeader{
     display: flex;
     align-items: center;
-    gap: 24px;
-    padding: 12px 24px;
-    color: #FFFFFF;
+    justify-content: space-between;
+    background-color: #E60028;
+    padding: 14px 24px;
 }
 
-.logo {
+.logo a{
+    color: #FFFFFF;
     font-size: 24px;
     font-weight: bold;
-    letter-spacing: 1px;
-    flex-shrink: 0;
-}
-
-.logo a {
-    color: #FFFFFF;
     text-decoration: none;
 }
 
-.headerSearch {
-    width: 220px;
-    flex-shrink: 0;
-}
-
-.searchBar {
-    height: 36px;
-    width: 100%;
-    border-radius: 18px;
-    border: 1px solid transparent;
-    padding: 0px 16px;
-    font-size: 14px;
-}
-
-.mainNav {
-    margin-left: auto;
-}
-
-.mainNav ul {
+.mainNav ul{
     display: flex;
-    align-items: center;
-    flex-wrap: wrap;
+    gap: 24px;
+    margin: 0;
+    padding: 0;
     list-style: none;
-    gap: 8px 20px;
 }
 
-.mainNav a {
-    display: block;
+.mainNav a{
     color: #FFFFFF;
     text-decoration: none;
-    font-size: 15px;
-    padding: 7px 4px;
-    border-bottom: 2px solid transparent;
 }
 
-.mainNav a:hover,
-.mainNav a.currentPage {
-    border-bottom-color: #FFFFFF;
-}
-
-.pageBanner {
-    background-color: #000054;
-    color: #FFFFFF;
-    padding: 32px 24px;
-}
-
-.pageBannerInner {
+.pageBanner{
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 24px;
-    width: 100%;
-    max-width: 1200px;
-    margin: 0px auto;
+    background-color: #000054;
+    color: #FFFFFF;
+    padding: 28px 30px;
 }
 
-.pageTitle {
+.pageBanner h1{
+    margin: 0 0 6px 0;
     font-size: 28px;
-    margin-bottom: 6px;
 }
 
-.pageSubtitle {
-    font-size: 14px;
+.pageBanner p{
+    margin: 0;
     color: #DADAF0;
 }
 
-.pageBannerButtonCell {
-    flex-shrink: 0;
-}
-
-.bannerButton {
+.bannerButton{
     display: inline-block;
     background-color: #FFDEA8;
     color: #000054;
+    padding: 10px 16px;
     border-radius: 6px;
-    padding: 11px 18px;
-    font-size: 14px;
     font-weight: bold;
     text-decoration: none;
 }
 
-.section {
+.summarySection{
     max-width: 1200px;
-    margin: 0px auto;
-    padding: 16px;
+    margin: 0 auto;
+    padding: 24px;
 }
 
-.sectionCard {
-    background-color: #FFFFFF;
-    border-radius: 8px;
-    padding: 16px;
+.summarySection h2{
+    margin: 0 0 12px 0;
+    font-size: 20px;
 }
 
-.sectionHeading {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 20px;
-    margin-bottom: 16px;
-}
-
-.sectionLabel {
-    font-size: 18px;
-    margin-bottom: 6px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid #E60028;
-}
-
-.sectionIntro {
-    font-size: 13px;
-    color: #555555;
-}
-
-.summaryGrid {
+.summaryGrid{
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 16px;
 }
 
-.summaryCard {
+.summaryCard{
     background-color: #FFFFFF;
+    border-top: 4px solid #E60028;
     border-radius: 8px;
     padding: 18px;
-    border-top: 4px solid #E60028;
 }
 
-.summaryNumber {
+.summaryNumber{
     font-size: 28px;
     font-weight: bold;
 }
 
-.summaryLabel {
+.summaryLabel{
+    color: #555555; 
     font-size: 13px;
-    color: #555555;
 }
 
-.statusArea {
-    padding-top: 0px;
-    padding-bottom: 0px;
+.wishlistSection,
+.purchasedSection,
+.browseSection{
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px 24px;
 }
 
-.statusMessage {
-    display: none;
+.sectionCard{
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    padding: 18px;
+}
+
+.sectionHeading{
+    display: flex;
+    align-items: center;
     justify-content: space-between;
-    align-items: center;
-    gap: 20px;
-    background-color: #EDECF8;
-    border-left: 5px solid #46459E;
-    border-radius: 6px;
-    padding: 14px 16px;
+    gap: 16px;
+    margin-bottom: 16px;
 }
 
-.statusMessage:target {
-    display: flex;
+.sectionHeading h2{
+    margin: 0 0 4px 0;
+    font-size: 20px;
 }
 
-.statusMessage p {
+.sectionHeading p{
+    margin: 0;
     color: #555555;
     font-size: 13px;
-    margin-top: 2px;
 }
 
-.statusMessage a {
-    flex-shrink: 0;
-    font-size: 13px;
-    font-weight: bold;
-}
-
-.statusActions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.statusActions .confirmAction {
-    background-color: #E60028;
-    color: #FFFFFF;
-    border-radius: 6px;
-    padding: 7px 10px;
-    text-decoration: none;
-}
-
-.warningMessage {
-    background-color: #FFF4E3;
-    border-left-color: #E60028;
-}
-
-.sectionLinks {
-    display: flex;
-    gap: 8px;
-}
-
-.sectionLinks a,
-.smallButton {
+.smallButton{
     display: inline-block;
+    color: #000054;
     border: 1px solid #000054;
     border-radius: 6px;
     padding: 7px 12px;
@@ -293,32 +156,31 @@ img {
     text-decoration: none;
 }
 
-.sectionLinks a.activeLink,
-.sectionLinks a:hover,
-.smallButton:hover {
+.smallButton:hover{
     background-color: #000054;
-    color: #FFFFFF;
+    color: #EEEEEE;
+}
+
+.wishlistList{
+    border-top: 1px solid #EEEEEE;
+    padding-top: 16px;
 }
 
 .wishlistItem {
     display: grid;
     grid-template-columns: 220px 1fr;
     gap: 18px;
-    padding: 18px 0px;
+    padding: 18px 0;
     border-bottom: 1px solid #EEEEEE;
 }
 
 .wishlistItem:first-child {
-    padding-top: 0px;
+    padding-top: 0;
 }
 
 .wishlistItem:last-child {
-    padding-bottom: 0px;
+    padding-bottom: 0;
     border-bottom: none;
-}
-
-.itemImageLink {
-    align-self: stretch;
 }
 
 .itemImage {
@@ -337,7 +199,6 @@ img {
 }
 
 .itemCategory {
-    display: inline-block;
     background-color: #EDECF8;
     color: #46459E;
     border-radius: 12px;
@@ -347,8 +208,8 @@ img {
 }
 
 .itemState {
-    font-size: 12px;
     color: #666666;
+    font-size: 12px;
 }
 
 .cartState {
@@ -356,107 +217,89 @@ img {
     font-weight: bold;
 }
 
-.itemContent h3,
-.catalogueContent h3,
-.purchasedItem h3 {
+.itemContent h3 {
+    margin: 0 0 5px 0;
     font-size: 17px;
-    margin-bottom: 5px;
 }
 
-.originalReference {
-    display: inline-block;
-    font-size: 12px;
-    font-weight: bold;
-    margin-bottom: 6px;
+.itemContent h3 a {
+    color: inherit;
+    text-decoration: none;
 }
 
-.itemDescription,
-.catalogueContent > p {
+.itemContent h3 a:hover {
+    text-decoration: underline;
+}
+
+.itemDescription {
+    margin: 0 0 7px 0;
     color: #555555;
     font-size: 13px;
-    margin-bottom: 7px;
 }
 
 .itemPrice {
+    margin: 0;
     color: #E60028;
     font-size: 14px;
     font-weight: bold;
 }
 
-.itemStats,
-.catalogueStats {
+.itemStats {
     display: flex;
     flex-wrap: wrap;
     gap: 14px 24px;
-    margin: 12px 0px;
+    margin: 12px 0;
 }
 
-.itemStats div,
-.catalogueStats div {
+.itemStats div {
     min-width: 82px;
 }
 
-.itemStats dt,
-.catalogueStats dt {
+.itemStats dt {
     color: #666666;
     font-size: 11px;
 }
 
-.itemStats dd,
-.catalogueStats dd {
+.itemStats dd {
+    margin: 0;
     font-size: 14px;
     font-weight: bold;
 }
 
 .itemActions {
     display: flex;
-    align-items: center;
     flex-wrap: wrap;
     gap: 8px;
 }
 
-.btnPrimary,
-.btnSecondary,
-.btnText,
-.btnDisabled,
-.filterButton {
-    display: inline-block;
+.primaryButton,
+.secondaryButton,
+.textButton,
+.disabledButton {
     border-radius: 6px;
     padding: 8px 13px;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: inherit;
     font-size: 12px;
     font-weight: bold;
-    text-decoration: none;
     cursor: pointer;
 }
 
-.btnPrimary,
-.filterButton {
+.primaryButton {
     background-color: #E60028;
     color: #FFFFFF;
     border: 1px solid #E60028;
 }
 
-.btnSecondary {
+.secondaryButton {
     background-color: #FFFFFF;
     color: #000054;
     border: 1px solid #000054;
 }
 
-.btnText {
+.textButton {
+    background-color: transparent;
     color: #666666;
     border: 1px solid transparent;
-}
-
-.btnPrimary:hover,
-.filterButton:hover {
-    background-color: #B80020;
-    border-color: #B80020;
-}
-
-.btnSecondary:hover,
-.btnText:hover {
-    background-color: #F2F2F2;
 }
 
 .purchasedList {
@@ -481,92 +324,63 @@ img {
     border-radius: 6px;
 }
 
-.purchasedItem p,
-.purchasedItem a {
-    font-size: 12px;
-}
-
-.purchasedItem p {
-    color: #666666;
-    margin-bottom: 4px;
-}
-
-.profileSummary {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    background-color: #FFFFFF;
-    border-radius: 8px;
-    padding: 16px;
-}
-
-.profileAvatar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
-    background-color: #000054;
-    color: #FFFFFF;
-    font-size: 20px;
-    font-weight: bold;
-}
-
-.profileSummary h2 {
+.purchasedItem h3 {
+    margin: 0 0 4px 0;
     font-size: 17px;
 }
 
-.profileSummary p {
+.purchasedItem p {
+    margin: 0 0 4px 0;
     color: #666666;
     font-size: 12px;
 }
 
-.profileSummary .smallButton {
-    margin-left: auto;
+.purchasedItem a {
+    color: #000054;
+    font-size: 12px;
 }
 
-.filterForm {
+.siteFooter {
+    background-color: #000054;
+    color: #FFFFFF;
+    margin-top: 24px;
+    padding: 28px 24px;
+}
+
+.footerInner {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr auto;
-    align-items: end;
-    gap: 12px;
+    grid-template-columns: 1fr 1fr 2fr;
+    gap: 28px;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
-.formField label {
-    display: block;
-    color: #555555;
-    font-size: 12px;
-    font-weight: bold;
-    margin-bottom: 5px;
+.footerBrand strong,
+.aiAcknowledgement strong {
+    font-size: 14px;
 }
 
-.formField input,
-.formField select {
-    width: 100%;
-    height: 38px;
-    border: 1px solid #CCCCCC;
-    border-radius: 6px;
-    background-color: #FFFFFF;
-    padding: 0px 10px;
-    font-size: 13px;
-}
-
-.filterButton {
-    height: 38px;
-    padding-left: 20px;
-    padding-right: 20px;
-}
-
-.formHelp {
-    color: #666666;
+.footerBrand p,
+.aiAcknowledgement p {
+    margin: 5px 0 0;
+    color: #DADAF0;
     font-size: 11px;
-    margin-top: 8px;
+}
+
+.footerNav {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.footerNav a {
+    color: #FFFFFF;
+    font-size: 12px;
 }
 
 .catalogueGrid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr 1fr;
     gap: 18px;
 }
 
@@ -574,10 +388,6 @@ img {
     border: 1px solid #EEEEEE;
     border-radius: 8px;
     overflow: hidden;
-}
-
-.catalogueItem:target {
-    border: 2px solid #46459E;
 }
 
 .catalogueItem > img {
@@ -590,18 +400,19 @@ img {
     padding: 16px;
 }
 
-.catalogueStats {
-    padding-top: 10px;
-    border-top: 1px solid #EEEEEE;
+.catalogueContent h3 {
+    margin: 0 0 5px 0;
+    font-size: 17px;
 }
 
-.fullButton,
-.btnDisabled {
+.catalogueDescription {
+    margin: 0 0 7px 0;
+    color: #555555;
+    font-size: 13px;
+}
+
+.disabledButton {
     width: 100%;
-    text-align: center;
-}
-
-.btnDisabled {
     background-color: #E1E1E1;
     color: #555555;
     border: 1px solid #CCCCCC;
@@ -609,58 +420,30 @@ img {
 }
 
 .duplicateNote {
+    margin: 6px 0 0;
     color: #666666;
     font-size: 11px;
     text-align: center;
-    margin-top: 6px;
 }
 
-.siteFooter {
-    background-color: #000054;
-    color: #FFFFFF;
-    margin-top: 24px;
-    padding: 28px 24px;
+.fullButton {
+    width: 100%;
 }
 
-.footerInner {
-    display: grid;
-    grid-template-columns: 1fr auto 2fr;
-    gap: 28px;
-    max-width: 1200px;
-    margin: 0px auto;
-}
-
-.footerBrand strong,
-.sourceAcknowledgement strong {
-    font-size: 14px;
-}
-
-.footerBrand p,
-.sourceAcknowledgement p {
-    color: #DADAF0;
-    font-size: 11px;
-    margin-top: 5px;
-}
-
-.footerNav {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.footerNav a,
-.sourceAcknowledgement a {
-    color: #FFFFFF;
-    font-size: 12px;
+.catalogueItem:target {
+    border: 2px solid #46459E;
 }
 
 a:focus-visible,
-button:focus-visible,
-input:focus-visible,
-select:focus-visible {
-    outline: 3px solid #FFFFFF;
-    outline-offset: 2px;
-    box-shadow: 0px 0px 0px 5px #000054;
+button:focus-visible {
+    outline: 3px solid #000054;
+    outline-offset: 3px;
+}
+
+.siteHeader a:focus-visible,
+.pageBanner a:focus-visible,
+.siteFooter a:focus-visible {
+    outline-color: #FFFFFF;
 }
 
 @media (max-width: 800px) {
@@ -673,55 +456,32 @@ select:focus-visible {
         margin-bottom: 10px;
     }
 
-    .headerSearch {
-        width: 100%;
-        margin-bottom: 10px;
-    }
-
-    .mainNav {
-        margin-left: 0px;
-    }
-
     .mainNav ul {
+        flex-wrap: wrap;
         gap: 4px 14px;
     }
 
-    .mainNav a {
-        font-size: 13px;
-    }
-
     .pageBanner {
-        padding: 26px 16px;
-    }
-
-    .pageBannerInner,
-    .sectionHeading {
         display: block;
+        padding: 24px 16px;
     }
 
-    .statusMessage:target {
-        display: block;
-    }
-
-    .pageBannerButtonCell,
-    .sectionLinks,
-    .sectionHeading > .smallButton,
-    .statusMessage > a,
-    .statusActions {
-        display: inline-block;
-        margin-top: 14px;
-    }
-
-    .statusActions a {
-        display: inline-block;
-        margin-right: 10px;
+    .bannerButton {
+        margin-top: 16px;
     }
 
     .summaryGrid,
     .purchasedList,
-    .catalogueGrid,
-    .filterForm {
+    .catalogueGrid {
         grid-template-columns: 1fr;
+    }
+
+    .sectionHeading {
+        display: block;
+    }
+
+    .sectionHeading .smallButton {
+        margin-top: 12px;
     }
 
     .wishlistItem {
@@ -730,17 +490,6 @@ select:focus-visible {
 
     .itemImage {
         height: 220px;
-    }
-
-    .profileSummary {
-        align-items: flex-start;
-        flex-wrap: wrap;
-    }
-
-    .profileSummary .smallButton {
-        width: 100%;
-        margin-left: 0px;
-        text-align: center;
     }
 
     .footerInner {

@@ -1,66 +1,52 @@
 <!DOCTYPE html>
-<!--
-    Visual inspiration: "Forum dedicated to University Community" by Tomasz Osowski
-    for Bejamas on Dribbble, and the public RMIT Vietnam myRMIT information page.
-    Sample photography is sourced from Unsplash. Source URLs are listed in wishlist.css.
-
-    Random numbers are placed in some of the examples as illustrative demonstrations. 
--->
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="A static Wishlist and Favourites prototype for the RMIT Connect student community.">
-    <title>Wishlist &amp; Favourites | RMIT Connect</title>
-    <link href="wishlist.css" rel="stylesheet">
+    <title>Wishlist &amp; Favourites | RMIT Connect </title>
+    <link rel="stylesheet" href="wishlist.css">
 </head>
 
 <body id="top">
-    <a class="skipLink" href="#mainContent">Skip to main content</a>
-
     <header class="siteHeader">
-        <div class="logo"><a href="wishlist.html">RMIT CONNECT</a></div>
-
-        <form class="headerSearch" action="wishlist-add.html" method="get" role="search">
-            <label class="visuallyHidden" for="siteSearch">Search RMIT Connect items</label>
-            <input class="searchBar" id="siteSearch" name="q" type="search" placeholder="Search RMIT Connect...">
-        </form>
+        <div class="logo">
+            <a href="wishlist.html">RMIT CONNECT</a>
+        </div>
 
         <nav class="mainNav" aria-label="Main navigation">
             <ul>
                 <li><a href="wishlist-add.html">Browse Items</a></li>
-                <li><a class="currentPage" href="#savedItems" aria-current="page">Wishlist</a></li>
+                <li><a href="#savedItems">Wishlist</a></li>
                 <li><a href="#purchasedItems">Purchased</a></li>
-                <li><a href="#profileSummary">Profile</a></li>
             </ul>
         </nav>
     </header>
 
-    <section class="pageBanner" aria-labelledby="pageTitle">
-        <div class="pageBannerInner">
+    <main>
+        <section class="pageBanner">
             <div class="pageBannerText">
-                <h1 class="pageTitle" id="pageTitle">Wishlist &amp; Favourites</h1>
-                <p class="pageSubtitle">Keep useful campus items and activities in one place for later.</p>
+                <h1>Wishlist &amp; Favourites</h1>
+                <p>Keep useful campus items in one place for later.</p>
             </div>
-            <div class="pageBannerButtonCell">
-                <a class="bannerButton" href="wishlist-add.html">+ Browse Items</a>
-            </div>
-        </div>
-    </section>
 
-    <main id="mainContent">
-        <section class="section" aria-labelledby="summaryTitle">
-            <h2 class="visuallyHidden" id="summaryTitle">Wishlist summary</h2>
+            <a class="bannerButton" href="wishlist-add.html">+ Browse Items</a>
+        </section>
+
+        <section class="summarySection">
+            <h2>Wishlist Summary</h2>
+
             <div class="summaryGrid">
                 <div class="summaryCard">
                     <div class="summaryNumber">4</div>
                     <div class="summaryLabel">Saved items</div>
                 </div>
+
                 <div class="summaryCard">
                     <div class="summaryNumber">1</div>
                     <div class="summaryLabel">Ready for cart</div>
                 </div>
+
                 <div class="summaryCard">
                     <div class="summaryNumber">2</div>
                     <div class="summaryLabel">Purchased</div>
@@ -68,185 +54,289 @@
             </div>
         </section>
 
-        <div class="section statusArea" aria-live="polite">
-            <div class="statusMessage" id="cartStatus" tabindex="-1">
-                <div>
-                    <strong>Move to cart preview</strong>
-                    <p>The selected item is ready to move to the shopping cart. The final application will update both lists after confirmation.</p>
-                </div>
-                <a href="#savedItems">Close</a>
-            </div>
-
-            <div class="statusMessage" id="purchaseStatus" tabindex="-1">
-                <div>
-                    <strong>Purchased state preview</strong>
-                    <p>The selected item will move to the Purchased section while keeping its original item reference.</p>
-                </div>
-                <a href="#purchasedItems">View purchased</a>
-            </div>
-
-            <div class="statusMessage warningMessage" id="removeStatus" tabindex="-1">
-                <div>
-                    <strong>Remove this item?</strong>
-                    <p>This confirmation preview prevents a saved item from being removed by accident.</p>
-                </div>
-                <div class="statusActions">
-                    <a href="#savedItems">Cancel</a>
-                    <a class="confirmAction" href="#removedStatus">Confirm Remove</a>
-                </div>
-            </div>
-
-            <div class="statusMessage warningMessage" id="removedStatus" tabindex="-1">
-                <div>
-                    <strong>Removed state preview</strong>
-                    <p>The selected item has been removed. The final application will refresh the saved-item count and list.</p>
-                </div>
-                <a href="wishlist-add.html">Browse another item</a>
-            </div>
-        </div>
-
-        <section class="section" id="savedItems" aria-labelledby="savedItemsTitle">
+        <section class="wishlistSection" id="savedItems">
             <div class="sectionCard">
                 <div class="sectionHeading">
                     <div>
-                        <h2 class="sectionLabel" id="savedItemsTitle">Saved Items</h2>
-                        <p class="sectionIntro">Items saved by Dat for future campus activities and purchases.</p>
+                        <h2>Saved Items</h2>
+                        <p>Items saved by Dat for future campus activities and purchases.</p>
                     </div>
-                    <div class="sectionLinks" aria-label="Wishlist sections">
-                        <a class="activeLink" href="#savedItems">View All (4)</a>
-                        <a href="#purchasedItems">Purchased</a>
-                    </div>
+
+                    <a class="smallButton" href="wishlist-add.html">Browse More</a>
                 </div>
 
                 <div class="wishlistList">
                     <article class="wishlistItem">
-                        <a class="itemImageLink" href="wishlist-add.html#item-workshop">
-                            <img class="itemImage" src="images/peer-workshop.jpg" alt="Students working together around two laptops">
-                        </a>
+                        <img class="itemImage"
+                             src="images/peer-workshop.jpg"
+                             alt="Students working together around laptops">
+                        
                         <div class="itemContent">
                             <div class="itemTopLine">
                                 <span class="itemCategory">Workshop</span>
                                 <span class="itemState">Saved 18 Jul 2026</span>
                             </div>
-                            <h3>Peer Coding Workshop Pass</h3>
-                            <a class="originalReference" href="wishlist-add.html#item-workshop">View original item details</a>
-                            <p class="itemDescription">A Saturday peer-learning session for first-year students who want help with HTML and CSS.</p>
+
+                            <h3>
+                                <a href="wishlist-add.html#item-workshop">
+                                    Peer Coding Workshop Pass
+                                </a>
+                            </h3>
+
+                            <p class="itemDescription">
+                                A Saturday peer-learning session for students who want help with HTML and CSS.
+                            </p>
+
                             <p class="itemPrice">30,000 VND</p>
-                            <dl class="itemStats" aria-label="Peer Coding Workshop wishlist statistics">
-                                <div><dt>Wishlisted</dt><dd>126</dd></div>
-                                <div><dt>Added to cart</dt><dd>74</dd></div>
-                                <div><dt>Purchased</dt><dd>51</dd></div>
+
+                            <dl class="itemStats">
+                                <div>
+                                    <dt>Wishlisted</dt>
+                                    <dd>126</dd>
+                                </div>
+
+                                <div>
+                                    <dt>Added to cart</dt>
+                                    <dd>74</dd>
+                                </div>
+
+                                <div>
+                                    <dt>Purchased</dt>
+                                    <dd>51</dd>
+                                </div>
                             </dl>
+
                             <div class="itemActions">
-                                <a class="btnPrimary" href="#cartStatus">Move to Cart</a>
-                                <a class="btnSecondary" href="#purchaseStatus">Mark Purchased</a>
-                                <a class="btnText" href="#removeStatus">Remove</a>
+                                <button class="primaryButton" 
+                                        type="button"
+                                        aria-label="Move Peer Coding Workshop Pass to cart">
+                                    Move to Cart
+                                </button>
+                                <button class="secondaryButton" 
+                                        type="button"
+                                        aria-label="Mark Peer Coding Workshop Pass as purchased">
+                                    Mark Purchased
+                                </button>
+                                <button class="textButton" 
+                                        type="button"
+                                        aria-label="Remove Peer Coding Workshop Pass from wishlist">
+                                    Remove
+                                </button>
                             </div>
                         </div>
                     </article>
 
                     <article class="wishlistItem">
-                        <a class="itemImageLink" href="wishlist-add.html#item-drone">
-                            <img class="itemImage" src="images/connect-hoodie.jpg" alt="Student in a hoodie practising outdoor drone filming">
-                        </a>
+                        <img class="itemImage"
+                             src="images/connect-hoodie.jpg"
+                             alt="Student in a hoodie practising outdoor drone filming">
+                        
                         <div class="itemContent">
                             <div class="itemTopLine">
                                 <span class="itemCategory">Field Trip</span>
                                 <span class="itemState">Saved 16 Jul 2026</span>
                             </div>
-                            <h3>Drone Filming Field Trip</h3>
-                            <a class="originalReference" href="wishlist-add.html#item-drone">View original item details</a>
-                            <p class="itemDescription">A supervised afternoon session covering safe drone setup and basic campus video shots.</p>
+
+                            <h3>
+                                <a href="wishlist-add.html#item-drone">
+                                    Drone Filming Field Trip
+                                </a>
+                            </h3>
+
+                            <p class="itemDescription">
+                                A supervised afternoon session covering safe drone setup and basic campus video shots.
+                            </p>
+
                             <p class="itemPrice">120,000 VND</p>
-                            <dl class="itemStats" aria-label="Drone Filming Field Trip wishlist statistics">
-                                <div><dt>Wishlisted</dt><dd>89</dd></div>
-                                <div><dt>Added to cart</dt><dd>42</dd></div>
-                                <div><dt>Purchased</dt><dd>26</dd></div>
+
+                            <dl class="itemStats">
+                                <div>
+                                    <dt>Wishlisted</dt>
+                                    <dd>89</dd>
+                                </div>
+
+                                <div>
+                                    <dt>Added to cart</dt>
+                                    <dd>42</dd>
+                                </div>
+
+                                <div>
+                                    <dt>Purchased</dt>
+                                    <dd>26</dd>
+                                </div>
                             </dl>
+
                             <div class="itemActions">
-                                <a class="btnPrimary" href="#cartStatus">Move to Cart</a>
-                                <a class="btnSecondary" href="#purchaseStatus">Mark Purchased</a>
-                                <a class="btnText" href="#removeStatus">Remove</a>
+                                <button class="primaryButton" 
+                                        type="button"
+                                        aria-label="Move Drone Filming Field Trip to cart">
+                                    Move to Cart
+                                </button>
+                                <button class="secondaryButton" 
+                                        type="button"
+                                        aria-label="Mark Drone Filming Field Trip as purchased">
+                                    Mark Purchased
+                                </button>
+                                <button class="textButton" 
+                                        type="button"
+                                        aria-label="Remove Drone Filming Field Trip from wishlist">
+                                    Remove
+                                </button>
                             </div>
                         </div>
                     </article>
 
                     <article class="wishlistItem">
-                        <a class="itemImageLink" href="wishlist-add.html#item-music-night">
-                            <img class="itemImage" src="images/design-market.jpg" alt="Audience members taking photos at a live music event">
-                        </a>
+                        <img class="itemImage"
+                             src="images/design-market.jpg"
+                             alt="Audience members taking photos at a live music event">
+                        
                         <div class="itemContent">
                             <div class="itemTopLine">
                                 <span class="itemCategory">Event</span>
                                 <span class="itemState cartState">Ready for cart</span>
                             </div>
-                            <h3>Student Music Night Ticket</h3>
-                            <a class="originalReference" href="wishlist-add.html#item-music-night">View original item details</a>
-                            <p class="itemDescription">Entry to an evening of student bands, acoustic sets, and community performances.</p>
+
+                            <h3>
+                                <a href="wishlist-add.html#item-music-night">
+                                    Student Music Night Ticket
+                                </a>
+                            </h3>
+
+                            <p class="itemDescription">
+                                Entry to an evening of student bands, acoustic sets, and community performances.
+                            </p>
+
                             <p class="itemPrice">80,000 VND</p>
-                            <dl class="itemStats" aria-label="Student Music Night wishlist statistics">
-                                <div><dt>Wishlisted</dt><dd>241</dd></div>
-                                <div><dt>Added to cart</dt><dd>168</dd></div>
-                                <div><dt>Purchased</dt><dd>119</dd></div>
+
+                            <dl class="itemStats">
+                                <div>
+                                    <dt>Wishlisted</dt>
+                                    <dd>241</dd>
+                                </div>
+
+                                <div>
+                                    <dt>Added to cart</dt>
+                                    <dd>168</dd>
+                                </div>
+
+                                <div>
+                                    <dt>Purchased</dt>
+                                    <dd>119</dd>
+                                </div>
                             </dl>
+
                             <div class="itemActions">
-                                <a class="btnPrimary" href="#cartStatus">Move to Cart</a>
-                                <a class="btnSecondary" href="#purchaseStatus">Mark Purchased</a>
-                                <a class="btnText" href="#removeStatus">Remove</a>
+                                <button class="primaryButton" 
+                                        type="button"
+                                        aria-label="Move Student Music Night Ticket to cart">
+                                    Move to Cart
+                                </button>
+                                <button class="secondaryButton" 
+                                        type="button"
+                                        aria-label="Mark Student Music Night Ticket as purchased">
+                                    Mark Purchased
+                                </button>
+                                <button class="textButton" 
+                                        type="button"
+                                        aria-label="Remove Student Music Night Ticket from wishlist">
+                                    Remove
+                                </button>
                             </div>
                         </div>
                     </article>
 
                     <article class="wishlistItem">
-                        <a class="itemImageLink" href="wishlist-add.html#item-photo-walk">
-                            <img class="itemImage" src="images/photo-walk.jpg" alt="Camera and lenses prepared for a photography activity">
-                        </a>
+                        <img class="itemImage"
+                             src="images/photo-walk.jpg"
+                             alt="Camera and lenses prepared for a photography activity">
+                        
                         <div class="itemContent">
                             <div class="itemTopLine">
                                 <span class="itemCategory">Club Activity</span>
                                 <span class="itemState">Saved 12 Jul 2026</span>
                             </div>
-                            <h3>Campus Photography Walk</h3>
-                            <a class="originalReference" href="wishlist-add.html#item-photo-walk">View original item details</a>
-                            <p class="itemDescription">A beginner-friendly photo walk through campus with equipment tips from the Photography Club.</p>
+
+                            <h3>
+                                <a href="wishlist-add.html#item-photo-walk">
+                                    Campus Photography Walk
+                                </a>
+                            </h3>
+
+                            <p class="itemDescription">
+                                A beginner-friendly photo walk through campus with equipment tips from the Photography Club.
+                            </p>
+
                             <p class="itemPrice">Free</p>
-                            <dl class="itemStats" aria-label="Campus Photography Walk wishlist statistics">
-                                <div><dt>Wishlisted</dt><dd>158</dd></div>
-                                <div><dt>Added to cart</dt><dd>97</dd></div>
-                                <div><dt>Purchased</dt><dd>82</dd></div>
+
+                            <dl class="itemStats">
+                                <div>
+                                    <dt>Wishlisted</dt>
+                                    <dd>158</dd>
+                                </div>
+
+                                <div>
+                                    <dt>Added to cart</dt>
+                                    <dd>97</dd>
+                                </div>
+
+                                <div>
+                                    <dt>Purchased</dt>
+                                    <dd>82</dd>
+                                </div>
                             </dl>
+
                             <div class="itemActions">
-                                <a class="btnPrimary" href="#cartStatus">Move to Cart</a>
-                                <a class="btnSecondary" href="#purchaseStatus">Mark Purchased</a>
-                                <a class="btnText" href="#removeStatus">Remove</a>
+                                <button class="primaryButton" 
+                                        type="button"
+                                        aria-label="Move Campus Photography Walk to cart">
+                                    Move to Cart
+                                </button>
+                                <button class="secondaryButton" 
+                                        type="button"
+                                        aria-label="Mark Campus Photography Walk as purchased">
+                                    Mark Purchased
+                                </button>
+                                <button class="textButton" 
+                                        type="button"
+                                        aria-label="Remove Campus Photography Walk from wishlist">
+                                    Remove
+                                </button>
                             </div>
                         </div>
                     </article>
+
                 </div>
             </div>
         </section>
 
-        <section class="section" id="purchasedItems" aria-labelledby="purchasedTitle">
+        <section class="purchasedSection" id="purchasedItems">
             <div class="sectionCard">
                 <div class="sectionHeading">
                     <div>
-                        <h2 class="sectionLabel" id="purchasedTitle">Purchased Items</h2>
-                        <p class="sectionIntro">Past favourites stay here for quick reference.</p>
+                        <h2>Purchased Items</h2>
+                        <p>Past favourites remain available for quick reference.</p>
                     </div>
+
                     <a class="smallButton" href="wishlist-add.html">Browse More</a>
                 </div>
 
                 <div class="purchasedList">
                     <article class="purchasedItem">
-                        <img src="images/peer-workshop.jpg" alt="Students discussing a project at a table">
+                        <img src="images/peer-workshop.jpg"
+                            alt="Students discussing a project together">
+
                         <div>
                             <h3>Career Fair CV Clinic</h3>
                             <p>Purchased 10 Jul 2026</p>
                             <a href="wishlist-add.html#item-workshop">View similar activities</a>
                         </div>
                     </article>
+
                     <article class="purchasedItem">
-                        <img src="images/photo-walk.jpg" alt="Black camera with two additional lenses">
+                        <img src="images/photo-walk.jpg"
+                            alt="Camera and lenses prepared for a photography activity">
+
                         <div>
                             <h3>Photography Basics Toolkit</h3>
                             <p>Purchased 2 Jul 2026</p>
@@ -256,17 +346,7 @@
                 </div>
             </div>
         </section>
-
-        <section class="section" id="profileSummary" aria-labelledby="profileTitle">
-            <div class="profileSummary">
-                <div class="profileAvatar" aria-hidden="true">D</div>
-                <div>
-                    <h2 id="profileTitle">Dat's Wishlist</h2>
-                    <p>Student ID S4221230 &middot; Last updated 19 Jul 2026</p>
-                </div>
-                <a class="smallButton" href="#top">Back to Top</a>
-            </div>
-        </section>
+        
     </main>
 
     <footer class="siteFooter">
@@ -275,17 +355,24 @@
                 <strong>RMIT CONNECT</strong>
                 <p>A static student community prototype.</p>
             </div>
+
             <nav class="footerNav" aria-label="Footer navigation">
-                <a href="wishlist.html">Wishlist</a>
+                <a href="#savedItems">Wishlist</a>
                 <a href="wishlist-add.html">Browse Items</a>
                 <a href="#top">Back to Top</a>
             </nav>
-            <div class="sourceAcknowledgement">
-                <p><a href="https://unsplash.com" target="_blank" rel="noopener noreferrer">Sample photography from Unsplash</a><//p>
+
+            <div class="aiAcknowledgement">
+                <strong>AI Use Acknowledgement</strong>
+                <p>
+                    OpenAI Codex was used to help generate ideas and debug this implementation. 
+                    Dat Pham wrote and verified the implementation.
+                </p>
+                <p>Sample photographs sourced from Unsplash.</p>
             </div>
-                
         </div>
     </footer>
+    
 </body>
 
 </html>
