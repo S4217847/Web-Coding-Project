@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log In | RMIT Connect</title>
+    <link rel="stylesheet" href="account.css">
+</head>
+
+<body id="top">
+    <header class="siteHeader">
+        <a class="logo" href="login.html">RMIT CONNECT</a>
+
+        <div class="headerSearch" role="search">
+            <label class="visuallyHidden" for="siteSearch">
+                Search RMIT Connect
+            </label>
+            <input id="siteSearch"
+                type="search"
+                placeholder="Search RMIT Connect...">
+        </div>
+
+        <nav class="mainNav" aria-label="Main navigation">
+            <ul>
+                <li><a href="login.html" aria-current="page">Log In</a></li>
+                <li><a href="editprofile.html">Edit Profile</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="pageBanner">
+            <div class="pageBannerInner">
+                <div>
+                    <h1>Welcome Back</h1>
+                    <p>Log in to continue to your RMIT Connect account.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="accountSection">
+            <div class="loginLayout">
+                <div class="formCard">
+                    <h2>Log In</h2>
+                    <p class="cardIntro">
+                        Enter your username or RMIT email address and password.
+                    </p>
+
+                    <form class="accountForm">
+                        <div class="formField">
+                            <label for="loginIdentity">Username or Email</label>
+                            <input id="loginIdentity"
+                                name="loginIdentity"
+                                type="text"
+                                placeholder="dat.pham or s4221230@rmit.edu.vn"
+                                autocomplete="username"
+                                required>
+                        </div>
+
+                        <div class="formField">
+                            <label for="loginPassword">Password</label>
+                            <input id="loginPassword"
+                                name="loginPassword"
+                                type="password"
+                                placeholder="Enter your password"
+                                autocomplete="current-password"
+                                required>
+                        </div>
+
+                        <label class="checkboxField">
+                            <input type="checkbox" name="rememberAccount">
+                            Remember my username on this device
+                        </label>
+
+                        <button class="primaryButton fullButton" type="submit">
+                            Log In
+                        </button>
+                    </form>
+
+                    <p class="formPrompt">
+                        Password assistance is available through the Forgot Password page.
+                    </p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="siteFooter">
+        <div class="footerInner">
+            <div class="footerBrand">
+                <strong>RMIT CONNECT</strong>
+                <p>A static student community prototype.</p>
+            </div>
+
+            <nav class="footerNav" aria-label="Footer navigation">
+                <a href="login.html">Log In</a>
+                <a href="editprofile.html">Edit Profile</a>
+                <a href="#top">Back to Top</a>
+            </nav>
+
+            <div class="aiAcknowledgement">
+                <strong>AI Use Acknowledgement</strong>
+                <p>
+                    OpenAI Codex was used to help generate ideas and debug this implementation.
+                    Dat Pham wrote and verified the implementation.
+                </p>
+            </div>
+        </div>
+    </footer>
+</body>
+
+
+
+</html>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Profile | RMIT Connect</title>
+    <link rel="stylesheet" href="account.css">
+</head>
+
+<body id="top">
+    <header class="siteHeader">
+        <a class="logo" href="login.html">RMIT CONNECT</a>
+
+        <div class="headerSearch" role="search">
+            <label class="visuallyHidden" for="siteSearch">
+                Search RMIT Connect
+            </label>
+            <input id="siteSearch"
+                type="search"
+                placeholder="Search RMIT Connect...">
+        </div>
+
+        <nav class="mainNav" aria-label="Main navigation">
+            <ul>
+                <li><a href="login.html">Log In</a></li>
+                <li><a href="editprofile.html" aria-current="page">Edit Profile</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="pageBanner">
+            <div class="pageBannerInner">
+                <div>
+                    <h1>Edit Profile</h1>
+                    <p>Keep your account details and profile information up to date.</p>
+                </div>
+
+                <a class="bannerLink" href="login.html">Log Out</a>
+            </div>
+        </section>
+
+        <section class="accountSection">
+            <div class="profileCard">
+                <div class="profilePreview">
+                    <div class="avatarPreview" aria-hidden="true">DP</div>
+
+                    <div class="profileSummary">
+                        <h2>Dat Pham</h2>
+                        <p>s4221230@rmit.edu.vn</p>
+                        <span class="statusBadge activeStatus">
+                            Active student account
+                        </span>
+                    </div>
+                </div>
+
+                <form class="accountForm">
+                    <div class="formField">
+                        <label for="profilePicture">Profile Picture</label>
+                        <input id="profilePicture"
+                            name="profilePicture"
+                            type="file"
+                            accept="image/png, image/jpeg">
+                        <small>Choose a JPG or PNG image for your profile.</small>
+                    </div>
+
+                    <div class="formRow">
+                        <div class="formField">
+                            <label for="profileName">Full Name</label>
+                            <input id="profileName"
+                                name="profileName"
+                                type="text"
+                                value="Dat Pham"
+                                autocomplete="name"
+                                required>
+                        </div>
+
+                        <div class="formField">
+                            <label for="profileEmail">Email Address</label>
+                            <input id="profileEmail"
+                                name="profileEmail"
+                                type="email"
+                                value="s4221230@rmit.edu.vn"
+                                autocomplete="email"
+                                required>
+                        </div>
+                    </div>
+
+                    <div class="formField">
+                        <label for="profileDescription">Short Description</label>
+                        <textarea id="profileDescription"
+                                name="profileDescription"
+                                rows="5">Web Programming Studio student interested in building useful campus tools and learning accessible web design.</textarea>
+                    </div>
+
+                    <div class="formField">
+                        <label for="profilePassword">New Password</label>
+                        <input id="profilePassword"
+                            name="profilePassword"
+                            type="password"
+                            placeholder="Leave blank to keep the current password"
+                            autocomplete="new-password"
+                            aria-describedby="passwordHint">
+
+                        <small id="passwordHint">
+                            The final application will securely store the updated password.
+                        </small>
+                    </div>
+
+                    <div class="formActions">
+                        <button class="primaryButton" type="submit">
+                            Save Changes
+                        </button>
+
+                        <button class="secondaryButton" type="reset">
+                            Reset Form
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <footer class="siteFooter">
+        <div class="footerInner">
+            <div class="footerBrand">
+                <strong>RMIT CONNECT</strong>
+                <p>A static student community prototype.</p>
+            </div>
+
+            <nav class="footerNav" aria-label="Footer navigation">
+                <a href="login.html">Log In</a>
+                <a href="editprofile.html">Edit Profile</a>
+                <a href="#top">Back to Top</a>
+            </nav>
+
+            <div class="aiAcknowledgement">
+                <strong>AI Use Acknowledgement</strong>
+                <p>
+                    OpenAI Codex was used to help generate ideas and debug this implementation.
+                    Dat Pham wrote and verified the implementation.
+                </p>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>
