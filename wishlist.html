@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wishlist &amp; Favourites | RMIT Connect </title>
+    <link rel="stylesheet" href="wishlist.css">
+</head>
+
+<body id="top">
+    <header class="siteHeader">
+        <div class="logo">
+            <a href="wishlist.html">RMIT CONNECT</a>
+        </div>
+
+        <nav class="mainNav" aria-label="Main navigation">
+            <ul>
+                <li><a href="wishlist-add.html">Browse Items</a></li>
+                <li><a href="#savedItems">Wishlist</a></li>
+                <li><a href="#purchasedItems">Purchased</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="pageBanner">
+            <div class="pageBannerText">
+                <h1>Wishlist &amp; Favourites</h1>
+                <p>Keep useful campus items in one place for later.</p>
+            </div>
+
+            <a class="bannerButton" href="wishlist-add.html">+ Browse Items</a>
+        </section>
+
+        <section class="summarySection">
+            <h2>Wishlist Summary</h2>
+
+            <div class="summaryGrid">
+                <div class="summaryCard">
+                    <div class="summaryNumber">4</div>
+                    <div class="summaryLabel">Saved items</div>
+                </div>
+
+                <div class="summaryCard">
+                    <div class="summaryNumber">1</div>
+                    <div class="summaryLabel">Ready for cart</div>
+                </div>
+
+                <div class="summaryCard">
+                    <div class="summaryNumber">2</div>
+                    <div class="summaryLabel">Purchased</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="wishlistSection" id="savedItems">
+            <div class="sectionCard">
+                <div class="sectionHeading">
+                    <div>
+                        <h2>Saved Items</h2>
+                        <p>Items saved by Dat for future campus activities and purchases.</p>
+                    </div>
+
+                    <a class="smallButton" href="wishlist-add.html">Browse More</a>
+                </div>
+
+                <div class="wishlistList">
+                    <article class="wishlistItem">
+                        <img class="itemImage"
+                             src="images/peer-workshop.jpg"
+                             alt="Students working together around laptops">
+                        
+                        <div class="itemContent">
+                            <div class="itemTopLine">
+                                <span class="itemCategory">Workshop</span>
+                                <span class="itemState">Saved 18 Jul 2026</span>
+                            </div>
+
+                            <h3>
+                                <a href="wishlist-add.html#item-workshop">
+                                    Peer Coding Workshop Pass
+                                </a>
+                            </h3>
+
+                            <p class="itemDescription">
+                                A Saturday peer-learning session for students who want help with HTML and CSS.
+                            </p>
+
+                            <p class="itemPrice">30,000 VND</p>
+
+                            <dl class="itemStats">
+                                <div>
+                                    <dt>Wishlisted</dt>
+                                    <dd>126</dd>
+                                </div>
+
+                                <div>
+                                    <dt>Added to cart</dt>
+                                    <dd>74</dd>
+                                </div>
+
+                                <div>
+                                    <dt>Purchased</dt>
+                                    <dd>51</dd>
+                                </div>
+                            </dl>
+
+                            <div class="itemActions">
+                                <button class="primaryButton" 
+                                        type="button"
+                                        aria-label="Move Peer Coding Workshop Pass to cart">
+                                    Move to Cart
+                                </button>
+                                <button class="secondaryButton" 
+                                        type="button"
+                                        aria-label="Mark Peer Coding Workshop Pass as purchased">
+                                    Mark Purchased
+                                </button>
+                                <button class="textButton" 
+                                        type="button"
+                                        aria-label="Remove Peer Coding Workshop Pass from wishlist">
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="wishlistItem">
+                        <img class="itemImage"
+                             src="images/connect-hoodie.jpg"
+                             alt="Student in a hoodie practising outdoor drone filming">
+                        
+                        <div class="itemContent">
+                            <div class="itemTopLine">
+                                <span class="itemCategory">Field Trip</span>
+                                <span class="itemState">Saved 16 Jul 2026</span>
+                            </div>
+
+                            <h3>
+                                <a href="wishlist-add.html#item-drone">
+                                    Drone Filming Field Trip
+                                </a>
+                            </h3>
+
+                            <p class="itemDescription">
+                                A supervised afternoon session covering safe drone setup and basic campus video shots.
+                            </p>
+
+                            <p class="itemPrice">120,000 VND</p>
+
+                            <dl class="itemStats">
+                                <div>
+                                    <dt>Wishlisted</dt>
+                                    <dd>89</dd>
+                                </div>
+
+                                <div>
+                                    <dt>Added to cart</dt>
+                                    <dd>42</dd>
+                                </div>
+
+                                <div>
+                                    <dt>Purchased</dt>
+                                    <dd>26</dd>
+                                </div>
+                            </dl>
+
+                            <div class="itemActions">
+                                <button class="primaryButton" 
+                                        type="button"
+                                        aria-label="Move Drone Filming Field Trip to cart">
+                                    Move to Cart
+                                </button>
+                                <button class="secondaryButton" 
+                                        type="button"
+                                        aria-label="Mark Drone Filming Field Trip as purchased">
+                                    Mark Purchased
+                                </button>
+                                <button class="textButton" 
+                                        type="button"
+                                        aria-label="Remove Drone Filming Field Trip from wishlist">
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="wishlistItem">
+                        <img class="itemImage"
+                             src="images/design-market.jpg"
+                             alt="Audience members taking photos at a live music event">
+                        
+                        <div class="itemContent">
+                            <div class="itemTopLine">
+                                <span class="itemCategory">Event</span>
+                                <span class="itemState cartState">Ready for cart</span>
+                            </div>
+
+                            <h3>
+                                <a href="wishlist-add.html#item-music-night">
+                                    Student Music Night Ticket
+                                </a>
+                            </h3>
+
+                            <p class="itemDescription">
+                                Entry to an evening of student bands, acoustic sets, and community performances.
+                            </p>
+
+                            <p class="itemPrice">80,000 VND</p>
+
+                            <dl class="itemStats">
+                                <div>
+                                    <dt>Wishlisted</dt>
+                                    <dd>241</dd>
+                                </div>
+
+                                <div>
+                                    <dt>Added to cart</dt>
+                                    <dd>168</dd>
+                                </div>
+
+                                <div>
+                                    <dt>Purchased</dt>
+                                    <dd>119</dd>
+                                </div>
+                            </dl>
+
+                            <div class="itemActions">
+                                <button class="primaryButton" 
+                                        type="button"
+                                        aria-label="Move Student Music Night Ticket to cart">
+                                    Move to Cart
+                                </button>
+                                <button class="secondaryButton" 
+                                        type="button"
+                                        aria-label="Mark Student Music Night Ticket as purchased">
+                                    Mark Purchased
+                                </button>
+                                <button class="textButton" 
+                                        type="button"
+                                        aria-label="Remove Student Music Night Ticket from wishlist">
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="wishlistItem">
+                        <img class="itemImage"
+                             src="images/photo-walk.jpg"
+                             alt="Camera and lenses prepared for a photography activity">
+                        
+                        <div class="itemContent">
+                            <div class="itemTopLine">
+                                <span class="itemCategory">Club Activity</span>
+                                <span class="itemState">Saved 12 Jul 2026</span>
+                            </div>
+
+                            <h3>
+                                <a href="wishlist-add.html#item-photo-walk">
+                                    Campus Photography Walk
+                                </a>
+                            </h3>
+
+                            <p class="itemDescription">
+                                A beginner-friendly photo walk through campus with equipment tips from the Photography Club.
+                            </p>
+
+                            <p class="itemPrice">Free</p>
+
+                            <dl class="itemStats">
+                                <div>
+                                    <dt>Wishlisted</dt>
+                                    <dd>158</dd>
+                                </div>
+
+                                <div>
+                                    <dt>Added to cart</dt>
+                                    <dd>97</dd>
+                                </div>
+
+                                <div>
+                                    <dt>Purchased</dt>
+                                    <dd>82</dd>
+                                </div>
+                            </dl>
+
+                            <div class="itemActions">
+                                <button class="primaryButton" 
+                                        type="button"
+                                        aria-label="Move Campus Photography Walk to cart">
+                                    Move to Cart
+                                </button>
+                                <button class="secondaryButton" 
+                                        type="button"
+                                        aria-label="Mark Campus Photography Walk as purchased">
+                                    Mark Purchased
+                                </button>
+                                <button class="textButton" 
+                                        type="button"
+                                        aria-label="Remove Campus Photography Walk from wishlist">
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+                    </article>
+
+                </div>
+            </div>
+        </section>
+
+        <section class="purchasedSection" id="purchasedItems">
+            <div class="sectionCard">
+                <div class="sectionHeading">
+                    <div>
+                        <h2>Purchased Items</h2>
+                        <p>Past favourites remain available for quick reference.</p>
+                    </div>
+
+                    <a class="smallButton" href="wishlist-add.html">Browse More</a>
+                </div>
+
+                <div class="purchasedList">
+                    <article class="purchasedItem">
+                        <img src="images/peer-workshop.jpg"
+                            alt="Students discussing a project together">
+
+                        <div>
+                            <h3>Career Fair CV Clinic</h3>
+                            <p>Purchased 10 Jul 2026</p>
+                            <a href="wishlist-add.html#item-workshop">View similar activities</a>
+                        </div>
+                    </article>
+
+                    <article class="purchasedItem">
+                        <img src="images/photo-walk.jpg"
+                            alt="Camera and lenses prepared for a photography activity">
+
+                        <div>
+                            <h3>Photography Basics Toolkit</h3>
+                            <p>Purchased 2 Jul 2026</p>
+                            <a href="wishlist-add.html#item-photo-walk">View related activity</a>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+        
+    </main>
+
+    <footer class="siteFooter">
+        <div class="footerInner">
+            <div class="footerBrand">
+                <strong>RMIT CONNECT</strong>
+                <p>A static student community prototype.</p>
+            </div>
+
+            <nav class="footerNav" aria-label="Footer navigation">
+                <a href="#savedItems">Wishlist</a>
+                <a href="wishlist-add.html">Browse Items</a>
+                <a href="#top">Back to Top</a>
+            </nav>
+
+            <div class="aiAcknowledgement">
+                <strong>AI Use Acknowledgement</strong>
+                <p>
+                    OpenAI Codex was used to help generate ideas and debug this implementation. 
+                    Dat Pham wrote and verified the implementation.
+                </p>
+                <p>Sample photographs sourced from Unsplash.</p>
+            </div>
+        </div>
+    </footer>
+    
+</body>
+
+</html>

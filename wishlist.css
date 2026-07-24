@@ -1,0 +1,499 @@
+/*
+    Sample photograph sources:
+    https://images.unsplash.com/photo-1522202176988-66273c2fd55f
+    https://images.unsplash.com/photo-1556821840-3a63f95609a7
+    https://images.unsplash.com/photo-1501281668745-f7f57925c3b4
+    https://images.unsplash.com/photo-1516035069371-29a1b244cc32
+    https://images.unsplash.com/photo-1516321318423-f06f85e504b3
+*/
+
+* {
+
+    box-sizing: border-box;
+}
+
+body{
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background-color: #f2f2f2;
+    color: #000054;
+    line-height: 1.5;
+}
+
+.siteHeader{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #E60028;
+    padding: 14px 24px;
+}
+
+.logo a{
+    color: #FFFFFF;
+    font-size: 24px;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.mainNav ul{
+    display: flex;
+    gap: 24px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.mainNav a{
+    color: #FFFFFF;
+    text-decoration: none;
+}
+
+.pageBanner{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    background-color: #000054;
+    color: #FFFFFF;
+    padding: 28px 30px;
+}
+
+.pageBanner h1{
+    margin: 0 0 6px 0;
+    font-size: 28px;
+}
+
+.pageBanner p{
+    margin: 0;
+    color: #DADAF0;
+}
+
+.bannerButton{
+    display: inline-block;
+    background-color: #FFDEA8;
+    color: #000054;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.summarySection{
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.summarySection h2{
+    margin: 0 0 12px 0;
+    font-size: 20px;
+}
+
+.summaryGrid{
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+}
+
+.summaryCard{
+    background-color: #FFFFFF;
+    border-top: 4px solid #E60028;
+    border-radius: 8px;
+    padding: 18px;
+}
+
+.summaryNumber{
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.summaryLabel{
+    color: #555555; 
+    font-size: 13px;
+}
+
+.wishlistSection,
+.purchasedSection,
+.browseSection{
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px 24px;
+}
+
+.sectionCard{
+    background-color: #FFFFFF;
+    border-radius: 8px;
+    padding: 18px;
+}
+
+.sectionHeading{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.sectionHeading h2{
+    margin: 0 0 4px 0;
+    font-size: 20px;
+}
+
+.sectionHeading p{
+    margin: 0;
+    color: #555555;
+    font-size: 13px;
+}
+
+.smallButton{
+    display: inline-block;
+    color: #000054;
+    border: 1px solid #000054;
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 13px;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.smallButton:hover{
+    background-color: #000054;
+    color: #EEEEEE;
+}
+
+.wishlistList{
+    border-top: 1px solid #EEEEEE;
+    padding-top: 16px;
+}
+
+.wishlistItem {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 18px;
+    padding: 18px 0;
+    border-bottom: 1px solid #EEEEEE;
+}
+
+.wishlistItem:first-child {
+    padding-top: 0;
+}
+
+.wishlistItem:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.itemImage {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.itemTopLine {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 6px;
+}
+
+.itemCategory {
+    background-color: #EDECF8;
+    color: #46459E;
+    border-radius: 12px;
+    padding: 3px 9px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.itemState {
+    color: #666666;
+    font-size: 12px;
+}
+
+.cartState {
+    color: #E60028;
+    font-weight: bold;
+}
+
+.itemContent h3 {
+    margin: 0 0 5px 0;
+    font-size: 17px;
+}
+
+.itemContent h3 a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.itemContent h3 a:hover {
+    text-decoration: underline;
+}
+
+.itemDescription {
+    margin: 0 0 7px 0;
+    color: #555555;
+    font-size: 13px;
+}
+
+.itemPrice {
+    margin: 0;
+    color: #E60028;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.itemStats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 24px;
+    margin: 12px 0;
+}
+
+.itemStats div {
+    min-width: 82px;
+}
+
+.itemStats dt {
+    color: #666666;
+    font-size: 11px;
+}
+
+.itemStats dd {
+    margin: 0;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.itemActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.primaryButton,
+.secondaryButton,
+.textButton,
+.disabledButton {
+    border-radius: 6px;
+    padding: 8px 13px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.primaryButton {
+    background-color: #E60028;
+    color: #FFFFFF;
+    border: 1px solid #E60028;
+}
+
+.secondaryButton {
+    background-color: #FFFFFF;
+    color: #000054;
+    border: 1px solid #000054;
+}
+
+.textButton {
+    background-color: transparent;
+    color: #666666;
+    border: 1px solid transparent;
+}
+
+.purchasedList {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.purchasedItem {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px;
+    border: 1px solid #EEEEEE;
+    border-radius: 6px;
+}
+
+.purchasedItem img {
+    width: 92px;
+    height: 82px;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.purchasedItem h3 {
+    margin: 0 0 4px 0;
+    font-size: 17px;
+}
+
+.purchasedItem p {
+    margin: 0 0 4px 0;
+    color: #666666;
+    font-size: 12px;
+}
+
+.purchasedItem a {
+    color: #000054;
+    font-size: 12px;
+}
+
+.siteFooter {
+    background-color: #000054;
+    color: #FFFFFF;
+    margin-top: 24px;
+    padding: 28px 24px;
+}
+
+.footerInner {
+    display: grid;
+    grid-template-columns: 1fr 1fr 2fr;
+    gap: 28px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.footerBrand strong,
+.aiAcknowledgement strong {
+    font-size: 14px;
+}
+
+.footerBrand p,
+.aiAcknowledgement p {
+    margin: 5px 0 0;
+    color: #DADAF0;
+    font-size: 11px;
+}
+
+.footerNav {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.footerNav a {
+    color: #FFFFFF;
+    font-size: 12px;
+}
+
+.catalogueGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+
+.catalogueItem {
+    border: 1px solid #EEEEEE;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.catalogueItem > img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+}
+
+.catalogueContent {
+    padding: 16px;
+}
+
+.catalogueContent h3 {
+    margin: 0 0 5px 0;
+    font-size: 17px;
+}
+
+.catalogueDescription {
+    margin: 0 0 7px 0;
+    color: #555555;
+    font-size: 13px;
+}
+
+.disabledButton {
+    width: 100%;
+    background-color: #E1E1E1;
+    color: #555555;
+    border: 1px solid #CCCCCC;
+    cursor: not-allowed;
+}
+
+.duplicateNote {
+    margin: 6px 0 0;
+    color: #666666;
+    font-size: 11px;
+    text-align: center;
+}
+
+.fullButton {
+    width: 100%;
+}
+
+.catalogueItem:target {
+    border: 2px solid #46459E;
+}
+
+a:focus-visible,
+button:focus-visible {
+    outline: 3px solid #000054;
+    outline-offset: 3px;
+}
+
+.siteHeader a:focus-visible,
+.pageBanner a:focus-visible,
+.siteFooter a:focus-visible {
+    outline-color: #FFFFFF;
+}
+
+@media (max-width: 800px) {
+    .siteHeader {
+        display: block;
+        padding: 14px 16px;
+    }
+
+    .logo {
+        margin-bottom: 10px;
+    }
+
+    .mainNav ul {
+        flex-wrap: wrap;
+        gap: 4px 14px;
+    }
+
+    .pageBanner {
+        display: block;
+        padding: 24px 16px;
+    }
+
+    .bannerButton {
+        margin-top: 16px;
+    }
+
+    .summaryGrid,
+    .purchasedList,
+    .catalogueGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .sectionHeading {
+        display: block;
+    }
+
+    .sectionHeading .smallButton {
+        margin-top: 12px;
+    }
+
+    .wishlistItem {
+        grid-template-columns: 1fr;
+    }
+
+    .itemImage {
+        height: 220px;
+    }
+
+    .footerInner {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+}

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration | RMIT Connect</title>
+    <link rel="stylesheet" href="account.css">
+</head>
+
+<body id="top">
+    <header class="siteHeader">
+        <a class="logo" href="login.html">RMIT CONNECT</a>
+
+        <div class="headerSearch" role="search">
+            <label class="visuallyHidden" for="siteSearch">
+                Search RMIT Connect
+            </label>
+            <input id="siteSearch"
+                type="search"
+                placeholder="Search RMIT Connect...">
+        </div>
+
+        <nav class="mainNav" aria-label="Main navigation">
+            <ul>
+                <li><a href="login.html">Log In</a></li>
+                <li><a href="editprofile.html">Edit Profile</a></li>
+                <li>
+                    <a href="admin.html" aria-current="page">
+                        Administration
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="pageBanner">
+            <div class="pageBannerInner">
+                <div>
+                    <h1>Administration</h1>
+                    <p>Review user accounts and control access to RMIT Connect.</p>
+                </div>
+
+                <a class="bannerLink" href="editprofile.html">My Profile</a>
+            </div>
+        </section>
+
+        <section class="adminSection">
+            <div class="adminSummary"
+                role="group"
+                aria-label="Account summary">
+
+                <div class="summaryCard">
+                    <strong>5</strong>
+                    <span>Total accounts</span>
+                </div>
+
+                <div class="summaryCard">
+                    <strong>4</strong>
+                    <span>Active accounts</span>
+                </div>
+
+                <div class="summaryCard">
+                    <strong>1</strong>
+                    <span>Locked account</span>
+                </div>
+            </div>
+
+            <div class="sectionCard">
+                <div class="sectionHeading">
+                    <div>
+                        <h2>User Accounts</h2>
+                        <p>
+                            Locked users cannot perform operations until an
+                            administrator unlocks them.
+                        </p>
+                    </div>
+
+                    <form class="accountFilter">
+                        <label class="visuallyHidden" for="accountSearch">
+                            Search user accounts
+                        </label>
+                        <input id="accountSearch"
+                            name="accountSearch"
+                            type="search"
+                            placeholder="Search username or student ID">
+
+                        <label class="visuallyHidden" for="statusFilter">
+                            Filter by account status
+                        </label>
+                        <select id="statusFilter" name="statusFilter">
+                            <option value="all">All statuses</option>
+                            <option value="active">Active</option>
+                            <option value="locked">Locked</option>
+                        </select>
+
+                        <button class="secondaryButton" type="button">
+                            Search
+                        </button>
+                    </form>
+                </div>
+
+                <div class="tableWrapper">
+                    <table class="accountTable">
+                        <caption class="visuallyHidden">
+                            RMIT Connect user account list
+                        </caption>
+
+                        <thead>
+                            <tr>
+                                <th scope="col">Username</th>
+                                <th scope="col">Student ID</th>
+                                <th scope="col">Role</th>
+                                <th scope="col">Account Status</th>
+                                <th scope="col">Last Active</th>
+                                <th scope="col">Action</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <strong>jay.nguyen</strong>
+                                    <span class="tableEmail">
+                                        s4217847@rmit.edu.vn
+                                    </span>
+                                </td>
+
+                                <td>S4217847</td>
+                                <td>Student</td>
+
+                                <td>
+                                    <span class="statusBadge activeStatus">
+                                        Active
+                                    </span>
+                                </td>
+
+                                <td>23 Jul 2026</td>
+
+                                <td>
+                                    <button class="lockButton"
+                                            type="button"
+                                            aria-label="Lock jay.nguyen's account">
+                                        Lock
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>
+                                    <strong>dat.pham</strong>
+                                    <span class="tableEmail">
+                                        s4221230@rmit.edu.vn
+                                    </span>
+                                </td>
+
+                                <td>S4221230</td>
+                                <td>Administrator</td>
+
+                                <td>
+                                    <span class="statusBadge activeStatus">
+                                        Active
+                                    </span>
+                                </td>
+
+                                <td>23 Jul 2026</td>
+
+                                <td>
+                                    <span class="currentUserLabel">
+                                        Current user
+                                    </span>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>
+                                    <strong>kim.tran</strong>
+                                    <span class="tableEmail">
+                                        s4028530@rmit.edu.vn
+                                    </span>
+                                </td>
+
+                                <td>S4028530</td>
+                                <td>Student</td>
+
+                                <td>
+                                    <span class="statusBadge lockedStatus">
+                                        Locked
+                                    </span>
+                                </td>
+
+                                <td>21 Jul 2026</td>
+
+                                <td>
+                                    <button class="unlockButton"
+                                            type="button"
+                                            aria-label="Unlock kim.tran's account">
+                                        Unlock
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>
+                                    <strong>hung.vo</strong>
+                                    <span class="tableEmail">
+                                        s4199268@rmit.edu.vn
+                                    </span>
+                                </td>
+
+                                <td>S4199268</td>
+                                <td>Student</td>
+
+                                <td>
+                                    <span class="statusBadge activeStatus">
+                                        Active
+                                    </span>
+                                </td>
+
+                                <td>22 Jul 2026</td>
+
+                                <td>
+                                    <button class="lockButton"
+                                            type="button"
+                                            aria-label="Lock hung.vo's account">
+                                        Lock
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>
+                                    <strong>alex.lee</strong>
+                                    <span class="tableEmail">
+                                        s4110021@rmit.edu.vn
+                                    </span>
+                                </td>
+
+                                <td>S4110021</td>
+                                <td>Student</td>
+
+                                <td>
+                                    <span class="statusBadge activeStatus">
+                                        Active
+                                    </span>
+                                </td>
+
+                                <td>20 Jul 2026</td>
+
+                                <td>
+                                    <button class="lockButton"
+                                            type="button"
+                                            aria-label="Lock alex.lee's account">
+                                        Lock
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <footer class="siteFooter">
+        <div class="footerInner">
+            <div class="footerBrand">
+                <strong>RMIT CONNECT</strong>
+                <p>A static student community prototype.</p>
+            </div>
+
+            <nav class="footerNav" aria-label="Footer navigation">
+                <a href="login.html">Log In</a>
+                <a href="editprofile.html">Edit Profile</a>
+                <a href="admin.html">Administration</a>
+                <a href="#top">Back to Top</a>
+            </nav>
+
+            <div class="aiAcknowledgement">
+                <strong>AI Use Acknowledgement</strong>
+                <p>
+                    OpenAI Codex was used to help generate ideas and debug this implementation.
+                    Dat Pham wrote and verified the implementation.
+                </p>
+            </div>
+        </div>
+    </footer>
+</body>
+
+
+
+</html>
