@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link href="review.css" rel="stylesheet"> 
+</head>
+
+<body>
+    <header>
+        <div class="logo">RMIT CONNECT</div>
+        <input class="searchBar" type="text" placeholder="Search RMIT Connect...">
+        <nav>
+            <ul>
+                <li><a href="#">Home</a></li>
+                <li><a href="#">Clubs</a></li>
+                <li><a href="#">Events</a></li>
+                <li><a href="#">Course Reviews</a></li>
+                <li><a href="#">Profile</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <div class="pageBanner">
+        <div class="pageBannerInner">
+            <div class="pageBannerText">
+                <div class="pageTitle">Reviews</div>
+                <div class="pageSubtitle">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</div>
+            </div>
+            <div class="pageBannerButtonCell">
+                <button class="newReviewBtn">+ New Review</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="sectionCard">
+            <div class="filterBar">
+                <div class="filterBarCell">
+                    <input class="filterInput" type="text" placeholder="Search by title, description, or reviewer...">
+                </div>
+                <div class="filterBarCell" style="width: 150px;">
+                    <select class="filterSelect">
+                        <option>Any rating</option>
+                        <option>5 stars</option>
+                        <option>4+ stars</option>
+                        <option>3+ stars</option>
+                    </select>
+                </div>
+                <div class="filterBarCell" style="width: 150px;">
+                    <select class="filterSelect">
+                        <option>Sort by date</option>
+                        <option>Newest first</option>
+                        <option>Oldest first</option>
+                    </select>
+                </div>
+                <div class="filterBarCell" style="width: 110px; padding-right: 0px;">
+                    <button class="filterButton">Search</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="sectionCard">
+            <div class="sectionLabel">Make a Review</div>
+            <div class="reviewForm">
+                <label>Title</label>
+                <input type="text" placeholder="Lorem ipsum dolor sit amet">
+
+                <label>Description</label>
+                <textarea placeholder="Lorem ipsum dolor sit amet, consectetur adipiscing elit."></textarea>
+
+                <label>Star Rating</label>
+                <select>
+                    <option>5 stars</option>
+                    <option>4 stars</option>
+                    <option>3 stars</option>
+                    <option>2 stars</option>
+                    <option>1 star</option>
+                </select>
+
+                <label>Reviewer Name</label>
+                <input type="text" placeholder="Your name">
+
+                <label>Image</label>
+                <div class="imageUploadBox">
+                    Drag and drop an image here, or click to upload<br>
+                </div>
+
+                <div class="formActions">
+                    <div class="formActionsCell">
+                        <button class="btnPrimary">Save Review</button>
+                    </div>
+                    <div class="formActionsCell">
+                        <button class="btnSecondary">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="sectionCard">
+            <div class="sectionLabel">Your Reviews</div>
+
+            <div class="reviewListItem">
+                <div class="reviewThumbnailCell">
+                    <div class="reviewThumbnail"></div>
+                </div>
+                <div class="reviewListContentCell">
+                    <div class="reviewListTitle">Best intro course I've taken</div>
+                    <div class="reviewListSummary">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur
+                        ipsum nisi,
+                        euismod eu justo at, vulputate porttitor tellus.</div>
+                    <div class="reviewListMeta">
+                        <a class="stars">★★★★★</a>
+                        <a>Hung</a>
+                        <a>Added 12 Jul 2026</a>
+                    </div>
+                </div>
+                <div class="reviewListActionsCell">
+                    <a href="#" class="actionView">View</a>
+                    <a href="#" class="actionEdit">Edit</a>
+                    <a href="#" class="actionDelete">Delete</a>
+                </div>
+            </div>
+
+            <div class="reviewListItem">
+                <div class="reviewThumbnailCell">
+                    <div class="reviewThumbnail"></div>
+                </div>
+                <div class="reviewListContentCell">
+                    <div class="reviewListTitle">Good content, heavy workload</div>
+                    <div class="reviewListSummary">Aliquam congue tincidunt magna in imperdiet. Maecenas dapibus tellus
+                        nisl, id
+                        placerat nulla feugiat quis.</div>
+                    <div class="reviewListMeta">
+                        <a class="stars">★★★★</a>
+                        <a>Kim</a>
+                        <a>Added 9 Jul 2026</a>
+                    </div>
+                </div>
+                <div class="reviewListActionsCell">
+                    <a href="#" class="actionView">View</a>
+                    <a href="#" class="actionEdit">Edit</a>
+                    <a href="#" class="actionDelete">Delete</a>
+                </div>
+            </div>
+
+            <div class="reviewListItem">
+                <div class="reviewThumbnailCell">
+                    <div class="reviewThumbnail"></div>
+                </div>
+                <div class="reviewListContentCell">
+                    <div class="reviewListTitle">Would not recommend this elective</div>
+                    <div class="reviewListSummary">Sed eu congue leo. Nullam venenatis, massa ut congue lacinia, est
+                        nisl
+                        tincidunt augue, in viverra elit felis ac sapien.</div>
+                    <div class="reviewListMeta">
+                        <a class="stars">★★</a>
+                        <a>Dat</a>
+                        <a>Added 3 Jul 2026</a>
+                    </div>
+                </div>
+                <div class="reviewListActionsCell">
+                    <a href="#" class="actionView">View</a>
+                    <a href="#" class="actionEdit">Edit</a>
+                    <a href="#" class="actionDelete">Delete</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

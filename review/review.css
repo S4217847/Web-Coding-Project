@@ -1,0 +1,337 @@
+  * {
+      margin: 0px;
+      padding: 0px;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background-color: #F2F2F2;
+      color: #000054;
+    }
+
+    header {
+      background-color: #E60028;
+      min-height: 70px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      padding: 12px 24px;
+      color: #FFFFFF;
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+
+    .searchBar {
+      height: 36px;
+      width: 220px;
+      border-radius: 18px;
+      border: none;
+      padding: 0px 16px;
+      font-size: 14px;
+    }
+
+    nav {
+      margin-left: auto;
+    }
+
+    nav ul {
+      display: flex;
+      list-style: none;
+      gap: 24px;
+    }
+
+    nav ul li a {
+      color: #FFFFFF;
+      text-decoration: none;
+      font-size: 15px;
+    }
+
+    nav ul li a:hover {
+      text-decoration: underline;
+    }
+
+    .pageBanner {
+      background-color: #000054;
+      color: #FFFFFF;
+      padding: 32px 24px;
+    }
+
+    .pageBannerInner {
+      display: table;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0px auto;
+    }
+
+    .pageBannerText {
+      display: table-cell;
+      vertical-align: middle;
+    }
+
+    .pageBannerButtonCell {
+      display: table-cell;
+      vertical-align: middle;
+      width: 160px;
+      text-align: right;
+    }
+
+    .pageTitle {
+      font-size: 28px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .pageSubtitle {
+      font-size: 14px;
+      color: #DADAF0;
+    }
+
+    .newReviewBtn {
+      background-color: #FFDEA8;
+      color: #000054;
+      border: none;
+      border-radius: 6px;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .section {
+      max-width: 1200px;
+      margin: 0px auto;
+      padding: 16px;
+    }
+
+    .sectionCard {
+      background-color: #FFFFFF;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .sectionLabel {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #E60028;
+    }
+
+    .filterBar {
+      display: table;
+      width: 100%;
+    }
+
+    .filterBarCell {
+      display: table-cell;
+      vertical-align: middle;
+      padding-right: 12px;
+    }
+
+    .filterBarCell:last-child {
+      padding-right: 0px;
+    }
+
+    .filterInput {
+      width: 100%;
+      height: 38px;
+      border: 1px solid #CCCCCC;
+      border-radius: 6px;
+      padding: 0px 12px;
+      font-size: 14px;
+    }
+
+    .filterSelect {
+      width: 150px;
+      height: 38px;
+      border: 1px solid #CCCCCC;
+      border-radius: 6px;
+      padding: 0px 8px;
+      font-size: 13px;
+    }
+
+    .filterButton {
+      width: 110px;
+      height: 38px;
+      background-color: #E60028;
+      color: #FFFFFF;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .reviewForm label {
+      display: block;
+      font-size: 13px;
+      font-weight: bold;
+      color: #555555;
+      margin-bottom: 6px;
+      margin-top: 14px;
+    }
+
+    .reviewForm label:first-child {
+      margin-top: 0px;
+    }
+
+    .reviewForm input[type="text"],
+    .reviewForm textarea,
+    .reviewForm select {
+      width: 100%;
+      border: 1px solid #CCCCCC;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 14px;
+    }
+
+    .reviewForm textarea {
+      height: 90px;
+      resize: none;
+    }
+
+    .imageUploadBox {
+      border: 2px dashed #CCCCCC;
+      border-radius: 6px;
+      padding: 20px;
+      text-align: center;
+      font-size: 13px;
+      color: #777777;
+    }
+
+    .formActions {
+      display: table;
+      width: 100%;
+      margin-top: 20px;
+    }
+
+    .formActionsCell {
+      display: table-cell;
+      width: 140px;
+      padding-right: 12px;
+    }
+
+    .btnPrimary {
+      width: 100%;
+      background-color: #E60028;
+      color: #FFFFFF;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 0px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .btnSecondary {
+      width: 100%;
+      background-color: #FFFFFF;
+      color: #000054;
+      border: 1px solid #000054;
+      border-radius: 6px;
+      padding: 10px 0px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .reviewListItem {
+      display: table;
+      width: 100%;
+      padding: 12px 0px;
+      border-bottom: 1px solid #EEEEEE;
+    }
+
+    .reviewListItem:last-child {
+      border-bottom: none;
+    }
+
+    .reviewThumbnailCell {
+      display: table-cell;
+      vertical-align: top;
+      width: 90px;
+      padding-right: 16px;
+    }
+
+    .reviewThumbnail {
+      width: 90px;
+      height: 90px;
+      border-radius: 6px;
+      background-color: #FFDEA8;
+    }
+
+    .reviewListContentCell {
+      display: table-cell;
+      vertical-align: top;
+    }
+
+    .reviewListTitle {
+      font-size: 16px;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .reviewListTitle a {
+      color: #000054;
+      text-decoration: none;
+    }
+
+    .reviewListTitle a:hover {
+      text-decoration: underline;
+    }
+
+    .reviewListSummary {
+      font-size: 13px;
+      color: #555555;
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+
+    .reviewListMeta {
+      font-size: 12px;
+      color: #777777;
+    }
+
+    .reviewListMeta a {
+      margin-right: 12px;
+    }
+
+    .reviewListActionsCell {
+      display: table-cell;
+      vertical-align: top;
+      width: 140px;
+      padding-left: 16px;
+      text-align: right;
+    }
+
+    .reviewListActionsCell a {
+      display: block;
+      font-size: 12px;
+      font-weight: bold;
+      text-decoration: none;
+      margin-bottom: 8px;
+    }
+
+    .reviewListActionsCell a:last-child {
+      margin-bottom: 0px;
+    }
+
+    .actionView {
+      color: #000054;
+    }
+
+    .actionEdit {
+      color: #E60028;
+    }
+
+    .actionDelete {
+      color: #999999;
+    }
+
+    .stars {
+      color: #E60028;
+      font-size: 14px;
+      letter-spacing: 2px;
+    }
