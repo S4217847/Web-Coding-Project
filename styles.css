@@ -303,32 +303,56 @@
     color: black;
   }
 
-  .content .main-content.blog .writer-details {
+  .content .main-content.blog .blog-info {
     margin-bottom: 30px;
     font-size: 14px;
     color: grey;
     border-bottom: 1px solid white;
     padding-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
 
-  .content .main-content.blog .writer-details .author {
-  font-weight: bold;
-  color: black;
+  .content .main-content.blog .blog-info .writer-details {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .content .main-content.blog .blog-info .writer-details .author {
+    font-weight: bold;
+    color: black;
+  }
+
+  .content .main-content.blog .blog-info .blog-tags {
+    display: flex;
+    gap: 8px;    
+  }
+
+  .content .main-content.blog .blog-info .blog-tags p {
+    background-color: white;
+    color: black;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 4px 12px;
+    border-radius: 15px;
+    border: 1px solid #ddd;
   }
 
   .content .main-content.blog .back-btn {
-  display: inline-block;
-  margin-bottom: 20px;
-  color: #E60028;
-  font-size: 15px;
-  font-weight: bold;
-  transition: all 0.3s ease;
+    display: inline-block;
+    margin-bottom: 20px;
+    color: #E60028;
+    font-size: 15px;
+    font-weight: bold;
+    transition: all 0.3s ease;
   }
 
   .content .main-content.blog .back-btn:hover {
-  color: darkblue;
-  text-decoration: none;
-  transform: translateX(-5px);
+    color: darkblue;
+    text-decoration: none;
+    transform: translateX(-5px);
   }
   
   .content .main-content.blog .post-content p {
@@ -345,7 +369,6 @@
     object-fit: cover;
     border-radius: 8px;
     margin-top: 20px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
   }
 
   .content .main-content .post {
@@ -401,11 +424,29 @@
     font-size: 13px;
     color: #777;
     font-style: normal;
+    margin: 10px;
   }
 
   .content .main-content .post .post-preview .postinfo-student {
     font-weight: bold;
     color: #000054;
+  }
+
+  .content .main-content .post .post-preview .tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 10px;
+  }
+
+  .content .main-content .post .post-preview .tags p {
+    background-color: white;
+    color: black;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 4px 12px;
+    border-radius: 15px; 
+    border: 1px solid #ddd;
   }
 
   .content .main-content .post .post-preview .preview-text {
