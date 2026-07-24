@@ -1,3 +1,9 @@
-This is the first readme file to set up the github repo
+Indiviual:
+Discussion Board - Kim SeungUk - s4028530
+Blog -  Hoàng Hiểu Minh - s4199268
+Ratings and Review - Nguyễn Đắc Gia Hưng - s4217847
+Wishlist and Favourites - Phạm Trường Đạt - s4221230
 
-Edit 1: Testing (Dat)
+Shared:
+Profile: Kim, Hung, Dat
+Login/Regi: Kim, Hung, Dat
