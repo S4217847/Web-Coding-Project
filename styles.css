@@ -18,11 +18,14 @@
     gap: 24px;
     padding: 12px 24px;
     color: #FFFFFF;
+    position: sticky;
+    z-index: 9999;
+    top: 0px;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Candal', serif;
-    color: gray;
+    color: black;
     margin: 5px;
   }
 
@@ -57,12 +60,39 @@
   }
 
   .searchbar {
+    width: 350px;
     height: 36px;
-    width: 220px;
-    border-radius: 18px;
-    border: none;
-    padding: 0px 16px;
+    display: flex;
+    align-items: center;
     font-size: 14px;
+    background-color: white;
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  .search-input {
+  flex: 1;
+  height: 100%;
+  border: none;
+  outline: none;
+  padding: 0px 16px;
+  font-size: 14px;
+  }
+
+  .search-categories {
+  height: 100%;
+  border: none;
+  outline: none;
+  background-color: white;
+  padding: 0 12px;
+  color: black;
+  font-size: 14px;
+  cursor: pointer;
+  border-left: 1px solid white;
+  }
+
+  .search-categories:hover {
+    background-color: white;
   }
 
   nav {
@@ -96,9 +126,9 @@
     align-items: start;
   }
 
-  .leftbar  { grid-area: left; position: sticky; top: 10px;}
+  .leftbar  { grid-area: left; position: sticky; top: 90px;}
   .middle  { grid-area: feed; display: flex; flex-direction: column; gap: 10px; }
-  .rightbar { grid-area: right; position: sticky; top: 10px;}
+  .rightbar { grid-area: right; position: sticky; top: 90px;}
 
   .profile-card {
     background-color: #FFFFFF;
@@ -262,6 +292,62 @@
     float: center;
   }
 
+  .content .main-content.blog {
+    padding: 10px;
+  }
+
+  .content .main-content.blog .post-title {
+    text-align: center;
+    margin-bottom: 10px;
+    font-size: 32px;
+    color: black;
+  }
+
+  .content .main-content.blog .writer-details {
+    margin-bottom: 30px;
+    font-size: 14px;
+    color: grey;
+    border-bottom: 1px solid white;
+    padding-bottom: 15px;
+  }
+
+  .content .main-content.blog .writer-details .author {
+  font-weight: bold;
+  color: black;
+  }
+
+  .content .main-content.blog .back-btn {
+  display: inline-block;
+  margin-bottom: 20px;
+  color: #E60028;
+  font-size: 15px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  }
+
+  .content .main-content.blog .back-btn:hover {
+  color: darkblue;
+  text-decoration: none;
+  transform: translateX(-5px);
+  }
+  
+  .content .main-content.blog .post-content p {
+    font-size: 16px;
+    line-height: 1.8;
+    color: black;
+    margin-bottom: 20px;
+    text-align: justify;
+  }
+
+  .post-bottom-image {
+    width: 100%;
+    max-height: 500px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-top: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  }
+
   .content .main-content .post {
     width: 100%;
     display: flex;
@@ -275,9 +361,9 @@
   }
 
   .content .main-content .post .post-image {
-    width: 180px; /* Thu nhỏ ảnh */
+    width: 180px;
     height: 180px;
-    object-fit: cover; /* Giữ tỷ lệ ảnh, không bị méo */
+    object-fit: cover;
     border-radius: 6px;
   }
 
@@ -327,7 +413,7 @@
     color: #444;
     line-height: 1.5;
     margin-top: 12px;
-    margin-bottom: 40px; /* Chừa khoảng trống cho nút Read more */
+    margin-bottom: 40px;
   }
 
   .content .main-content .post .read-more {
