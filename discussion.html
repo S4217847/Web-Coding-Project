@@ -50,6 +50,35 @@
         <section class="discussion-list">
           <h1>Discussion Forum</h1>
 
+          <div class="discussion-filter">
+            <div class="discussion-search">
+              <label for="search-discussions">Search discussions</label>
+              <input
+                id="search-discussions"
+                type="text"
+                placeholder="Enter the keyword"
+              />
+            </div>
+            
+            <div class="discussion-option">
+              <label for="filter-by">Filter by</label>
+              <select id="filter-by">
+                <option>Title</option>
+                <option>Content</option>
+              </select>
+            </div>
+
+            <div class="discussion-option">
+              <label for="sort-by">Sort by</label>
+              <select id="sort-by">
+                <option>Newest</option>
+                <option>Oldest</option>
+              </select>
+            </div>
+
+            <button class="searchbutton" type="button">Search</button>
+          </div>
+
           <section class="discussion-post">
             <div class="discussion-post-header">
               <div class="user-info">
