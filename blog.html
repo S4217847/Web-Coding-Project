@@ -9,15 +9,15 @@
 <body>
   <header>
     <div class="logo">RMIT CONNECT</div>
-    <div class="searchbar">
-      <input class="search-input" type="text" placeholder="Search RMIT Connect...">
+    <form action="#" class="searchbar">
+      <input type="text" placeholder="Search RMIT Connect..." class="search-input">
       <select class="search-categories">
         <option value="all">All</option>
         <option value="name">Author</option>
         <option value="id">SID</option>
         <option value="tags">Tags</option>
       </select>
-    </div>
+    </form>
 
     <nav>
       <ul>
@@ -29,7 +29,7 @@
     </nav>
   </header>
 
-<div class="page">
+<main class="page">
   <div class="leftbar">
     <div class="menu-card">
       <ul>
@@ -45,10 +45,14 @@
 
   <div class="middle">
 
-    <div class="postbox">
+    <div class="articlebox">
       <textarea placeholder="Share something with RMIT Connect..."></textarea>
-      <div class="postfooter">
-        <button class="postbtn">Post</button>
+      <div class="articlefooter">
+        <input type="file" id="imageUpload" accept="image/*" hidden>
+        <button for="imageUpload" class="upload-btn">
+        📷 Upload image
+        </button>
+        <button class="articlebtn">Post</button>
       </div>
     </div>
 
@@ -56,15 +60,15 @@
       <div class="content clearfix">
 
         <div class="main-content">
-          <h1 class="recent-post-title">Recent posts</h1>
+          <h1 class="recent-article-title">Recent blogs</h1>
 
-          <div class="post">
-            <img src ="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRHVKaq0bcwZgdw_ghWKAMXPTJUe48Xq61yw3VsEx3alw&s=10" alt="" class="post-image">
-            <div class="post-preview">
+          <div class="article">
+            <img src ="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRHVKaq0bcwZgdw_ghWKAMXPTJUe48Xq61yw3VsEx3alw&s=10" alt="" class="article-image">
+            <div class="article-preview">
               <h1><a href="blog_details.html">The first post displays here</a></h1>
-              <i class="postinfo-student">Student name - SID</i>
+              <i class="articleinfo-student">Student name - SID</i>
               &nbsp;
-              <i class="postinfo-calender">Date that the blog is posted</i>
+              <i class="articleinfo-calender">Date that the blog is posted</i>
               <div class="tags">
                 <p>Technology</p>
                 <p>Business</p>
@@ -76,13 +80,13 @@
               <a href="blog_details.html" class="btn read-more">Read more</a>
             </div>
           </div>
-          <div class="post">
-            <img src ="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRHVKaq0bcwZgdw_ghWKAMXPTJUe48Xq61yw3VsEx3alw&s=10" alt="" class="post-image">
-            <div class="post-preview">
+          <div class="article">
+            <img src ="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRHVKaq0bcwZgdw_ghWKAMXPTJUe48Xq61yw3VsEx3alw&s=10" alt="" class="article-image">
+            <div class="article-preview">
               <h1><a href="blog_details.html">The first post displays here</a></h1>
-              <i class="postinfo-student">Student name - SID</i>
+              <i class="articleinfo-student">Student name - SID</i>
               &nbsp;
-              <i class="postinfo-calender">Date that the blog is posted</i>
+              <i class="articleinfo-calender">Date that the blog is posted</i>
               <div class="tags">
                 <p>Technology</p>
                 <p>Business</p>
@@ -94,26 +98,13 @@
               <a href="blog_details.html" class="btn read-more">Read more</a>
             </div>
           </div>
-          <div class="post">
-            <img src ="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRHVKaq0bcwZgdw_ghWKAMXPTJUe48Xq61yw3VsEx3alw&s=10" alt="" class="post-image">
-            <div class="post-preview">
+          <div class="article">
+            <img src ="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRHVKaq0bcwZgdw_ghWKAMXPTJUe48Xq61yw3VsEx3alw&s=10" alt="" class="article-image">
+            <div class="article-preview">
               <h1><a href="blog_details.html">The first post displays here</a></h1>
-              <i class="postinfo-student">Student name - SID</i>
+              <i class="articleinfo-student">Student name - SID</i>
               &nbsp;
-              <i class="postinfo-calender">Date that the blog is posted</i>
-              <p class="preview-text">
-                The main content of the blos is displayed here.
-              </p>
-              <a href="blog_details.html" class="btn read-more">Read more</a>
-            </div>
-          </div>
-          <div class="post">
-            <img src ="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRHVKaq0bcwZgdw_ghWKAMXPTJUe48Xq61yw3VsEx3alw&s=10" alt="" class="post-image">
-            <div class="post-preview">
-              <h1><a href="blog_details.html">The first post displays here</a></h1>
-              <i class="postinfo-student">Student name - SID</i>
-              &nbsp;
-              <i class="postinfo-calender">Date that the blog is posted</i>
+              <i class="articleinfo-calender">Date that the blog is posted</i>
               <div class="tags">
                 <p>Technology</p>
                 <p>Business</p>
@@ -125,13 +116,31 @@
               <a href="blog_details.html" class="btn read-more">Read more</a>
             </div>
           </div>
-          <div class="post">
-            <img src ="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRHVKaq0bcwZgdw_ghWKAMXPTJUe48Xq61yw3VsEx3alw&s=10" alt="" class="post-image">
-            <div class="post-preview">
+          <div class="article">
+            <img src ="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRHVKaq0bcwZgdw_ghWKAMXPTJUe48Xq61yw3VsEx3alw&s=10" alt="" class="article-image">
+            <div class="article-preview">
               <h1><a href="blog_details.html">The first post displays here</a></h1>
-              <i class="postinfo-student">Student name - SID</i>
+              <i class="articleinfo-student">Student name - SID</i>
               &nbsp;
-              <i class="postinfo-calender">Date that the blog is posted</i>
+              <i class="articleinfo-calender">Date that the blog is posted</i>
+              <div class="tags">
+                <p>Technology</p>
+                <p>Business</p>
+                <p>Food</p>
+              </div>
+              <p class="preview-text">
+                The main content of the blos is displayed here.
+              </p>
+              <a href="blog_details.html" class="btn read-more">Read more</a>
+            </div>
+          </div>
+          <div class="article">
+            <img src ="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRHVKaq0bcwZgdw_ghWKAMXPTJUe48Xq61yw3VsEx3alw&s=10" alt="" class="article-image">
+            <div class="article-preview">
+              <h1><a href="blog_details.html">The first post displays here</a></h1>
+              <i class="articleinfo-student">Student name - SID</i>
+              &nbsp;
+              <i class="articleinfo-calender">Date that the blog is posted</i>
               <div class="tags">
                 <p>Technology</p>
                 <p>Business</p>
@@ -180,7 +189,8 @@
         <div class="friendname">Hoang</div>
       </div>
     </div>
-</div>
+  </div>
 
+</main>
 </body>
 </html>
