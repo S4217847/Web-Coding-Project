@@ -4,7 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Deactivate Account | RMIT Connect</title>
-    <link rel="stylesheet" href="example.css" />
+    <link rel="stylesheet" href="common.css" />
+    <link rel="stylesheet" href="deactivate.css" />
   </head>
 
   <body>
@@ -18,10 +19,10 @@
 
       <nav>
         <ul>
-       <li><a href="/sitemap.html">Home</a></li>
-        <li><a href="/blog/discussion.html">Discussions</a></li>
-        <li><a href="/blog/blog.html">My Blog</a></li>
-        <li><a href="/profile/profile.html">My Profile</a></li>
+          <li><a href="/sitemap.html">Home</a></li>
+          <li><a href="/blog/discussion.html">Discussions</a></li>
+          <li><a href="/blog/blog.html">My Blog</a></li>
+          <li><a href="/profile/profile.html">My Profile</a></li>
         </ul>
       </nav>
     </header>
@@ -39,20 +40,19 @@
           deactivated.
         </p>
 
-        <form class="deactivate-form">
+        <form class="deactivate-form" action="deactivated-success.html">
           <label class="deactivate-checkbox">
-            <input type="checkbox" />
+            <input type="checkbox" required />
             I understand that my account will be deactivated.
           </label>
 
-          <button class="deactivatebutton" type="button">
+          <button class="deactivatebutton" type="submit">
             Deactivate Account
           </button>
         </form>
 
         <p class="account-help">
-          <a href="#" class="common-link">Cancel</a>
-          <span class="tbd">(TBD)</span>
+          <a href="/sitemap.html" class="common-link">Cancel</a>
         </p>
       </div>
     </div>
