@@ -27,26 +27,25 @@
         <div class="pageBanner">
             <div class="pageBannerInner">
                 <div class="pageBannerText">
-                    <h1 class="pageTitle">Reviews</h1>
+                    <h1 class="pageTitle">Browse Reviews</h1>
                     
                 </div>
                 <div class="pageBannerButtonCell">
-                    <button class="newReviewBtn" type="button">+ New Review</button>
+                    <a class="newReviewBtn" href="/review/review.html">+ New Review</a>
                 </div>
             </div>
         </div>
-
         <section class="section">
             <div class="sectionCard">
                 <form class="filterBar" action="/reviews/search" method="get">
                     <div class="filterBarCell">
-                        <label class="visuallyHiddenLabel" for="reviewSearch">Search reviews</label>
-                        <input class="filterInput" id="reviewSearch" name="query" type="text"
+                        <label class="visuallyHiddenLabel" for="browseSearch">Search reviews</label>
+                        <input class="filterInput" id="browseSearch" name="query" type="text"
                             placeholder="Search by title, description, or reviewer...">
                     </div>
                     <div class="filterBarCell" style="width: 150px;">
-                        <label class="visuallyHiddenLabel" for="ratingFilter">Filter by rating</label>
-                        <select class="filterSelect" id="ratingFilter" name="rating">
+                        <label class="visuallyHiddenLabel" for="browseRating">Filter by rating</label>
+                        <select class="filterSelect" id="browseRating" name="rating">
                             <option value="">Any rating</option>
                             <option value="5">5 stars</option>
                             <option value="4">4+ stars</option>
@@ -54,8 +53,8 @@
                         </select>
                     </div>
                     <div class="filterBarCell" style="width: 150px;">
-                        <label class="visuallyHiddenLabel" for="sortOrder">Sort by date</label>
-                        <select class="filterSelect" id="sortOrder" name="sort">
+                        <label class="visuallyHiddenLabel" for="browseSort">Sort by date</label>
+                        <select class="filterSelect" id="browseSort" name="sort">
                             <option value="">Sort by date</option>
                             <option value="newest">Newest first</option>
                             <option value="oldest">Oldest first</option>
@@ -70,49 +69,8 @@
 
         <section class="section">
             <div class="sectionCard">
-                <h2 class="sectionLabel">Make a Review</h2>
-                <form class="reviewForm" action="/reviews/create" method="post" enctype="multipart/form-data">
-
-                    <label for="reviewTitle">Title</label>
-                    <input id="reviewTitle" name="title" type="text" placeholder="Lorem ipsum dolor sit amet">
-
-                    <label for="reviewDescription">Description</label>
-                    <textarea id="reviewDescription" name="description"
-                        placeholder="Lorem ipsum dolor sit amet, consectetur adipiscing elit."></textarea>
-
-                    <label for="reviewRating">Star Rating</label>
-                    <select id="reviewRating" name="rating">
-                        <option value="5">5 stars</option>
-                        <option value="4">4 stars</option>
-                        <option value="3">3 stars</option>
-                        <option value="2">2 stars</option>
-                        <option value="1">1 star</option>
-                    </select>
-
-                    <label for="reviewerName">Reviewer Name</label>
-                    <input id="reviewerName" name="reviewerName" type="text" placeholder="Your name">
-
-                    <label for="reviewImage">Image</label>
-                    <div class="imageUploadBox">
-                        <label for="reviewImage">Drag and drop an image here, or click to upload</label>
-                        <input id="reviewImage" name="image" type="file" accept="image/*">
-                    </div>
-
-                    <div class="formActions">
-                        <div class="formActionsCell">
-                            <button class="btnPrimary" type="submit">Save Review</button>
-                        </div>
-                        <div class="formActionsCell">
-                            <button class="btnSecondary" type="reset">Cancel</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </section>
-
-        <section class="section">
-            <div class="sectionCard">
-                <h2 class="sectionLabel">Your Reviews</h2>
+                <h2 class="sectionLabel">All Reviews</h2>
+                <p class="listCount">Showing 6 of 6 reviews</p>
 
                 <ul class="reviewList">
 
@@ -126,8 +84,9 @@
                                 <h3 class="reviewListTitle">
                                     <a href="/review/reviewdetail.html">Best intro course I've taken</a>
                                 </h3>
-                                <p class="reviewListSummary">Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                                    Curabitur ipsum nisi, euismod eu justo at, vulputate porttitor tellus.</p>
+                                <p class="reviewListSummary">Clear structure from week one, approachable tutors
+                                    during pracs, and assignments that tested understanding rather than
+                                    memorisation.</p>
                                 <p class="reviewListMeta">
                                     <span class="stars" aria-label="5 out of 5 stars">★★★★★</span>
                                     <span>Hung</span>
@@ -152,8 +111,8 @@
                                 <h3 class="reviewListTitle">
                                     <a href="/review/reviewdetail.html">Good content, heavy workload</a>
                                 </h3>
-                                <p class="reviewListSummary">Aliquam congue tincidunt magna in imperdiet. Maecenas
-                                    dapibus tellus nisl, id placerat nulla feugiat quis.</p>
+                                <p class="reviewListSummary">Interesting material overall, but the group assignment
+                                    weighting felt heavy compared to the individual components.</p>
                                 <p class="reviewListMeta">
                                     <span class="stars" aria-label="4 out of 5 stars">★★★★</span>
                                     <span>Kim</span>
@@ -178,12 +137,90 @@
                                 <h3 class="reviewListTitle">
                                     <a href="/review/reviewdetail.html">Would not recommend this elective</a>
                                 </h3>
-                                <p class="reviewListSummary">Sed eu congue leo. Nullam venenatis, massa ut congue
-                                    lacinia, est nisl tincidunt augue, in viverra elit felis ac sapien.</p>
+                                <p class="reviewListSummary">Lectures felt disorganised and feedback on assignments
+                                    took over three weeks to come back, which made it hard to improve.</p>
                                 <p class="reviewListMeta">
                                     <span class="stars" aria-label="2 out of 5 stars">★★</span>
                                     <span>Dat</span>
                                     <span>Added 3 Jul 2026</span>
+                                </p>
+                            </div>
+                            <div class="reviewListActionsCell">
+                                <a href="/review/reviewdetail.html" class="actionView">View</a>
+                                <a href="/review/reviewedit.html" class="actionEdit">Edit</a>
+                                <a href="/reviews/delete" class="actionDelete">Delete</a>
+                            </div>
+                        </article>
+                    </li>
+
+                    <li>
+                        <article class="reviewListItem">
+                            <div class="reviewThumbnailCell">
+                                <img class="reviewThumbnail" src="thumbnail.jpg"
+                                    alt="Thumbnail image for the review titled A lot of group work but worth it">
+                            </div>
+                            <div class="reviewListContentCell">
+                                <h3 class="reviewListTitle">
+                                    <a href="/review/reviewdetail.html">A lot of group work but worth it</a>
+                                </h3>
+                                <p class="reviewListSummary">Three group projects across the semester was a lot, but
+                                    the final showcase made the effort feel worthwhile in the end.</p>
+                                <p class="reviewListMeta">
+                                    <span class="stars" aria-label="4 out of 5 stars">★★★★</span>
+                                    <span>Priya</span>
+                                    <span>Added 28 Jun 2026</span>
+                                </p>
+                            </div>
+                            <div class="reviewListActionsCell">
+                                <a href="/review/reviewdetail.html" class="actionView">View</a>
+                                <a href="/review/reviewedit.html" class="actionEdit">Edit</a>
+                                <a href="/reviews/delete" class="actionDelete">Delete</a>
+                            </div>
+                        </article>
+                    </li>
+
+                    <li>
+                        <article class="reviewListItem">
+                            <div class="reviewThumbnailCell">
+                                <img class="reviewThumbnail" src="thumbnail.jpg"
+                                    alt="Thumbnail image for the review titled Great tutors, confusing LMS setup">
+                            </div>
+                            <div class="reviewListContentCell">
+                                <h3 class="reviewListTitle">
+                                    <a href="/review/reviewdetail.html">Great tutors, confusing LMS setup</a>
+                                </h3>
+                                <p class="reviewListSummary">Tutors were genuinely helpful in consult hours, but it
+                                    took weeks to figure out where readings and submission links actually were.</p>
+                                <p class="reviewListMeta">
+                                    <span class="stars" aria-label="3 out of 5 stars">★★★</span>
+                                    <span>Marcus</span>
+                                    <span>Added 22 Jun 2026</span>
+                                </p>
+                            </div>
+                            <div class="reviewListActionsCell">
+                                <a href="/review/reviewdetail.html" class="actionView">View</a>
+                                <a href="/review/reviewedit.html" class="actionEdit">Edit</a>
+                                <a href="/reviews/delete" class="actionDelete">Delete</a>
+                            </div>
+                        </article>
+                    </li>
+
+                    <li>
+                        <article class="reviewListItem">
+                            <div class="reviewThumbnailCell">
+                                <img class="reviewThumbnail" src="thumbnail.jpg"
+                                    alt="Thumbnail image for the review titled Best elective I have taken so far">
+                            </div>
+                            <div class="reviewListContentCell">
+                                <h3 class="reviewListTitle">
+                                    <a href="/review/reviewdetail.html">Best elective I have taken so far</a>
+                                </h3>
+                                <p class="reviewListSummary">Small class size meant real discussion every week, and
+                                    the final project let me build something for my own portfolio.</p>
+                                <p class="reviewListMeta">
+                                    <span class="stars" aria-label="5 out of 5 stars">★★★★★</span>
+                                    <span>Sarah</span>
+                                    <span>Added 15 Jun 2026</span>
                                 </p>
                             </div>
                             <div class="reviewListActionsCell">
