@@ -8,8 +8,11 @@
 */
 
 * {
-
     box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
 }
 
 body{
@@ -18,6 +21,23 @@ body{
     background-color: #f2f2f2;
     color: #000054;
     line-height: 1.5;
+}
+
+.skipLink {
+    position: absolute;
+    left: 12px;
+    top: -60px;
+    z-index: 10;
+    background-color: #FFFFFF;
+    color: #000054;
+    border: 2px solid #000054;
+    border-radius: 5px;
+    padding: 9px 12px;
+    font-weight: bold;
+}
+
+.skipLink:focus {
+    top: 12px;
 }
 
 .siteHeader{
@@ -48,6 +68,11 @@ body{
     text-decoration: none;
 }
 
+.mainNav a[aria-current="page"] {
+    border-bottom: 3px solid #FFFFFF;
+    padding-bottom: 4px;
+}
+
 .pageBanner{
     display: flex;
     align-items: center;
@@ -56,6 +81,10 @@ body{
     background-color: #000054;
     color: #FFFFFF;
     padding: 28px 30px;
+}
+
+.pageBannerText {
+    min-width: 0;
 }
 
 .pageBanner h1{
@@ -96,18 +125,28 @@ body{
 }
 
 .summaryCard{
+    display: block;
     background-color: #FFFFFF;
+    color: #000054;
     border-top: 4px solid #E60028;
     border-radius: 8px;
     padding: 18px;
+    text-decoration: none;
+}
+
+.summaryCard:hover {
+    box-shadow: 0 3px 10px rgba(0, 0, 84, 0.14);
+    transform: translateY(-2px);
 }
 
 .summaryNumber{
+    display: block;
     font-size: 28px;
     font-weight: bold;
 }
 
 .summaryLabel{
+    display: block;
     color: #555555; 
     font-size: 13px;
 }
@@ -161,6 +200,106 @@ body{
     color: #EEEEEE;
 }
 
+/* Catalogue search and filter form */
+
+.catalogueFilters {
+    background-color: #F7F7FA;
+    border: 1px solid #DDDDE8;
+    border-radius: 8px;
+    margin-bottom: 22px;
+    padding: 18px;
+}
+
+.catalogueFilters fieldset {
+    border: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.catalogueFilters legend {
+    margin-bottom: 13px;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.filterGrid {
+    display: grid;
+    grid-template-columns:
+        minmax(220px, 2fr)
+        minmax(150px, 1fr)
+        minmax(160px, 1fr)
+        auto;
+    align-items: end;
+    gap: 14px;
+}
+
+.filterField label {
+    display: block;
+    margin-bottom: 5px;
+    color: #333333;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.filterField input,
+.filterField select {
+    width: 100%;
+    min-height: 44px;
+    background-color: #FFFFFF;
+    color: #000054;
+    border: 1px solid #777777;
+    border-radius: 6px;
+    padding: 9px 11px;
+}
+
+.filterActions {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.filterActions .primaryButton {
+    min-height: 44px;
+    white-space: nowrap;
+}
+
+.resetLink {
+    color: #000054;
+    padding: 10px 4px;
+    font-size: 13px;
+}
+
+.resultsSummary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background-color: #F2F7FF;
+    border-left: 4px solid #2563EB;
+    border-radius: 6px;
+    margin-bottom: 18px;
+    padding: 12px 14px;
+    scroll-margin-top: 20px;
+}
+
+.resultsSummary p {
+    margin: 0;
+    color: #333333;
+    font-size: 13px;
+}
+
+.resultsSummary a {
+    flex: 0 0 auto;
+    color: #000054;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.resultsSummary:target {
+    outline: 3px solid #2563EB;
+    outline-offset: 3px;
+}
+
 .wishlistList{
     border-top: 1px solid #EEEEEE;
     padding-top: 16px;
@@ -172,6 +311,7 @@ body{
     gap: 18px;
     padding: 18px 0;
     border-bottom: 1px solid #EEEEEE;
+    scroll-margin-top: 20px;
 }
 
 .wishlistItem:first-child {
@@ -181,6 +321,29 @@ body{
 .wishlistItem:last-child {
     padding-bottom: 0;
     border-bottom: none;
+}
+
+.wishlistItem:target {
+    background-color: #F2F7FF;
+    outline: 4px solid #2563EB;
+    outline-offset: 5px;
+    border-radius: 6px;
+}
+
+.targetNotice {
+    display: none;
+    background-color: #E7F7EC;
+    color: #205C36;
+    border-left: 4px solid #2E7D4F;
+    border-radius: 5px;
+    margin: 0 0 12px;
+    padding: 9px 11px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.wishlistItem:target .targetNotice {
+    display: block;
 }
 
 .itemImage {
@@ -269,19 +432,30 @@ body{
 .itemActions {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 8px;
+}
+
+.addForm {
+    margin: 0;
 }
 
 .primaryButton,
 .secondaryButton,
 .textButton,
 .disabledButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
     border-radius: 6px;
-    padding: 8px 13px;
+    padding: 9px 14px;
     font-family: inherit;
     font-size: 12px;
     font-weight: bold;
     cursor: pointer;
+    text-align: center;
+    text-decoration: none;
 }
 
 .primaryButton {
@@ -290,16 +464,69 @@ body{
     border: 1px solid #E60028;
 }
 
+.primaryButton:hover {
+    background-color: #B80020;
+}
+
 .secondaryButton {
     background-color: #FFFFFF;
     color: #000054;
     border: 1px solid #000054;
 }
 
+.secondaryButton:hover {
+    background-color: #EEEEF8;
+}
+
 .textButton {
     background-color: transparent;
     color: #666666;
     border: 1px solid transparent;
+}
+
+.textButton:hover {
+    color: #000054;
+    border-color: #000054;
+}
+
+.workflowNotice {
+    background-color: #FFF7E6;
+    color: #5C3900;
+    border-left: 5px solid #E6A43A;
+    border-radius: 6px;
+    margin: 20px 0 0;
+    padding: 14px 16px;
+    font-size: 13px;
+    scroll-margin-top: 20px;
+}
+
+.workflowNotice h3 {
+    margin: 0 0 5px;
+    font-size: 17px;
+}
+
+.workflowNotice p {
+    margin: 0;
+    font-size: 13px;
+}
+
+.actionPreview {
+    display: none;
+}
+
+.actionPreviewGroup {
+    min-width: 0;
+}
+
+.previewAnchor {
+    min-height: 1px;
+    scroll-margin-top: 20px;
+}
+
+.previewAnchor:target .actionPreview {
+    display: block;
+    outline: 4px solid #2563EB;
+    outline-offset: 4px;
 }
 
 .purchasedList {
@@ -426,16 +653,30 @@ body{
     text-align: center;
 }
 
+.duplicateLink {
+    display: block;
+    margin-top: 5px;
+    color: #000054;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+}
+
 .fullButton {
     width: 100%;
 }
 
 .catalogueItem:target {
     border: 2px solid #46459E;
+    outline: 3px solid #2563EB;
+    outline-offset: 3px;
+    scroll-margin-top: 20px;
 }
 
 a:focus-visible,
-button:focus-visible {
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
     outline: 3px solid #000054;
     outline-offset: 3px;
 }
@@ -444,6 +685,12 @@ button:focus-visible {
 .pageBanner a:focus-visible,
 .siteFooter a:focus-visible {
     outline-color: #FFFFFF;
+}
+
+@media (max-width: 900px) {
+    .filterGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 800px) {
@@ -495,5 +742,37 @@ button:focus-visible {
     .footerInner {
         grid-template-columns: 1fr;
         gap: 20px;
+    }
+}
+
+@media (max-width: 560px) {
+    .filterGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .filterActions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .filterActions .primaryButton,
+    .resetLink {
+        width: 100%;
+        text-align: center;
+    }
+
+    .resultsSummary {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .itemActions a {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
     }
 }

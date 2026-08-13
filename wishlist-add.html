@@ -4,26 +4,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Browse Items | RMIT Connect </title>
+    <title>Browse Items | RMIT Connect</title>
     <link rel="stylesheet" href="wishlist.css">
 </head>
 
 <body id="top">
+    <a class="skipLink" href="#main-content">Skip to main content</a>
+
     <header class="siteHeader">
         <div class="logo">
-            <a href="wishlist.html">RMIT CONNECT</a>
+            <a href="wishlist.html#top">RMIT CONNECT</a>
         </div>
 
         <nav class="mainNav" aria-label="Main navigation">
             <ul>
-                <li><a href="wishlist-add.html">Browse Items</a></li>
+                <li><a href="wishlist-add.html#catalogue-results" aria-current="page">Browse Items</a></li>
                 <li><a href="wishlist.html#savedItems">Wishlist</a></li>
                 <li><a href="wishlist.html#purchasedItems">Purchased</a></li>
             </ul>
         </nav>
     </header>
 
-    <main>
+    <main id="main-content">
         <section class="pageBanner">
             <div class="pageBannerText">
                 <h1>Browse Campus Items</h1>
@@ -35,11 +37,11 @@
             </a>
         </section>
 
-        <section class="browseSection">
+        <section class="browseSection" aria-labelledby="catalogue-heading">
             <div class="sectionCard">
                 <div class="sectionHeading">
                     <div>
-                        <h2>Popular with Students</h2>
+                        <h2 id="catalogue-heading">Popular with Students</h2>
                         <p>Browse items from the RMIT Connect community catalogue.</p>
                     </div>
 
@@ -48,10 +50,104 @@
                     </a>
                 </div>
 
+                <form class="catalogueFilters"
+                      action="wishlist-add.html#catalogue-results"
+                      method="get">
+
+                    <fieldset>
+                        <legend>Search and filter items</legend>
+
+                        <div class="filterGrid">
+                            <div class="filterField">
+                                <label for="catalogue-search">
+                                    Keywords
+                                </label>
+
+                                <input id="catalogue-search"
+                                       name="keywords"
+                                       type="search"
+                                       placeholder="Try coding, music, or photography">
+                            </div>
+
+                            <div class="filterField">
+                                <label for="catalogue-category">
+                                    Category
+                                </label>
+
+                                <select id="catalogue-category"
+                                        name="category">
+                                    <option value="all">
+                                        All categories
+                                    </option>
+                                    <option value="workshop">
+                                        Workshop
+                                    </option>
+                                    <option value="field-trip">
+                                        Field trip
+                                    </option>
+                                    <option value="event">
+                                        Event
+                                    </option>
+                                    <option value="club-activity">
+                                        Club activity
+                                    </option>
+                                    <option value="short-course">
+                                        Short course
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div class="filterField">
+                                <label for="catalogue-sort">
+                                    Sort items
+                                </label>
+
+                                <select id="catalogue-sort"
+                                        name="sort">
+                                    <option value="popular">
+                                        Most wishlisted
+                                    </option>
+                                    <option value="price-low">
+                                        Price: low to high
+                                    </option>
+                                    <option value="price-high">
+                                        Price: high to low
+                                    </option>
+                                    <option value="purchased">
+                                        Most purchased
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div class="filterActions">
+                                <button class="primaryButton"
+                                        type="submit">
+                                    Apply Filters
+                                </button>
+
+                                <a class="resetLink"
+                                   href="wishlist-add.html#catalogue-results">
+                                    Reset
+                                </a>
+                            </div>
+                        </div>
+                    </fieldset>
+                </form>
+
+                <div class="resultsSummary" id="catalogue-results" role="status">
+                    <p>
+                        <strong>5 items shown.</strong>
+                        Sample results remain visible in this HTML-only prototype.
+                    </p>
+                    <a href="wishlist.html#savedItems">Review saved items</a>
+                </div>
+
                 <div class="catalogueGrid">
+                    <!-- Saved catalogue item: peer workshop. -->
                     <article class="catalogueItem" id="item-workshop">
                         <img src="images/peer-workshop.jpg"
-                            alt="Students working together around laptops">
+                             alt="Students working together around laptops"
+                             loading="lazy">
 
                         <div class="catalogueContent">
                             <div class="itemTopLine">
@@ -83,20 +179,28 @@
                                 </div>
                             </dl>
 
-                            <button class="disabledButton" type="button" disabled>
+                            <button class="disabledButton"
+                                    type="button"
+                                    aria-describedby="workshop-duplicate-note"
+                                    disabled>
                                 Already in Wishlist
                             </button>
 
-                            <p class="duplicateNote">
+                            <p class="duplicateNote" id="workshop-duplicate-note">
                                 Duplicate prevented: this item is already saved once.
                             </p>
+
+                            <a class="duplicateLink" href="wishlist.html#saved-workshop">
+                                View saved item
+                            </a>
                         </div>
                     </article>
 
-                    <!-- 2 -->
+                    <!-- Saved catalogue item: drone field trip. -->
                     <article class="catalogueItem" id="item-drone">
                         <img src="images/connect-hoodie.jpg"
-                            alt="Student in a hoodie practising outdoor drone filming">
+                             alt="Student in a hoodie practising outdoor drone filming"
+                             loading="lazy">
 
                         <div class="catalogueContent">
                             <div class="itemTopLine">
@@ -127,21 +231,28 @@
                                 </div>
                             </dl>
 
-                            <button class="disabledButton" type="button" disabled>
+                            <button class="disabledButton"
+                                    type="button"
+                                    aria-describedby="drone-duplicate-note"
+                                    disabled>
                                 Already in Wishlist
                             </button>
 
-                            <p class="duplicateNote">
+                            <p class="duplicateNote" id="drone-duplicate-note">
                                 Duplicate prevented: this item is already saved once.
                             </p>
+
+                            <a class="duplicateLink" href="wishlist.html#saved-drone">
+                                View saved item
+                            </a>
                         </div>
                     </article>
-                    <!-- 2 end -->
 
-                    <!-- 3 -->
+                    <!-- Saved catalogue item: music night ticket. -->
                     <article class="catalogueItem" id="item-music-night">
                         <img src="images/design-market.jpg"
-                            alt="Audience members taking photos at a live music event">
+                             alt="Audience members taking photos at a live music event"
+                             loading="lazy">
 
                         <div class="catalogueContent">
                             <div class="itemTopLine">
@@ -172,21 +283,28 @@
                                 </div>
                             </dl>
 
-                            <button class="disabledButton" type="button" disabled>
+                            <button class="disabledButton"
+                                    type="button"
+                                    aria-describedby="music-duplicate-note"
+                                    disabled>
                                 Already in Wishlist
                             </button>
 
-                            <p class="duplicateNote">
+                            <p class="duplicateNote" id="music-duplicate-note">
                                 Duplicate prevented: this item is already saved once.
                             </p>
+
+                            <a class="duplicateLink" href="wishlist.html#saved-music-night">
+                                View saved item
+                            </a>
                         </div>
                     </article>
-                    <!-- 3 end -->
 
-                    <!-- 4 -->
+                    <!-- Saved catalogue item: photography walk. -->
                     <article class="catalogueItem" id="item-photo-walk">
                         <img src="images/photo-walk.jpg"
-                            alt="Camera and lenses prepared for a photography activity">
+                             alt="Camera and lenses prepared for a photography activity"
+                             loading="lazy">
 
                         <div class="catalogueContent">
                             <div class="itemTopLine">
@@ -217,21 +335,28 @@
                                 </div>
                             </dl>
 
-                            <button class="disabledButton" type="button" disabled>
+                            <button class="disabledButton"
+                                    type="button"
+                                    aria-describedby="photo-duplicate-note"
+                                    disabled>
                                 Already in Wishlist
                             </button>
 
-                            <p class="duplicateNote">
+                            <p class="duplicateNote" id="photo-duplicate-note">
                                 Duplicate prevented: this item is already saved once.
                             </p>
+
+                            <a class="duplicateLink" href="wishlist.html#saved-photo-walk">
+                                View saved item
+                            </a>
                         </div>
                     </article>
-                    <!-- 4 end -->
 
-                    <!-- 5 -->
+                    <!-- Addable catalogue item: data visualisation bootcamp. -->
                     <article class="catalogueItem" id="item-data-bootcamp">
                         <img src="images/data-bootcamp.jpg"
-                            alt="Two students pointing at information on a laptop screen">
+                             alt="Two students pointing at information on a laptop screen"
+                             loading="lazy">
 
                         <div class="catalogueContent">
                             <div class="itemTopLine">
@@ -262,14 +387,23 @@
                                 </div>
                             </dl>
 
-                            <button class="primaryButton fullButton" 
-                                    type="button"
-                                    aria-label="Add Data Visualisation Bootcamp to wishlist">
-                                Add to Wishlist
-                            </button>
+                            <form class="addForm"
+                                  action="wishlist.html#saved-data-bootcamp"
+                                  method="get">
+
+                                <input type="hidden"
+                                       name="productId"
+                                       value="data-bootcamp">
+
+                                <button class="primaryButton fullButton"
+                                        type="submit"
+                                        aria-label="Add Data Visualisation Bootcamp to wishlist">
+                                    Add to Wishlist
+                                </button>
+                            </form>
+
                         </div>
                     </article>
-                    <!-- 5 end -->
                 </div>
             </div>
         </section>
@@ -284,15 +418,15 @@
 
             <nav class="footerNav" aria-label="Footer navigation">
                 <a href="wishlist.html#savedItems">Wishlist</a>
-                <a href="wishlist-add.html">Browse Items</a>
+                <a href="wishlist-add.html#catalogue-results">Browse Items</a>
                 <a href="#top">Back to Top</a>
             </nav>
 
             <div class="aiAcknowledgement">
                 <strong>AI Use Acknowledgement</strong>
                 <p>
-                    OpenAI Codex was used to help generate ideas and debug this implementation. 
-                    Dat Pham wrote and verified the implementation.
+                    OpenAI Codex was used to help develop, repair, and test this implementation.
+                    Dat Pham remains responsible for reviewing the module and its submission.
                 </p>
                 <p>Sample photographs sourced from Unsplash.</p>
             </div>
