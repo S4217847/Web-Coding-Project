@@ -117,7 +117,7 @@
             </article>
           </section>
 
-          <form class="reply-box" method="post">
+          <form id="reply-form" class="reply-box" method="post">
             <h2>Write a reply</h2>
 
             <label for="reply-content">Reply content</label>
@@ -128,6 +128,8 @@
               placeholder="Write a reply..."
               required
             ></textarea>
+
+            <div class="error" id="reply-error-text"></div>
 
             <div class="postfooter">
               <button class="postbtn" type="submit">Reply</button>
@@ -154,18 +156,19 @@
           <div class="itemtitle">Friends Online</div>
           <div class="frienditem">
             <div class="friendavatar"></div>
-            <div class="friendname">Jisoo Kim</div>
+            <div class="friendname">Kim</div>
           </div>
           <div class="frienditem">
             <div class="friendavatar"></div>
-            <div class="friendname">Minseo Lee</div>
+            <div class="friendname">Dat</div>
           </div>
           <div class="frienditem">
             <div class="friendavatar"></div>
-            <div class="friendname">Hyunwoo Park</div>
+            <div class="friendname">Hoang</div>
           </div>
         </div>
       </div>
     </main>
+    <script src="discussion-detail.js"></script>
   </body>
 </html>

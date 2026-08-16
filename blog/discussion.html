@@ -39,7 +39,12 @@
       </div>
 
       <div class="middle">
-        <form class="postbox" method="post" enctype="multipart/form-data">
+        <form
+          id="post-form"
+          class="postbox"
+          method="post"
+          enctype="multipart/form-data"
+        >
           <label for="post-title">Post title</label>
 
           <input
@@ -47,8 +52,11 @@
             name="post-title"
             type="text"
             placeholder="Enter a discussion title"
+            maxlength="100"
             required
           />
+
+          <div class="error" id="title-error-text"></div>
 
           <label for="post-image">Post image</label>
 
@@ -63,6 +71,8 @@
             required
           ></textarea>
 
+          <div class="error" id="content-error-text"></div>
+
           <div class="postfooter">
             <button class="postbtn" type="submit">Post</button>
           </div>
@@ -71,7 +81,11 @@
         <section class="discussion-list">
           <h1>Discussion Forum</h1>
 
-          <form class="discussion-filter" method="get">
+          <form
+            id="discussion-filter-form"
+            class="discussion-filter"
+            method="get"
+          >
             <div class="discussion-search">
               <label for="search-discussion">Search discussions</label>
 
@@ -214,18 +228,19 @@
           <div class="itemtitle">Friends Online</div>
           <div class="frienditem">
             <div class="friendavatar"></div>
-            <div class="friendname">Jisoo Kim</div>
+            <div class="friendname">Kim</div>
           </div>
           <div class="frienditem">
             <div class="friendavatar"></div>
-            <div class="friendname">Minseo Lee</div>
+            <div class="friendname">Dat</div>
           </div>
           <div class="frienditem">
             <div class="friendavatar"></div>
-            <div class="friendname">Hyunwoo Park</div>
+            <div class="friendname">Hoang</div>
           </div>
         </div>
       </div>
     </main>
+    <script src="discussion.js"></script>
   </body>
 </html>

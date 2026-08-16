@@ -67,6 +67,12 @@ nav ul li a:hover {
   text-align: center;
 }
 
+.error {
+  color: red;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
 /* ------------------ Common account result ------------------ */
 
 .common-account-result-page {

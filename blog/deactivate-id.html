@@ -40,11 +40,22 @@
           deactivated.
         </p>
 
-        <form class="deactivate-form" action="deactivated-success.html">
+        <form
+          id="deactivate-form"
+          class="deactivate-form"
+          action="deactivated-success.html"
+        >
           <label class="deactivate-checkbox">
-            <input type="checkbox" required />
+            <input
+              id="deactivate-id-confirm"
+              name="deactivate-id-confirm"
+              type="checkbox"
+              required
+            />
             I understand that my account will be deactivated.
           </label>
+
+          <div class="error" id="deactivate-error-text"></div>
 
           <button class="deactivatebutton" type="submit">
             Deactivate Account
@@ -56,5 +67,6 @@
         </p>
       </div>
     </div>
+    <script src="deactivate.js"></script>
   </body>
 </html>
