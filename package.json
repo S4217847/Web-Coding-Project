@@ -1,0 +1,26 @@
+{
+  "name": "web-coding-project",
+  "version": "1.0.0",
+  "description": "RMIT Connect Web Application:\r Discussion Board - Kim SeungUk - s4028530\r Blog -  Hoàng Hiểu Minh - s4199268\r Ratings and Review - Nguyễn Đắc Gia Hưng - s4217847\r Wishlist and Favourites - Phạm Trường Đạt - s4221230",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/S4217847/Web-Coding-Project.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/S4217847/Web-Coding-Project/issues"
+  },
+  "homepage": "https://github.com/S4217847/Web-Coding-Project#readme",
+  "dependencies": {
+    "ejs": "^6.0.1",
+    "express": "^5.2.1"
+  }
+}
