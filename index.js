@@ -10,7 +10,19 @@ function showHome(request, response) {
   response.render("index", { pageTitle: "RMIT Connect" });
 }
 
+function showDiscussions(request, response) {
+  response.render("discussion", { pageTitle: "Discussion Forum" });
+}
+
+function showDiscussionDetail(request, response) {
+  response.render("discussion-detail", {
+    pageTitle: "Discussion Details",
+  });
+}
+
 app.get("/", showHome);
+app.get("/discussions", showDiscussions);
+app.get("/discussions/:id", showDiscussionDetail);
 
 function startServer() {
   console.log("RMIT Connect is running on http://localhost:" + port);

@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= pageTitle %> | RMIT Connect</title>
+    <link rel="stylesheet" href="/css/common.css" />
+    <link rel="stylesheet" href="/css/discussion.css" />
+  </head>
+  <body>
+    <header>
+      <div class="logo">RMIT CONNECT</div>
+      <input
+        class="searchbar"
+        type="text"
+        placeholder="Search RMIT Connect..."
+      />
+      <nav>
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="/discussions">Discussions</a></li>
+          <li><a href="/blog/blog.html">My Blog</a></li>
+          <li><a href="/profile/profile.html">My Profile</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main class="page">
+      <div class="leftbar">
+        <div class="menu-card">
+          <ul>
+            <li><a href="#">My Feed</a></li>
+            <li><a href="#">My Clubs</a></li>
+            <li><a href="#">Saved Posts</a></li>
+            <li><a href="/Wishlist/wishlist.html">Favourites</a></li>
+            <li><a href="#">Settings</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="middle">
+        <section class="discussion-detail">
+          <a class="back-link" href="/discussions">Back to discussions</a>
+          <h1>Discussion Forum</h1>
+
+          <article class="discussion-post">
+            <div class="discussion-post-header">
+              <div class="user-info">
+                <img
+                  class="user-avatar"
+                  src="/images/user_icon.png"
+                  alt="User profile icon"
+                />
+                <div>
+                  <p class="post-author">Jisoo Kim</p>
+                  <p class="post-course">Bachelor of Information Technology</p>
+                </div>
+              </div>
+              <p class="post-time">Today, 10:30 AM</p>
+            </div>
+            <h2>Where can I get help with HTML and CSS?</h2>
+            <img
+              class="post-image"
+              src="/images/peer-workshop.jpg"
+              alt="Three students talking at a table with laptops"
+            />
+            <p class="post-content">
+              I am new to web programming. Is there a beginner-friendly workshop
+              where I can practice HTML and CSS with other students?
+            </p>
+            <div class="discussion-post-footer">
+              <span>2 replies</span>
+            </div>
+          </article>
+
+          <section class="reply-list">
+            <h2>Replies</h2>
+
+            <article class="reply-card">
+              <div class="reply-header">
+                <div class="user-info">
+                  <img
+                    class="user-avatar"
+                    src="/images/user_icon.png"
+                    alt="User profile icon"
+                  />
+                  <div>
+                    <p class="post-author">Minjun Lee</p>
+                    <p class="post-course">
+                      Bachelor of Information Technology
+                    </p>
+                  </div>
+                </div>
+                <p class="post-time">Today, 10:42 AM</p>
+              </div>
+              <p class="reply-content">
+                The peer workshop is beginner-friendly. Student mentors can help
+                you with basic HTML and CSS exercises.
+              </p>
+            </article>
+
+            <article class="reply-card">
+              <div class="reply-header">
+                <div class="user-info">
+                  <img
+                    class="user-avatar"
+                    src="/images/user_icon.png"
+                    alt="User profile icon"
+                  />
+                  <div>
+                    <p class="post-author">Yuna Park</p>
+                    <p class="post-course">Bachelor of Software Engineering</p>
+                  </div>
+                </div>
+                <p class="post-time">Today, 11:05 AM</p>
+              </div>
+              <p class="reply-content">
+                You can check the Upcoming Events area for the next session.
+                Bring your laptop if you want to practise.
+              </p>
+            </article>
+          </section>
+
+          <form id="reply-form" class="reply-box" method="post">
+            <h2>Write a reply</h2>
+
+            <label for="reply-title">Reply Title</label>
+
+            <input
+              id="reply-title"
+              name="replyTitle"
+              type="text"
+              placeholder="Enter the reply title"
+              maxlength="100"
+              required
+            />
+
+            <div class="error" id="reply-title-error-text"></div>
+
+            <label for="reply-image">Reply image</label>
+
+            <select id="reply-image" name="replyImage" required>
+              <option value="" selected>Choose an image</option>
+              <option value="peer-workshop.jpg">Peer Workshop</option>
+              <option value="RMIT_campus.png">RMIT Campus</option>
+              <option value="saigonview.jpg">Saigon View</option>
+            </select>
+
+            <div class="error" id="reply-image-error-text"></div>
+
+            <label for="reply-content">Reply Content</label>
+
+            <textarea
+              id="reply-content"
+              name="replyContent"
+              placeholder="Write a reply..."
+              required
+            ></textarea>
+
+            <div class="error" id="reply-error-text"></div>
+
+            <div class="postfooter">
+              <button class="postbtn" type="submit">Reply</button>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      <div class="rightbar">
+        <div class="itembar">
+          <div class="itemtitle">Upcoming Events</div>
+          <div class="eventitem">
+            <span class="eventdate">Jul #</span> - Coding Contest
+          </div>
+          <div class="eventitem">
+            <span class="eventdate">Jul #</span> - Something Contest
+          </div>
+          <div class="eventitem">
+            <span class="eventdate">Jul #</span> - Contest Contest
+          </div>
+        </div>
+
+        <div class="itembar">
+          <div class="itemtitle">Friends Online</div>
+          <div class="frienditem">
+            <div class="friendavatar"></div>
+            <div class="friendname">Kim</div>
+          </div>
+          <div class="frienditem">
+            <div class="friendavatar"></div>
+            <div class="friendname">Dat</div>
+          </div>
+          <div class="frienditem">
+            <div class="friendavatar"></div>
+            <div class="friendname">Hoang</div>
+          </div>
+        </div>
+      </div>
+    </main>
+    <script src="/js/discussion-detail.js"></script>
+  </body>
+</html>
