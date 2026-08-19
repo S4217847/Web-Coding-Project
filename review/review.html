@@ -28,45 +28,12 @@
             <div class="pageBannerInner">
                 <div class="pageBannerText">
                     <h1 class="pageTitle">Reviews</h1>
-                    
                 </div>
                 <div class="pageBannerButtonCell">
-                    <button class="newReviewBtn" type="button">+ New Review</button>
+                    <a class="newReviewBtn" href="/review/review-browse.html">Browse All Reviews</a>
                 </div>
             </div>
         </div>
-
-        <section class="section">
-            <div class="sectionCard">
-                <form class="filterBar" action="/reviews/search" method="get">
-                    <div class="filterBarCell">
-                        <label class="visuallyHiddenLabel" for="reviewSearch">Search reviews</label>
-                        <input class="filterInput" id="reviewSearch" name="query" type="text"
-                            placeholder="Search by title, description, or reviewer...">
-                    </div>
-                    <div class="filterBarCell" style="width: 150px;">
-                        <label class="visuallyHiddenLabel" for="ratingFilter">Filter by rating</label>
-                        <select class="filterSelect" id="ratingFilter" name="rating">
-                            <option value="">Any rating</option>
-                            <option value="5">5 stars</option>
-                            <option value="4">4+ stars</option>
-                            <option value="3">3+ stars</option>
-                        </select>
-                    </div>
-                    <div class="filterBarCell" style="width: 150px;">
-                        <label class="visuallyHiddenLabel" for="sortOrder">Sort by date</label>
-                        <select class="filterSelect" id="sortOrder" name="sort">
-                            <option value="">Sort by date</option>
-                            <option value="newest">Newest first</option>
-                            <option value="oldest">Oldest first</option>
-                        </select>
-                    </div>
-                    <div class="filterBarCell" style="width: 110px; padding-right: 0px;">
-                        <button class="filterButton" type="submit">Search</button>
-                    </div>
-                </form>
-            </div>
-        </section>
 
         <section class="section">
             <div class="sectionCard">
@@ -82,6 +49,7 @@
 
                     <label for="reviewRating">Star Rating</label>
                     <select id="reviewRating" name="rating">
+                        <option value="">Select a rating</option>
                         <option value="5">5 stars</option>
                         <option value="4">4 stars</option>
                         <option value="3">3 stars</option>
@@ -100,7 +68,7 @@
 
                     <div class="formActions">
                         <div class="formActionsCell">
-                            <button class="btnPrimary" type="submit">Save Review</button>
+                            <button class="btnPrimary" type="submit" disabled>Save Review</button>
                         </div>
                         <div class="formActionsCell">
                             <button class="btnSecondary" type="reset">Cancel</button>
@@ -114,91 +82,14 @@
             <div class="sectionCard">
                 <h2 class="sectionLabel">Your Reviews</h2>
 
-                <ul class="reviewList">
-
-                    <li>
-                        <article class="reviewListItem">
-                            <div class="reviewThumbnailCell">
-                                <img class="reviewThumbnail" src="thumbnail.jpg"
-                                    alt="Thumbnail image for the review titled Best intro course I've taken">
-                            </div>
-                            <div class="reviewListContentCell">
-                                <h3 class="reviewListTitle">
-                                    <a href="/review/reviewdetail.html">Best intro course I've taken</a>
-                                </h3>
-                                <p class="reviewListSummary">Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                                    Curabitur ipsum nisi, euismod eu justo at, vulputate porttitor tellus.</p>
-                                <p class="reviewListMeta">
-                                    <span class="stars" aria-label="5 out of 5 stars">★★★★★</span>
-                                    <span>Hung</span>
-                                    <span>Added 12 Jul 2026</span>
-                                </p>
-                            </div>
-                            <div class="reviewListActionsCell">
-                                <a href="/review/reviewdetail.html" class="actionView">View</a>
-                                <a href="/review/reviewedit.html" class="actionEdit">Edit</a>
-                                <a href="/reviews/delete" class="actionDelete">Delete</a>
-                            </div>
-                        </article>
-                    </li>
-
-                    <li>
-                        <article class="reviewListItem">
-                            <div class="reviewThumbnailCell">
-                                <img class="reviewThumbnail" src="thumbnail.jpg"
-                                    alt="Thumbnail image for the review titled Good content, heavy workload">
-                            </div>
-                            <div class="reviewListContentCell">
-                                <h3 class="reviewListTitle">
-                                    <a href="/review/reviewdetail.html">Good content, heavy workload</a>
-                                </h3>
-                                <p class="reviewListSummary">Aliquam congue tincidunt magna in imperdiet. Maecenas
-                                    dapibus tellus nisl, id placerat nulla feugiat quis.</p>
-                                <p class="reviewListMeta">
-                                    <span class="stars" aria-label="4 out of 5 stars">★★★★</span>
-                                    <span>Kim</span>
-                                    <span>Added 9 Jul 2026</span>
-                                </p>
-                            </div>
-                            <div class="reviewListActionsCell">
-                                <a href="/review/reviewdetail.html" class="actionView">View</a>
-                                <a href="/review/reviewedit.html" class="actionEdit">Edit</a>
-                                <a href="/reviews/delete" class="actionDelete">Delete</a>
-                            </div>
-                        </article>
-                    </li>
-
-                    <li>
-                        <article class="reviewListItem">
-                            <div class="reviewThumbnailCell">
-                                <img class="reviewThumbnail" src="thumbnail.jpg"
-                                    alt="Thumbnail image for the review titled Would not recommend this elective">
-                            </div>
-                            <div class="reviewListContentCell">
-                                <h3 class="reviewListTitle">
-                                    <a href="/review/reviewdetail.html">Would not recommend this elective</a>
-                                </h3>
-                                <p class="reviewListSummary">Sed eu congue leo. Nullam venenatis, massa ut congue
-                                    lacinia, est nisl tincidunt augue, in viverra elit felis ac sapien.</p>
-                                <p class="reviewListMeta">
-                                    <span class="stars" aria-label="2 out of 5 stars">★★</span>
-                                    <span>Dat</span>
-                                    <span>Added 3 Jul 2026</span>
-                                </p>
-                            </div>
-                            <div class="reviewListActionsCell">
-                                <a href="/review/reviewdetail.html" class="actionView">View</a>
-                                <a href="/review/reviewedit.html" class="actionEdit">Edit</a>
-                                <a href="/reviews/delete" class="actionDelete">Delete</a>
-                            </div>
-                        </article>
-                    </li>
-
+                <ul class="reviewList" id="myReviewListContainer">
                 </ul>
             </div>
         </section>
 
     </main>
+    <script src="shared.js"></script>
+    <script src="review.js"></script>
 </body>
 
 </html>
