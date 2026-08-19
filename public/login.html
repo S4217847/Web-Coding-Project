@@ -5,10 +5,14 @@
     <meta charset="UTF-8"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Log In | RMIT Connect</title>
-    <link rel="stylesheet" href="account.css">
+    <link rel="stylesheet" href="css/account.css">
+    <link rel="stylesheet" href="css/app.css">
+    <script type="module" src="js/login.js"></script>
 </head>
 
 <body id="top">
+    <a class="skipLink" href="#main-content">Skip to main content</a>
+    <!-- Public shell; session hooks reveal authenticated controls when appropriate. -->
     <header class="siteHeader">
         <a class="logo" href="login.html">RMIT CONNECT</a>
 
@@ -28,9 +32,16 @@
                 <li><a href="admin.html">Administration</a></li>
             </ul>
         </nav>
+
+        <span class="currentUser" data-current-user hidden></span>
+
+        <button class="headerButton" type="button" data-logout hidden>
+            Log Out
+        </button>
     </header>
 
-    <main>
+    <!-- Login is the session-creation entry point for protected pages. -->
+    <main id="main-content">
         <section class="pageBanner">
             <div class="pageBannerInner">
                 <div>
@@ -40,41 +51,70 @@
             </div>
         </section>
 
-        <section class="accountSection">
+        <section class="accountSection" aria-labelledby="login-heading">
             <div class="loginLayout">
                 <div class="formCard">
-                    <h2>Log In</h2>
+                    <h2 id="login-heading">Log In</h2>
                     <p class="cardIntro">
                         Enter your username or RMIT email address and password.
                     </p>
 
-                    <form class="accountForm">
+                    <!-- login.js announces client and server validation outcomes here. -->
+                    <div id="loginMessage"
+                        class="notice"
+                        role="status"
+                        aria-live="polite"
+                        hidden>
+                    </div>
+
+                    <!-- novalidate lets the shared accessible error pattern own feedback. -->
+                    <form id="loginForm" class="accountForm" novalidate>
                         <div class="formField">
                             <label for="loginIdentity">Username or Email</label>
                             <input id="loginIdentity"
-                                name="loginIdentity"
+                                name="identity"
                                 type="text"
                                 placeholder="dat.pham or s4221230@rmit.edu.vn"
                                 autocomplete="username"
+                                maxlength="100"
+                                aria-describedby="identityError"
                                 required>
+
+                            <small id="identityError"
+                                class="fieldError"
+                                data-error-for="identity"
+                                hidden>
+                            </small>
                         </div>
 
                         <div class="formField">
                             <label for="loginPassword">Password</label>
                             <input id="loginPassword"
-                                name="loginPassword"
+                                name="password"
                                 type="password"
                                 placeholder="Enter your password"
                                 autocomplete="current-password"
+                                maxlength="200"
+                                aria-describedby="passwordError"
                                 required>
+
+                            <small id="passwordError"
+                                class="fieldError"
+                                data-error-for="password"
+                                hidden>
+                            </small>
                         </div>
 
-                        <label class="checkboxField">
-                            <input type="checkbox" name="rememberAccount">
-                            Remember my username on this device
+                        <label class="checkboxField" for="rememberAccount">
+                            <input id="rememberAccount"
+                                name="rememberAccount"
+                                type="checkbox">
+                            Remember my username on this device (never my password)
                         </label>
 
-                        <button class="primaryButton fullButton" type="submit">
+                        <button id="loginSubmit"
+                                class="primaryButton fullButton"
+                                type="submit">
                             Log In
                         </button>
                     </form>
@@ -87,11 +127,12 @@
         </section>
     </main>
 
+    <!-- Shared project navigation and required acknowledgement. -->
     <footer class="siteFooter">
         <div class="footerInner">
             <div class="footerBrand">
                 <strong>RMIT CONNECT</strong>
-                <p>A static student community prototype.</p>
+                <p>A full-stack student community demo.</p>
             </div>
 
             <nav class="footerNav" aria-label="Footer navigation">
@@ -104,8 +145,8 @@
             <div class="aiAcknowledgement">
                 <strong>AI Use Acknowledgement</strong>
                 <p>
-                    OpenAI Codex was used to help generate ideas and debug this implementation.
-                    Dat Pham wrote and verified the implementation.
+                    OpenAI Codex assisted with implementation guidance, debugging, documentation, and testing.
+                    Dat Pham developed, reviewed, understood, and verified the final implementation.
                 </p>
             </div>
         </div>
