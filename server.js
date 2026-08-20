@@ -2,11 +2,12 @@
 const express = require("express");
 const path = require("path");
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "public")));
+// The Review HTML, CSS and JavaScript already live in /review from Assessment 1.
+app.use(express.static(__dirname));
 
 let reviews = [
   {
@@ -84,34 +85,39 @@ function getLoggedInUserId(req) {
 }
 function validateReviewBody(body) {
   const errors = {};
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  const description = typeof body.description === "string" ? body.description.trim() : "";
+  const reviewerName = typeof body.reviewerName === "string" ? body.reviewerName.trim() : "";
 
-  if (!body.title || body.title.trim().length < 5) {
-    errors.title = "Title is required and must be at least 5 characters.";
+  if (title.length < 5 || title.length > 100) {
+    errors.title = "Title must be between 5 and 100 characters.";
   }
-  if (!body.description || body.description.trim().length < 20) {
-    errors.description = "Description is required and must be at least 20 characters.";
+  if (description.length < 20 || description.length > 1000) {
+    errors.description = "Description must be between 20 and 1000 characters.";
   }
   const rating = Number(body.rating);
   if (!rating || rating < 1 || rating > 5) {
     errors.rating = "Rating must be a number between 1 and 5.";
   }
-  if (!body.reviewerName || body.reviewerName.trim().length < 2) {
-    errors.reviewerName = "Reviewer name is required.";
+  if (reviewerName.length < 2 || reviewerName.length > 50) {
+    errors.reviewerName = "Reviewer name must be between 2 and 50 characters.";
   }
 
   return errors;
 }
-app.get("/reviews", (req, res) => {
+// Keep API URLs separate from page URLs such as /reviews. This prevents
+// review.js from receiving rendered HTML when it expects JSON data.
+app.get("/api/reviews", (req, res) => {
   res.json(reviews);
 });
-app.get("/reviews/:id", (req, res) => {
+app.get("/api/reviews/:id", (req, res) => {
   const review = reviews.find(r => String(r.id) === req.params.id);
   if (!review) {
     return res.status(404).json({ error: "Review not found." });
   }
   res.json(review);
 });
-app.post("/reviews", (req, res) => {
+app.post("/api/reviews", (req, res) => {
   const errors = validateReviewBody(req.body);
   if (Object.keys(errors).length > 0) {
     return res.status(400).json({ errors });
@@ -133,7 +139,7 @@ app.post("/reviews", (req, res) => {
   res.status(201).json(newReview);
 });
 
-app.put("/reviews/:id", (req, res) => {
+app.put("/api/reviews/:id", (req, res) => {
   const review = reviews.find(r => String(r.id) === req.params.id);
   if (!review) {
     return res.status(404).json({ error: "Review not found." });
@@ -155,7 +161,7 @@ app.put("/reviews/:id", (req, res) => {
   res.json(review);
 });
 
-app.delete("/reviews/:id", (req, res) => {
+app.delete("/api/reviews/:id", (req, res) => {
   const review = reviews.find(r => String(r.id) === req.params.id);
   if (!review) {
     return res.status(404).json({ error: "Review not found." });

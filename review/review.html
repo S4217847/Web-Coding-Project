@@ -38,17 +38,17 @@
         <section class="section">
             <div class="sectionCard">
                 <h2 class="sectionLabel">Make a Review</h2>
-                <form class="reviewForm" action="/reviews/create" method="post" enctype="multipart/form-data">
+                <form class="reviewForm" data-mode="create" novalidate>
 
                     <label for="reviewTitle">Title</label>
-                    <input id="reviewTitle" name="title" type="text" placeholder="Lorem ipsum dolor sit amet">
+                    <input id="reviewTitle" name="title" type="text" maxlength="100" required placeholder="Lorem ipsum dolor sit amet">
 
                     <label for="reviewDescription">Description</label>
-                    <textarea id="reviewDescription" name="description"
+                    <textarea id="reviewDescription" name="description" maxlength="1000" required
                         placeholder="Lorem ipsum dolor sit amet, consectetur adipiscing elit."></textarea>
 
                     <label for="reviewRating">Star Rating</label>
-                    <select id="reviewRating" name="rating">
+                    <select id="reviewRating" name="rating" required>
                         <option value="">Select a rating</option>
                         <option value="5">5 stars</option>
                         <option value="4">4 stars</option>
@@ -58,7 +58,7 @@
                     </select>
 
                     <label for="reviewerName">Reviewer Name</label>
-                    <input id="reviewerName" name="reviewerName" type="text" placeholder="Your name">
+                    <input id="reviewerName" name="reviewerName" type="text" maxlength="50" required placeholder="Your name">
 
                     <label for="reviewImage">Image</label>
                     <div class="imageUploadBox">
@@ -88,7 +88,6 @@
         </section>
 
     </main>
-    <script src="shared.js"></script>
     <script src="review.js"></script>
 </body>
 

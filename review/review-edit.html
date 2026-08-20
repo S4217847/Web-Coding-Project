@@ -26,23 +26,22 @@
         <section class="section">
             <div class="sectionCard">
 
-                <a href="/review/review-detail.html?id=1" class="backLink">Back to review</a>
+                <a href="/review/review-browse.html" class="backLink">Back to review</a>
 
                 <h1 class="sectionLabel">Edit Review</h1>
 
-                <form class="reviewForm" action="/reviews/update" method="post" enctype="multipart/form-data">
-
-                    <input type="hidden" name="id" value="1">
+                <form class="reviewForm" data-mode="edit" novalidate>
 
                     <label for="reviewTitle">Title</label>
-                    <input id="reviewTitle" name="title" type="text" value="Best intro course I've taken">
+                    <input id="reviewTitle" name="title" type="text" maxlength="100" required>
 
                     <label for="reviewDescription">Description</label>
-                    <textarea id="reviewDescription" name="description">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur ipsum nisi, euismod eu justo at, vulputate porttitor tellus.</textarea>
+                    <textarea id="reviewDescription" name="description" maxlength="1000" required></textarea>
 
                     <label for="reviewRating">Star Rating</label>
-                    <select id="reviewRating" name="rating">
-                        <option value="5" selected>5 stars</option>
+                    <select id="reviewRating" name="rating" required>
+                        <option value="">Select a rating</option>
+                        <option value="5">5 stars</option>
                         <option value="4">4 stars</option>
                         <option value="3">3 stars</option>
                         <option value="2">2 stars</option>
@@ -50,7 +49,7 @@
                     </select>
 
                     <label for="reviewerName">Reviewer Name</label>
-                    <input id="reviewerName" name="reviewerName" type="text" value="Hung">
+                    <input id="reviewerName" name="reviewerName" type="text" maxlength="50" required>
 
                     <label for="reviewImage">Image</label>
                     <div class="imageUploadBox">
@@ -63,7 +62,7 @@
                             <button class="btnPrimary" type="submit">Save Changes</button>
                         </div>
                         <div class="formActionsCell">
-                            <a class="btnSecondary" href="/review/review-detail.html?id=1">Cancel</a>
+                            <a class="btnSecondary" href="/review/review-browse.html">Cancel</a>
                         </div>
                     </div>
                 </form>
@@ -71,7 +70,6 @@
         </section>
 
     </main>
-    <script src="shared.js"></script>
     <script src="review.js"></script>
 </body>
 

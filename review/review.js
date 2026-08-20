@@ -1,468 +1,248 @@
+document.addEventListener("DOMContentLoaded", function () {
+  // Replace this one demo user with the group's shared login user when available.
+  const currentUser = { id: "1" };
+  // Page URLs and API URLs are separate so fetch() always receives JSON.
+  const api = "/api/reviews";
+  const getId = function () { return new URLSearchParams(location.search).get("id"); };
 
-document.addEventListener("DOMContentLoaded", function () 
-{
-  function getCurrentUser() {
-    if (typeof window.getCurrentUser === "function" && window.getCurrentUser !== getCurrentUser) {
-      return window.getCurrentUser();
-    }
-    return {
-      id: "1",
-      username: "hung",
-      email: "hung@student.rmit.edu.au"
-    };
+  function request(url, options) {
+    return fetch(url, options).then(function (response) {
+      if (response.status === 204) return null;
+      return response.json().then(function (data) {
+        if (!response.ok) {
+          const error = new Error(data.error || "The request could not be completed.");
+          error.fields = data.errors;
+          throw error;
+        }
+        return data;
+      });
+    });
   }
 
-  const reviewForm = document.querySelector(".reviewForm");
+  function text(tag, className, value) {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    element.textContent = value;
+    return element;
+  }
 
-  if (reviewForm) {
-    const titleInput = reviewForm.querySelector("#reviewTitle");
-    const descriptionInput = reviewForm.querySelector("#reviewDescription");
-    const ratingSelect = reviewForm.querySelector("#reviewRating");
-    const reviewerInput = reviewForm.querySelector("#reviewerName");
-    const imageInput = reviewForm.querySelector("#reviewImage");
-    const submitBtn = reviewForm.querySelector(".btnPrimary");
+  // Build review content safely and preserve the Assessment 1 CSS classes.
+  function reviewCard(review) {
+    const article = text("article", "reviewListItem", "");
+    const imageCell = text("div", "reviewThumbnailCell", "");
+    const image = document.createElement("img");
+    image.className = "reviewThumbnail";
+    image.src = review.imageUrl;
+    image.alt = "Thumbnail for " + review.title;
+    imageCell.appendChild(image);
+    const content = text("div", "reviewListContentCell", "");
+    const heading = text("h3", "reviewListTitle", "");
+    const title = text("a", "", review.title);
+    title.href = "/review/review-detail.html?id=" + review.id;
+    heading.appendChild(title);
+    const meta = text("p", "reviewListMeta", "");
+    const stars = text("span", "stars", "★".repeat(review.rating));
+    stars.setAttribute("aria-label", review.rating + " out of 5 stars");
+    meta.append(stars, text("span", "", review.reviewerName), text("span", "", "Added " + review.createdAt));
+    content.append(heading, text("p", "reviewListSummary", review.description.slice(0, 140)), meta);
+    const actions = text("div", "reviewListActionsCell", "");
+    function action(label, className, href) {
+      const link = text("a", className, label);
+      link.href = href;
+      actions.appendChild(link);
+      return link;
+    }
+    action("View", "actionView", "/review/review-detail.html?id=" + review.id);
+    if (String(review.userId) === currentUser.id) {
+      action("Edit", "actionEdit", "/review/review-edit.html?id=" + review.id);
+      const remove = action("Delete", "actionDelete", "#");
+      remove.dataset.reviewId = review.id;
+    }
+    article.append(imageCell, content, actions);
+    return article;
+  }
 
-    const rules = {
-      reviewTitle: function (value) {
-        if (value.trim().length === 0) return "Title is required.";
-        if (value.trim().length < 5) return "Title must be at least 5 characters.";
-        if (value.trim().length > 100) return "Title must be under 100 characters.";
-        return "";
-      },
-      reviewDescription: function (value) {
-        if (value.trim().length === 0) return "Description is required.";
-        if (value.trim().length < 20) return "Description must be at least 20 characters.";
-        return "";
-      },
-      reviewRating: function (value) {
-        if (!value) return "Please select a star rating.";
-        return "";
-      },
-      reviewerName: function (value) {
-        if (value.trim().length === 0) return "Reviewer name is required.";
-        if (value.trim().length < 2) return "Name must be at least 2 characters.";
-        return "";
+  function listMessage(list, message) { list.replaceChildren(text("li", "", message)); }
+
+  const form = document.querySelector(".reviewForm");
+  if (form) {
+    const titleInput = form.querySelector("#reviewTitle");
+    const descriptionInput = form.querySelector("#reviewDescription");
+    const ratingInput = form.querySelector("#reviewRating");
+    const nameInput = form.querySelector("#reviewerName");
+    const imageInput = form.querySelector("#reviewImage");
+    const submit = form.querySelector(".btnPrimary");
+    const fields = [titleInput, descriptionInput, ratingInput, nameInput];
+    const isEdit = form.dataset.mode === "edit";
+    const id = isEdit ? getId() : null;
+    const draftKey = isEdit ? "reviewEditDraft-" + id : "reviewCreateDraft";
+    const limits = { reviewTitle: [5, 100, "Title"], reviewDescription: [20, 1000, "Description"], reviewerName: [2, 50, "Name"] };
+
+    function errorFor(input) {
+      let error = form.querySelector(".fieldError[data-for='" + input.id + "']");
+      if (!error) {
+        error = text("span", "fieldError", "");
+        error.dataset.for = input.id;
+        input.insertAdjacentElement("afterend", error);
       }
-    };
-
-    function getErrorElement(input) {
-      let errorEl = input.parentElement.querySelector(".fieldError");
-      if (!errorEl) {
-        errorEl = document.createElement("span");
-        errorEl.className = "fieldError";
-        input.insertAdjacentElement("afterend", errorEl);
+      return error;
+    }
+    function validate(input) {
+      let message = "";
+      if (input.id === "reviewRating") message = ["1", "2", "3", "4", "5"].includes(input.value) ? "" : "Please select a rating from 1 to 5.";
+      else {
+        const rule = limits[input.id];
+        const length = input.value.trim().length;
+        if (length < rule[0]) message = rule[2] + " must be at least " + rule[0] + " characters.";
+        if (length > rule[1]) message = rule[2] + " must be " + rule[1] + " characters or less.";
       }
-      return errorEl;
+      errorFor(input).textContent = message;
+      input.classList.toggle("inputInvalid", Boolean(message));
+      input.classList.toggle("inputValid", !message);
+      return !message;
     }
-
-    function validateField(input) {
-      const rule = rules[input.id];
-      if (!rule) return true;
-
-      const message = rule(input.value);
-      const errorEl = getErrorElement(input);
-
-      if (message) {
-        errorEl.textContent = message;
-        input.classList.add("inputInvalid");
-        input.classList.remove("inputValid");
-        return false;
-      } else {
-        errorEl.textContent = "";
-        input.classList.remove("inputInvalid");
-        input.classList.add("inputValid");
-        return true;
+    function validateAll() {
+      const valid = fields.every(validate);
+      submit.disabled = !valid;
+      return valid;
+    }
+    function count(input, maximum) {
+      let counter = form.querySelector(".charCount[data-for='" + input.id + "']");
+      if (!counter) {
+        counter = text("span", "charCount", "");
+        counter.dataset.for = input.id;
+        input.insertAdjacentElement("afterend", counter);
       }
+      counter.textContent = input.value.length + " / " + maximum + " characters";
     }
-
-    function updateCharacterCount(input, max) {
-      let counterEl = input.parentElement.querySelector(".charCount");
-      if (!counterEl) {
-        counterEl = document.createElement("span");
-        counterEl.className = "charCount";
-        input.insertAdjacentElement("afterend", counterEl);
-      }
-      counterEl.textContent = input.value.length + " / " + max + " characters";
+    function saveDraft() {
+      localStorage.setItem(draftKey, JSON.stringify({ title: titleInput.value, description: descriptionInput.value, rating: ratingInput.value, reviewerName: nameInput.value }));
     }
-
-    function validateWholeForm() {
-      const fieldsToCheck = [titleInput, descriptionInput, ratingSelect, reviewerInput];
-      let allValid = true;
-      fieldsToCheck.forEach(function (input) {
-        if (input && !validateField(input)) {
-          allValid = false;
-        }
-      });
-      if (submitBtn) submitBtn.disabled = !allValid;
-      return allValid;
-    }
-
-    [titleInput, descriptionInput, ratingSelect, reviewerInput].forEach(function (input) {
-      if (!input) return;
-      input.addEventListener("input", function () {
-        validateField(input);
-        validateWholeForm();
-        saveDraftToStorage();
-      });
-      input.addEventListener("blur", function () {
-        validateField(input);
-      });
-    });
-
-    if (titleInput) titleInput.addEventListener("input", function () {
-      updateCharacterCount(titleInput, 100);
-    });
-    if (descriptionInput) descriptionInput.addEventListener("input", function () {
-      updateCharacterCount(descriptionInput, 1000);
-    });
-
-    if (imageInput) {
-      imageInput.addEventListener("change", function () {
-        const errorEl = getErrorElement(imageInput);
-        const file = imageInput.files[0];
-        if (!file) {
-          errorEl.textContent = "";
-          return;
-        }
-        const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
-        const maxSizeBytes = 5 * 1024 * 1024;
-
-        if (!allowedTypes.includes(file.type)) {
-          errorEl.textContent = "Image must be a JPG, PNG, or WEBP file.";
-          imageInput.value = "";
-        } else if (file.size > maxSizeBytes) {
-          errorEl.textContent = "Image must be under 5MB.";
-          imageInput.value = "";
-        } else {
-          errorEl.textContent = "";
-        }
-      });
-    }
-
-    const isEditForm = reviewForm.getAttribute("action") === "/reviews/update";
-    const reviewIdField = reviewForm.querySelector("input[name='id']");
-    const storageKey = isEditForm
-      ? "reviewEditDraft-" + (reviewIdField ? reviewIdField.value : "unknown")
-      : "reviewCreateDraft";
-
-    function saveDraftToStorage() {
-      const draft = {
-        title: titleInput ? titleInput.value : "",
-        description: descriptionInput ? descriptionInput.value : "",
-        rating: ratingSelect ? ratingSelect.value : "",
-        reviewerName: reviewerInput ? reviewerInput.value : ""
-      };
-      localStorage.setItem(storageKey, JSON.stringify(draft));
-    }
-
-    function restoreDraftFromStorage() {
-      const saved = localStorage.getItem(storageKey);
-      if (!saved) return;
-
+    function restoreDraft() {
       try {
-        const draft = JSON.parse(saved);
-        if (titleInput && draft.title) titleInput.value = draft.title;
-        if (descriptionInput && draft.description) descriptionInput.value = draft.description;
-        if (ratingSelect && draft.rating) ratingSelect.value = draft.rating;
-        if (reviewerInput && draft.reviewerName) reviewerInput.value = draft.reviewerName;
-      } catch (error) {
-        console.error("Could not restore saved draft:", error);
-      }
+        const draft = JSON.parse(localStorage.getItem(draftKey));
+        if (!draft) return;
+        titleInput.value = draft.title || "";
+        descriptionInput.value = draft.description || "";
+        ratingInput.value = draft.rating || "";
+        nameInput.value = draft.reviewerName || "";
+      } catch (error) { localStorage.removeItem(draftKey); }
     }
-
-    function clearDraftFromStorage() {
-      localStorage.removeItem(storageKey);
+    function refreshForm() { count(titleInput, 100); count(descriptionInput, 1000); validateAll(); }
+    function populate(review) {
+      titleInput.value = review.title;
+      descriptionInput.value = review.description;
+      ratingInput.value = review.rating;
+      nameInput.value = review.reviewerName;
+      const detail = "/review/review-detail.html?id=" + review.id;
+      document.querySelector(".backLink").href = detail;
+      form.querySelector(".btnSecondary").href = detail;
     }
-
-    if (!isEditForm) {
-      restoreDraftFromStorage();
-    }
-    validateWholeForm();
-
-    const cancelBtn = reviewForm.querySelector(".btnSecondary");
-    if (cancelBtn) {
-      cancelBtn.addEventListener("click", function () {
-        clearDraftFromStorage();
-      });
-    }
-
-    reviewForm.addEventListener("submit", function (event) {
+    fields.forEach(function (input) {
+      input.addEventListener("input", function () { validate(input); refreshForm(); saveDraft(); });
+      input.addEventListener("change", function () { validate(input); refreshForm(); saveDraft(); });
+      input.addEventListener("blur", function () { validate(input); });
+    });
+    if (imageInput) imageInput.addEventListener("change", function () {
+      const file = imageInput.files[0];
+      if (!file) return;
+      const allowed = ["image/jpeg", "image/png", "image/webp"].includes(file.type);
+      const smallEnough = file.size <= 5 * 1024 * 1024;
+      const error = errorFor(imageInput);
+      error.textContent = allowed && smallEnough ? "" : "Image must be a JPG, PNG or WEBP file under 5 MB.";
+      if (!allowed || !smallEnough) imageInput.value = "";
+    });
+    if (isEdit) {
+      if (!id) form.replaceWith(text("p", "fieldError", "No review was selected for editing."));
+      else request(api + "/" + id).then(function (review) {
+        if (String(review.userId) !== currentUser.id) throw new Error("You can only edit your own reviews.");
+        populate(review);
+        restoreDraft(); // Edit drafts are restored after the server review is loaded.
+        refreshForm();
+      }).catch(function (error) { form.replaceWith(text("p", "fieldError", error.message)); });
+    } else { restoreDraft(); refreshForm(); }
+    form.addEventListener("reset", function () { setTimeout(function () { localStorage.removeItem(draftKey); refreshForm(); }, 0); });
+    const cancel = form.querySelector(".btnSecondary");
+    if (cancel) cancel.addEventListener("click", function () { localStorage.removeItem(draftKey); });
+    form.addEventListener("submit", function (event) {
       event.preventDefault();
-
-      if (!validateWholeForm()) {
-        return;
-      }
-
-      const formData = new FormData(reviewForm);
-      const url = isEditForm
-        ? "/reviews/" + (reviewIdField ? reviewIdField.value : "")
-        : "/reviews";
-      const method = isEditForm ? "PUT" : "POST";
-
-      fetch(url, {
-        method: method,
-        body: formData
-      })
-        .then(function (response) {
-          if (!response.ok) {
-            throw new Error("Server rejected the review, check the required fields.");
-          }
-          return response.json();
-        })
-        .then(function (savedReview) {
-          clearDraftFromStorage();
-          window.location.href = "/review/review-detail.html?id=" + savedReview.id;
-        })
-        .catch(function (error) {
-          alert(error.message);
+      if (!validateAll()) return;
+      request(isEdit ? api + "/" + id : api, {
+        method: isEdit ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: titleInput.value, description: descriptionInput.value, rating: ratingInput.value, reviewerName: nameInput.value })
+      }).then(function (review) {
+        localStorage.removeItem(draftKey);
+        location.href = "/review/review-detail.html?id=" + review.id;
+      }).catch(function (error) {
+        if (error.fields) Object.keys(error.fields).forEach(function (name) {
+          const field = form.querySelector("[name='" + name + "']");
+          if (field) errorFor(field).textContent = error.fields[name];
         });
+        else alert(error.message);
+      });
     });
   }
 
-  function buildReviewListItemHtml(review, currentUser) {
-    const isOwner = currentUser && String(review.userId) === String(currentUser.id);
-
-    return (
-      '<article class="reviewListItem">' +
-        '<div class="reviewThumbnailCell">' +
-          '<img class="reviewThumbnail" src="' + review.imageUrl + '" alt="Thumbnail image for the review titled ' + review.title + '">' +
-        "</div>" +
-        '<div class="reviewListContentCell">' +
-          '<h3 class="reviewListTitle"><a href="/review/review-detail.html?id=' + review.id + '">' + review.title + "</a></h3>" +
-          '<p class="reviewListSummary">' + review.description.slice(0, 140) + "</p>" +
-          '<p class="reviewListMeta">' +
-            '<span class="stars" aria-label="' + review.rating + ' out of 5 stars">' + "★".repeat(review.rating) + "</span>" +
-            "<span>" + review.reviewerName + "</span>" +
-            "<span>Added " + review.createdAt + "</span>" +
-          "</p>" +
-        "</div>" +
-        '<div class="reviewListActionsCell">' +
-          '<a href="/review/review-detail.html?id=' + review.id + '" class="actionView">View</a>' +
-          (isOwner ? '<a href="/review/review-edit.html?id=' + review.id + '" class="actionEdit">Edit</a>' : "") +
-          (isOwner ? '<a href="#" class="actionDelete" data-review-id="' + review.id + '">Delete</a>' : "") +
-        "</div>" +
-      "</article>"
-    );
-  }
-
-  const reviewListContainer = document.querySelector("#reviewListContainer");
-
-  if (reviewListContainer) {
-    const searchInput = document.querySelector("#browseSearch");
-    const ratingFilter = document.querySelector("#browseRating");
-    const sortOrder = document.querySelector("#browseSort");
-    const listCountEl = document.querySelector("#listCount");
-    const filterForm = document.querySelector(".filterBar");
-
-    let allReviews = [];
-
-    if (filterForm) {
-      filterForm.addEventListener("submit", function (event) {
-        event.preventDefault();
+  const browseList = document.querySelector("#reviewListContainer");
+  if (browseList) {
+    const search = document.querySelector("#browseSearch");
+    const rating = document.querySelector("#browseRating");
+    const sort = document.querySelector("#browseSort");
+    const count = document.querySelector("#listCount");
+    let reviews = [];
+    function render() {
+      const query = search.value.trim().toLowerCase();
+      const minimum = Number(rating.value) || 0;
+      const visible = reviews.filter(function (review) {
+        return review.rating >= minimum && [review.title, review.description, review.reviewerName].some(function (value) { return value.toLowerCase().includes(query); });
       });
+      visible.sort(function (a, b) { return sort.value === "oldest" ? new Date(a.createdAt) - new Date(b.createdAt) : sort.value === "newest" ? new Date(b.createdAt) - new Date(a.createdAt) : 0; });
+      browseList.replaceChildren();
+      visible.forEach(function (review) { const item = document.createElement("li"); item.appendChild(reviewCard(review)); browseList.appendChild(item); });
+      count.textContent = "Showing " + visible.length + " of " + reviews.length + " reviews";
     }
-
-    function fetchReviews() {
-      fetch("/reviews")
-        .then(function (response) {
-          if (!response.ok) throw new Error("Could not load reviews.");
-          return response.json();
-        })
-        .then(function (reviews) {
-          allReviews = reviews;
-          renderReviews();
-        })
-        .catch(function (error) {
-          reviewListContainer.innerHTML = "<li>" + error.message + "</li>";
-        });
-    }
-
-    function renderReviews() {
-      const currentUser = getCurrentUser();
-      const searchTerm = searchInput ? searchInput.value.trim().toLowerCase() : "";
-      const minRating = ratingFilter ? Number(ratingFilter.value) || 0 : 0;
-      const sortValue = sortOrder ? sortOrder.value : "";
-
-      let filtered = allReviews.filter(function (review) {
-        const matchesSearch =
-          searchTerm === "" ||
-          review.title.toLowerCase().includes(searchTerm) ||
-          review.description.toLowerCase().includes(searchTerm) ||
-          review.reviewerName.toLowerCase().includes(searchTerm);
-
-        const matchesRating = review.rating >= minRating;
-
-        return matchesSearch && matchesRating;
-      });
-
-      if (sortValue === "newest") {
-        filtered.sort(function (a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
-      } else if (sortValue === "oldest") {
-        filtered.sort(function (a, b) { return new Date(a.createdAt) - new Date(b.createdAt); });
-      }
-
-      reviewListContainer.innerHTML = "";
-
-      filtered.forEach(function (review) {
-        const li = document.createElement("li");
-        li.innerHTML = buildReviewListItemHtml(review, currentUser);
-        reviewListContainer.appendChild(li);
-      });
-
-      if (listCountEl) {
-        listCountEl.textContent = "Showing " + filtered.length + " of " + allReviews.length + " reviews";
-      }
-    }
-
-    if (searchInput) searchInput.addEventListener("input", renderReviews);
-    if (ratingFilter) ratingFilter.addEventListener("change", renderReviews);
-    if (sortOrder) sortOrder.addEventListener("change", renderReviews);
-
-    reviewListContainer.addEventListener("click", function (event) {
-      const deleteLink = event.target.closest(".actionDelete");
-      if (!deleteLink) return;
-
+    document.querySelector(".filterBar").addEventListener("submit", function (event) { event.preventDefault(); });
+    search.addEventListener("input", render); rating.addEventListener("change", render); sort.addEventListener("change", render);
+    browseList.addEventListener("click", function (event) {
+      const remove = event.target.closest(".actionDelete");
+      if (!remove) return;
       event.preventDefault();
-      const reviewId = deleteLink.getAttribute("data-review-id");
-      const confirmed = confirm("Delete this review? This cannot be undone.");
-      if (!confirmed) return;
-
-      fetch("/reviews/" + reviewId, { method: "DELETE" })
-        .then(function (response) {
-          if (!response.ok) throw new Error("Could not delete this review.");
-          allReviews = allReviews.filter(function (review) {
-            return String(review.id) !== String(reviewId);
-          });
-          renderReviews();
-        })
-        .catch(function (error) {
-          alert(error.message);
-        });
+      if (!confirm("Delete this review? This cannot be undone.")) return;
+      request(api + "/" + remove.dataset.reviewId, { method: "DELETE" }).then(function () { reviews = reviews.filter(function (review) { return String(review.id) !== remove.dataset.reviewId; }); render(); }).catch(function (error) { alert(error.message); });
     });
-
-    fetchReviews();
-  }
-  const myReviewListContainer = document.querySelector("#myReviewListContainer");
-
-  if (myReviewListContainer) {
-    const currentUser = getCurrentUser();
-
-    fetch("/reviews")
-      .then(function (response) {
-        if (!response.ok) throw new Error("Could not load your reviews.");
-        return response.json();
-      })
-      .then(function (reviews) {
-        const myReviews = reviews.filter(function (review) {
-          return currentUser && String(review.userId) === String(currentUser.id);
-        });
-
-        myReviewListContainer.innerHTML = "";
-
-        if (myReviews.length === 0) {
-          myReviewListContainer.innerHTML = "<li>You have not written any reviews yet.</li>";
-          return;
-        }
-
-        myReviews.forEach(function (review) {
-          const li = document.createElement("li");
-          li.innerHTML = buildReviewListItemHtml(review, currentUser);
-          myReviewListContainer.appendChild(li);
-        });
-      })
-      .catch(function (error) {
-        myReviewListContainer.innerHTML = "<li>" + error.message + "</li>";
-      });
-
-    myReviewListContainer.addEventListener("click", function (event) {
-      const deleteLink = event.target.closest(".actionDelete");
-      if (!deleteLink) return;
-
-      event.preventDefault();
-      const reviewId = deleteLink.getAttribute("data-review-id");
-      const confirmed = confirm("Delete this review? This cannot be undone.");
-      if (!confirmed) return;
-
-      fetch("/reviews/" + reviewId, { method: "DELETE" })
-        .then(function (response) {
-          if (!response.ok) throw new Error("Could not delete this review.");
-          deleteLink.closest("li").remove();
-        })
-        .catch(function (error) {
-          alert(error.message);
-        });
-    });
+    request(api).then(function (data) { reviews = data; render(); }).catch(function (error) { listMessage(browseList, error.message); });
   }
 
-  const detailContainer = document.querySelector("#reviewDetailContainer");
+  const mine = document.querySelector("#myReviewListContainer");
+  if (mine) request(api).then(function (reviews) {
+    const own = reviews.filter(function (review) { return String(review.userId) === currentUser.id; });
+    if (!own.length) return listMessage(mine, "You have not written any reviews yet.");
+    mine.replaceChildren(); own.forEach(function (review) { const item = document.createElement("li"); item.appendChild(reviewCard(review)); mine.appendChild(item); });
+  }).catch(function (error) { listMessage(mine, error.message); });
+  if (mine) mine.addEventListener("click", function (event) {
+    const remove = event.target.closest(".actionDelete");
+    if (!remove) return;
+    event.preventDefault();
+    if (!confirm("Delete this review? This cannot be undone.")) return;
+    request(api + "/" + remove.dataset.reviewId, { method: "DELETE" })
+      .then(function () { remove.closest("li").remove(); })
+      .catch(function (error) { alert(error.message); });
+  });
 
-  if (detailContainer) {
-    const params = new URLSearchParams(window.location.search);
-    const reviewId = params.get("id");
-
-    if (!reviewId) {
-      detailContainer.innerHTML = "<p>No review was specified.</p>";
-    } else {
-      const editLink = detailContainer.querySelector(".reviewDetailHeaderActions a.btnPrimary");
-      const deleteForm = detailContainer.querySelector(".reviewDetailHeaderActions form");
-      const deleteHiddenInput = deleteForm ? deleteForm.querySelector("input[name='id']") : null;
-
-      if (editLink) editLink.href = "/review/review-edit.html?id=" + reviewId;
-      if (deleteHiddenInput) deleteHiddenInput.value = reviewId;
-
-      if (deleteForm) {
-        deleteForm.addEventListener("submit", function (event) {
-          event.preventDefault();
-          const confirmed = confirm("Delete this review? This cannot be undone.");
-          if (!confirmed) return;
-
-          fetch("/reviews/" + reviewId, { method: "DELETE" })
-            .then(function (response) {
-              if (!response.ok) throw new Error("Could not delete this review.");
-              window.location.href = "/review/review-browse.html";
-            })
-            .catch(function (error) {
-              alert(error.message);
-            });
-        });
-      }
-
-      fetch("/reviews/" + reviewId)
-        .then(function (response) {
-          if (!response.ok) throw new Error("This review could not be found.");
-          return response.json();
-        })
-        .then(function (review) {
-          const currentUser = getCurrentUser();
-          const isOwner = currentUser && String(review.userId) === String(currentUser.id);
-
-          const titleEl = detailContainer.querySelector(".reviewDetailTitle");
-          const metaEl = detailContainer.querySelector(".reviewDetailMeta");
-          const imageEl = detailContainer.querySelector(".reviewDetailImage");
-          const descriptionEl = detailContainer.querySelector(".reviewDetailDescription");
-          const actionsEl = detailContainer.querySelector(".reviewDetailHeaderActions");
-
-          if (titleEl) titleEl.textContent = review.title;
-          if (metaEl) {
-            metaEl.innerHTML =
-              '<span class="stars" aria-label="' + review.rating + ' out of 5 stars">' + "★".repeat(review.rating) + "</span>" +
-              "<span>" + review.reviewerName + "</span>" +
-              "<span>Added " + review.createdAt + "</span>";
-          }
-          if (imageEl) {
-            imageEl.src = review.imageUrl;
-            imageEl.alt = "Photo attached to the review titled " + review.title;
-          }
-          if (descriptionEl) descriptionEl.textContent = review.description;
-
-          if (actionsEl && !isOwner) {
-            actionsEl.style.display = "none";
-          }
-        })
-        .catch(function (error) {
-          detailContainer.innerHTML = "<p>" + error.message + "</p>";
-        });
-    }
+  const detail = document.querySelector("#reviewDetailContainer");
+  if (detail) {
+    const id = getId();
+    if (!id) detail.replaceChildren(text("p", "fieldError", "No review was specified."));
+    else request(api + "/" + id).then(function (review) {
+      detail.querySelector(".reviewDetailTitle").textContent = review.title;
+      const meta = detail.querySelector(".reviewDetailMeta"); meta.replaceChildren(text("span", "stars", "★".repeat(review.rating)), text("span", "", review.reviewerName), text("span", "", "Added " + review.createdAt));
+      detail.querySelector(".reviewDetailImage").src = review.imageUrl;
+      detail.querySelector(".reviewDetailDescription").textContent = review.description;
+      const actions = detail.querySelector(".reviewDetailHeaderActions");
+      if (String(review.userId) !== currentUser.id) return actions.style.display = "none";
+      actions.querySelector("a").href = "/review/review-edit.html?id=" + review.id;
+      actions.querySelector("form").addEventListener("submit", function (event) { event.preventDefault(); if (confirm("Delete this review? This cannot be undone.")) request(api + "/" + review.id, { method: "DELETE" }).then(function () { location.href = "/review/review-browse.html"; }).catch(function (error) { alert(error.message); }); });
+    }).catch(function (error) { detail.replaceChildren(text("p", "fieldError", error.message)); });
   }
-
 });
