@@ -1,13 +1,11 @@
 const express = require("express");
-// Loads the Atlas connection string from the local .env file.
-require("dotenv").config();
-// Uses the MongoDB connection function from models/dbconnect.js.
-const { dbconnect } = require("./models/dbconnect");
-// Use the models that describe data saved in Mongo DB.
-const { User } = require("./models/user-model");
-const { Discussion } = require("./models/discussion-model");
-const { Reply } = require("./models/reply-model");
-// Creates the Express application used for all website routes.
+const {
+  users,
+  discussions,
+  replies,
+  getDiscussionId,
+  getReplyId,
+} = require("./forum-data");
 const app = express();
 // Uses the port from .env when it exists. Otherwise, it uses port 3000.
 const port = process.env.PORT || 3000;
@@ -23,9 +21,8 @@ function showHome(request, response) {
   response.render("index", { pageTitle: "RMIT Connect" });
 }
 
-// Get Discussion posts from MongoDB and search them when needed.
+// Show all active discussions.
 async function showDiscussions(request, response) {
-  // Temporarily require an active test user until Login is connected.
   const currentUser = await getCurrentUser();
 
   if (!currentUser) {
@@ -33,62 +30,45 @@ async function showDiscussions(request, response) {
     return;
   }
 
-  // Read the search values sent from the URL.
-  const searchText = request.query.search || "";
-  const filterType = request.query.filterby || "title";
-  const sortType = request.query.sortby || "newest";
+  const activeDiscussions = [];
 
-  let sortOrder = -1;
-  if (sortType === "oldest") {
-    sortOrder = 1;
-  }
-
-  // Get every Discussion document from MongoDB
-  let discussions = await Discussion.find({ deletedAt: null }).sort({
-    createdAt: sortOrder,
-  });
-
-  // Search only when the user entered a keyword
-  if (searchText !== "") {
-    const foundDiscussions = [];
-
-    for (let i = 0; i < discussions.length; i += 1) {
-      let textToCheck = discussions[i].title;
-
-      if (filterType === "content") {
-        textToCheck = discussions[i].content;
-      }
-
-      if (textToCheck.toLowerCase().includes(searchText.toLowerCase())) {
-        foundDiscussions.push(discussions[i]);
-      }
+  for (let i = 0; i < discussions.length; i += 1) {
+    if (discussions[i].deletedAt === null) {
+      activeDiscussions.push(discussions[i]);
     }
-
-    discussions = foundDiscussions;
   }
 
   const replyCounts = [];
   const authors = [];
 
-  for (let i = 0; i < discussions.length; i += 1) {
-    const discussionReplies = await Reply.find({
-      discussionId: discussions[i]._id,
-      deletedAt: null,
-    });
+  for (let i = 0; i < activeDiscussions.length; i += 1) {
+    let replyCount = 0;
+    let author = null;
 
-    replyCounts.push(discussionReplies.length);
-    const author = await User.findById(discussions[i].authorId);
+    for (let j = 0; j < replies.length; j += 1) {
+      if (
+        replies[j].discussionId === activeDiscussions[i]._id &&
+        replies[j].deletedAt === null
+      ) {
+        replyCount += 1;
+      }
+    }
+
+    for (let j = 0; j < users.length; j += 1) {
+      if (users[j]._id === activeDiscussions[i].authorId) {
+        author = users[j];
+      }
+    }
+
+    replyCounts.push(replyCount);
     authors.push(author);
   }
 
   response.render("discussion", {
     pageTitle: "Discussion Forum",
-    discussions: discussions,
+    discussions: activeDiscussions,
     replyCounts: replyCounts,
     authors: authors,
-    searchText: searchText,
-    filterType: filterType,
-    sortType: sortType,
   });
 }
 
@@ -100,36 +80,49 @@ async function showDiscussionDetail(request, response) {
     return;
   }
 
-  // Use the ID in /discussions/:id to find the selected post.
-  const discussion = await Discussion.findById(request.params.id);
+  let discussion = null;
 
-  // Do not show a post that was soft-deleted.
+  for (let i = 0; i < discussions.length; i += 1) {
+    if (discussions[i]._id === request.params.id) {
+      discussion = discussions[i];
+    }
+  }
+
   if (!discussion || discussion.deletedAt !== null) {
     response.send("Discussion not found");
     return;
   }
 
-  // Find the User document linked by this post's authorId.
-  const author = await User.findById(discussion.authorId);
-  const isAuthor =
-    currentUser !== null &&
-    discussion.authorId.toString() === currentUser._id.toString();
+  let author = null;
 
-  const replies = await Reply.find({
-    discussionId: discussion._id,
-    deletedAt: null,
-  });
+  for (let i = 0; i < users.length; i += 1) {
+    if (users[i]._id === discussion.authorId) {
+      author = users[i];
+    }
+  }
 
+  const isAuthor = discussion.authorId === currentUser._id;
+  const discussionReplies = [];
   const replyAuthors = [];
   const isMyReply = [];
 
   for (let i = 0; i < replies.length; i += 1) {
-    const replyAuthor = await User.findById(replies[i].authorId);
-    replyAuthors.push(replyAuthor);
-    isMyReply.push(
-      currentUser !== null &&
-        replies[i].authorId.toString() === currentUser._id.toString(),
-    );
+    if (
+      replies[i].discussionId === discussion._id &&
+      replies[i].deletedAt === null
+    ) {
+      let replyAuthor = null;
+
+      for (let j = 0; j < users.length; j += 1) {
+        if (users[j]._id === replies[i].authorId) {
+          replyAuthor = users[j];
+        }
+      }
+
+      discussionReplies.push(replies[i]);
+      replyAuthors.push(replyAuthor);
+      isMyReply.push(replies[i].authorId === currentUser._id);
+    }
   }
 
   response.render("discussion-detail", {
@@ -137,7 +130,7 @@ async function showDiscussionDetail(request, response) {
     discussion: discussion,
     author: author,
     isAuthor: isAuthor,
-    replies: replies,
+    replies: discussionReplies,
     replyAuthors: replyAuthors,
     isMyReply: isMyReply,
   });
@@ -145,7 +138,13 @@ async function showDiscussionDetail(request, response) {
 
 // Show the edit page only to the author.
 async function showEditDiscussion(request, response) {
-  const discussion = await Discussion.findById(request.params.id);
+  let discussion = null;
+
+  for (let i = 0; i < discussions.length; i += 1) {
+    if (discussions[i]._id === request.params.id) {
+      discussion = discussions[i];
+    }
+  }
 
   if (!discussion || discussion.deletedAt !== null) {
     response.send("Discussion not found");
@@ -159,7 +158,7 @@ async function showEditDiscussion(request, response) {
     return;
   }
 
-  if (discussion.authorId.toString() !== currentUser._id.toString()) {
+  if (discussion.authorId !== currentUser._id) {
     response.send("You can only edit your own post.");
     return;
   }
@@ -170,18 +169,22 @@ async function showEditDiscussion(request, response) {
   });
 }
 
-// Gets one active test User until the shared Login module is connected.
+// Gets a active test user until the shared login module is connected.
 async function getCurrentUser() {
-  const currentUser = await User.findOne({ accountStatus: "active" });
-  return currentUser;
+  for (let i = 0; i < users.length; i += 1) {
+    if (users[i].accountStatus === "active") {
+      return users[i];
+    }
+  }
+
+  return null;
 }
 
-// Save a new discussion post from the Discussion Forum form
-
+// Save a new discussion post from the Discussion Forum form.
 async function createDiscussion(request, response) {
-  const postTitle = request.body.postTitle.trim();
-  const postContent = request.body.postContent.trim();
-  const postImage = request.body.postImage;
+  const postTitle = (request.body.postTitle || "").trim();
+  const postContent = (request.body.postContent || "").trim();
+  const postImage = request.body.postImage || "";
 
   const allowedImages = [
     "/images/peer-workshop.jpg",
@@ -190,17 +193,17 @@ async function createDiscussion(request, response) {
   ];
 
   if (postTitle === "" || postTitle.length > 100) {
-    response.send("Please enter a title with 100 character or less.");
+    response.send("Please enter a title with 100 characters or less.");
     return;
   }
 
   if (postContent === "" || postContent.length > 1000) {
-    response.send("Please enter content with 1000 character or less.");
+    response.send("Please enter content with 1000 characters or less.");
     return;
   }
 
   if (allowedImages.includes(postImage) === false) {
-    response.send("Please a post Image");
+    response.send("Please select a post image.");
     return;
   }
 
@@ -211,20 +214,32 @@ async function createDiscussion(request, response) {
     return;
   }
 
-  const discussion = new Discussion({
+  const now = new Date();
+
+  const discussion = {
+    _id: getDiscussionId(),
     title: postTitle,
     content: postContent,
     image: postImage,
     authorId: currentUser._id,
-  });
+    createdAt: now,
+    deletedAt: null,
+    deletedBy: null,
+  };
 
-  await discussion.save();
+  discussions.push(discussion);
   response.redirect("/discussions");
 }
 
-// Update the selected post
+// Update the selected post.
 async function updateDiscussion(request, response) {
-  const discussion = await Discussion.findById(request.params.id);
+  let discussion = null;
+
+  for (let i = 0; i < discussions.length; i += 1) {
+    if (discussions[i]._id === request.params.id) {
+      discussion = discussions[i];
+    }
+  }
 
   if (!discussion || discussion.deletedAt !== null) {
     response.send("Discussion not found.");
@@ -238,14 +253,14 @@ async function updateDiscussion(request, response) {
     return;
   }
 
-  if (discussion.authorId.toString() !== currentUser._id.toString()) {
+  if (discussion.authorId !== currentUser._id) {
     response.send("You can only edit your own discussion.");
     return;
   }
 
   const postTitle = (request.body.postTitle || "").trim();
   const postContent = (request.body.postContent || "").trim();
-  const postImage = request.body.postImage;
+  const postImage = request.body.postImage || "";
 
   const allowedImages = [
     "/images/peer-workshop.jpg",
@@ -272,13 +287,18 @@ async function updateDiscussion(request, response) {
   discussion.content = postContent;
   discussion.image = postImage;
 
-  await discussion.save();
   response.redirect("/discussions/" + discussion._id);
 }
 
 // Soft delete the selected discussion post.
 async function deleteDiscussion(request, response) {
-  const discussion = await Discussion.findById(request.params.id);
+  let discussion = null;
+
+  for (let i = 0; i < discussions.length; i += 1) {
+    if (discussions[i]._id === request.params.id) {
+      discussion = discussions[i];
+    }
+  }
 
   if (!discussion || discussion.deletedAt !== null) {
     response.send("Discussion not found.");
@@ -292,7 +312,7 @@ async function deleteDiscussion(request, response) {
     return;
   }
 
-  if (discussion.authorId.toString() !== currentUser._id.toString()) {
+  if (discussion.authorId !== currentUser._id) {
     response.send("You can only delete your own discussion.");
     return;
   }
@@ -300,18 +320,23 @@ async function deleteDiscussion(request, response) {
   discussion.deletedAt = new Date();
   discussion.deletedBy = currentUser._id;
 
-  await discussion.save();
   response.redirect("/discussions");
 }
 
 // Show the edit page for a reply written by the current user.
 async function showEditReply(request, response) {
-  const reply = await Reply.findById(request.params.replyId);
+  let reply = null;
+
+  for (let i = 0; i < replies.length; i += 1) {
+    if (replies[i]._id === request.params.replyId) {
+      reply = replies[i];
+    }
+  }
 
   if (
     !reply ||
     reply.deletedAt !== null ||
-    reply.discussionId.toString() !== request.params.id
+    reply.discussionId !== request.params.id
   ) {
     response.send("Reply not found.");
     return;
@@ -324,12 +349,18 @@ async function showEditReply(request, response) {
     return;
   }
 
-  if (reply.authorId.toString() !== currentUser._id.toString()) {
+  if (reply.authorId !== currentUser._id) {
     response.send("You can only edit your own reply.");
     return;
   }
 
-  const discussion = await Discussion.findById(request.params.id);
+  let discussion = null;
+
+  for (let i = 0; i < discussions.length; i += 1) {
+    if (discussions[i]._id === request.params.id) {
+      discussion = discussions[i];
+    }
+  }
 
   if (!discussion || discussion.deletedAt !== null) {
     response.send("Discussion not found.");
@@ -345,9 +376,9 @@ async function showEditReply(request, response) {
 
 // Save new reply for the selected discussion post
 async function createReply(request, response) {
-  const replyTitle = request.body.replyTitle.trim();
-  const replyContent = request.body.replyContent.trim();
-  const replyImage = request.body.replyImage;
+  const replyTitle = (request.body.replyTitle || "").trim();
+  const replyContent = (request.body.replyContent || "").trim();
+  const replyImage = request.body.replyImage || "";
 
   const allowedImages = [
     "peer-workshop.jpg",
@@ -377,15 +408,32 @@ async function createReply(request, response) {
     return;
   }
 
-  const reply = new Reply({
+  let discussion = null;
+
+  for (let i = 0; i < discussions.length; i += 1) {
+    if (discussions[i]._id === request.params.id) {
+      discussion = discussions[i];
+    }
+  }
+
+  if (!discussion || discussion.deletedAt !== null) {
+    response.send("Discussion not found.");
+    return;
+  }
+
+  const reply = {
+    _id: getReplyId(),
     title: replyTitle,
     content: replyContent,
     image: "/images/" + replyImage,
     authorId: currentUser._id,
     discussionId: request.params.id,
-  });
+    createdAt: new Date(),
+    deletedAt: null,
+    deletedBy: null,
+  };
 
-  await reply.save();
+  replies.push(reply);
   response.redirect("/discussions/" + request.params.id);
 }
 
@@ -416,12 +464,18 @@ async function updateReply(request, response) {
     return;
   }
 
-  const reply = await Reply.findById(request.params.replyId);
+  let reply = null;
+
+  for (let i = 0; i < replies.length; i += 1) {
+    if (replies[i]._id === request.params.replyId) {
+      reply = replies[i];
+    }
+  }
 
   if (
     !reply ||
     reply.deletedAt !== null ||
-    reply.discussionId.toString() !== request.params.id
+    reply.discussionId !== request.params.id
   ) {
     response.send("Reply not found.");
     return;
@@ -434,7 +488,7 @@ async function updateReply(request, response) {
     return;
   }
 
-  if (reply.authorId.toString() !== currentUser._id.toString()) {
+  if (reply.authorId !== currentUser._id) {
     response.send("You can only edit your own reply.");
     return;
   }
@@ -443,15 +497,24 @@ async function updateReply(request, response) {
   reply.content = replyContent;
   reply.image = replyImage;
 
-  await reply.save();
   response.redirect("/discussions/" + request.params.id);
 }
 
 // Soft delete a reply written by the current user.
 async function deleteReply(request, response) {
-  const reply = await Reply.findById(request.params.replyId);
+  let reply = null;
 
-  if (!reply || reply.deletedAt !== null) {
+  for (let i = 0; i < replies.length; i += 1) {
+    if (replies[i]._id === request.params.replyId) {
+      reply = replies[i];
+    }
+  }
+
+  if (
+    !reply ||
+    reply.deletedAt !== null ||
+    reply.discussionId !== request.params.id
+  ) {
     response.send("Reply not found.");
     return;
   }
@@ -463,7 +526,7 @@ async function deleteReply(request, response) {
     return;
   }
 
-  if (reply.authorId.toString() !== currentUser._id.toString()) {
+  if (reply.authorId !== currentUser._id) {
     response.send("You can only delete your own reply.");
     return;
   }
@@ -471,7 +534,6 @@ async function deleteReply(request, response) {
   reply.deletedAt = new Date();
   reply.deletedBy = currentUser._id;
 
-  await reply.save();
   response.redirect("/discussions/" + request.params.id);
 }
 
@@ -528,8 +590,9 @@ function showLogout(request, response) {
 // Checks the email on the server before showing the reset message.
 function sendResetLink(request, response) {
   const email = (request.body["reset-email"] || "").trim().toLowerCase();
+  const emailFormat = /^[^\s@]+@rmit\.edu\.vn$/;
 
-  if (email === "" || email.includes("@rmit.edu.vn") === false) {
+  if (email === "" || emailFormat.test(email) === false) {
     response.render("forgotpassword", {
       pageTitle: "Forgot Password",
       emailError: "Please enter a valid RMIT email address.",
@@ -587,53 +650,41 @@ async function deactivateAccount(request, response) {
   }
 
   currentUser.accountStatus = "deactivated";
-  await currentUser.save();
 
   response.redirect("/deactivated-success");
 }
 
-// Connect to MongoDB before the application starts its routes and server.
-(async () => {
-  const databaseConnected = await dbconnect(process.env.MONGODB_URI);
+// GET routes show a page when the user opens its URL in the browser.
+app.get("/", showHome);
+app.get("/discussions", showDiscussions);
+app.get("/discussions/:id/edit", showEditDiscussion);
+app.get("/discussions/:id/replies/:replyId/edit", showEditReply);
+app.get("/discussions/:id", showDiscussionDetail);
+app.post("/discussions", createDiscussion);
+app.post("/discussions/:id/edit", updateDiscussion);
+app.post("/discussions/:id/replies", createReply);
+app.post("/discussions/:id/replies/:replyId/edit", updateReply);
+app.post("/discussions/:id/replies/:replyId/delete", deleteReply);
+app.post("/discussions/:id/delete", deleteDiscussion);
+app.get("/blogs", showBlogs);
+app.get("/blogs/:id", showBlogDetails);
+app.get("/reviews", showReviews);
+app.get("/reviews/browse", showReviewBrowse);
+app.get("/reviews/:id/edit", showReviewEdit);
+app.get("/reviews/:id", showReviewDetail);
+app.get("/wishlist", showWishlist);
+app.get("/wishlist/add", showWishlistAdd);
 
-  if (databaseConnected === false) {
-    return;
-  }
+// Shared User Account routes.
+app.get("/forgot-password", showForgotPassword);
+app.get("/reset-password", showResetPassword);
+app.post("/forgot-password", sendResetLink);
+app.get("/logout", showLogout);
+app.get("/deactivate-account", showDeactivateAccount);
+app.post("/deactivate-account", deactivateAccount);
+app.get("/deactivated-success", showDeactivatedSuccess);
 
-  console.log("Connected to database.");
-
-  // GET routes show a page when the user opens its URL in the browser.
-  app.get("/", showHome);
-  app.get("/discussions", showDiscussions);
-  app.get("/discussions/:id/edit", showEditDiscussion);
-  app.get("/discussions/:id/replies/:replyId/edit", showEditReply);
-  app.get("/discussions/:id", showDiscussionDetail);
-  app.post("/discussions", createDiscussion);
-  app.post("/discussions/:id/edit", updateDiscussion);
-  app.post("/discussions/:id/replies", createReply);
-  app.post("/discussions/:id/replies/:replyId/edit", updateReply);
-  app.post("/discussions/:id/replies/:replyId/delete", deleteReply);
-  app.post("/discussions/:id/delete", deleteDiscussion);
-  app.get("/blogs", showBlogs);
-  app.get("/blogs/:id", showBlogDetails);
-  app.get("/reviews", showReviews);
-  app.get("/reviews/browse", showReviewBrowse);
-  app.get("/reviews/:id/edit", showReviewEdit);
-  app.get("/reviews/:id", showReviewDetail);
-  app.get("/wishlist", showWishlist);
-  app.get("/wishlist/add", showWishlistAdd);
-
-  // Shared User Account routes.
-  app.get("/forgot-password", showForgotPassword);
-  app.get("/reset-password", showResetPassword);
-  app.post("/forgot-password", sendResetLink);
-  app.get("/logout", showLogout);
-  app.get("/deactivate-account", showDeactivateAccount);
-  app.post("/deactivate-account", deactivateAccount);
-  app.get("/deactivated-success", showDeactivatedSuccess);
-
-  // Starts the local Express server after all routes are prepared.
-  app.listen(port, () => {
-    console.log("RMIT Connect is running on http://localhost:" + port);
-  });
-})();
+// Starts the local Express server after all routes are prepared.
+app.listen(port, () => {
+  console.log("RMIT Connect is running on http://localhost:" + port);
+});

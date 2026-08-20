@@ -7,6 +7,22 @@ const contentErrorText = document.getElementById("content-error-text");
 const imageErrorText = document.getElementById("image-error-text");
 discussionPostForm.noValidate = true;
 
+const savedPostTitle = localStorage.getItem("discussionPostTitle");
+const savedPostContent = localStorage.getItem("discussionPostContent");
+const savedPostImage = localStorage.getItem("discussionPostImage");
+
+if (savedPostTitle !== null) {
+  discussionPostTitle.value = savedPostTitle;
+}
+
+if (savedPostContent !== null) {
+  discussionPostContent.value = savedPostContent;
+}
+
+if (savedPostImage !== null) {
+  discussionPostImage.value = savedPostImage;
+}
+
 function checkDiscussionTitle() {
   const title = discussionPostTitle.value.trim();
 
@@ -54,14 +70,17 @@ function checkDiscussionImage() {
 
 discussionPostTitle.addEventListener("input", function () {
   checkDiscussionTitle();
+  localStorage.setItem("discussionPostTitle", discussionPostTitle.value);
 });
 
 discussionPostContent.addEventListener("input", function () {
   checkDiscussionContent();
+  localStorage.setItem("discussionPostContent", discussionPostContent.value);
 });
 
 discussionPostImage.addEventListener("change", function () {
   checkDiscussionImage();
+  localStorage.setItem("discussionPostImage", discussionPostImage.value);
 });
 
 discussionPostForm.addEventListener("submit", function (event) {
@@ -77,4 +96,88 @@ discussionPostForm.addEventListener("submit", function (event) {
     event.preventDefault();
     return;
   }
+
+  localStorage.removeItem("discussionPostTitle");
+  localStorage.removeItem("discussionPostContent");
+  localStorage.removeItem("discussionPostImage");
 });
+
+const discussionFilterForm = document.getElementById("discussion-filter-form");
+const discussionSearch = document.getElementById("search-discussion");
+const discussionFilterBy = document.getElementById("filterby");
+const discussionSortBy = document.getElementById("sortby");
+const discussionPosts = document.querySelectorAll(".discussion-post");
+const discussionList = document.querySelector(".discussion-list");
+const noDiscussions = document.getElementById("no-discussions");
+
+function filterDiscussions() {
+  const searchText = discussionSearch.value.trim().toLowerCase();
+  const filterType = discussionFilterBy.value;
+  let matchingCount = 0;
+
+  for (let i = 0; i < discussionPosts.length; i += 1) {
+    let postText = "";
+
+    if (filterType === "title") {
+      postText = discussionPosts[i]
+        .querySelector("h2")
+        .textContent.toLowerCase();
+    } else {
+      postText = discussionPosts[i]
+        .querySelector(".post-content")
+        .textContent.toLowerCase();
+    }
+
+    if (postText.includes(searchText)) {
+      discussionPosts[i].style.display = "";
+      matchingCount += 1;
+    } else {
+      discussionPosts[i].style.display = "none";
+    }
+  }
+
+  if (matchingCount === 0) {
+    noDiscussions.hidden = false;
+  } else {
+    noDiscussions.hidden = true;
+  }
+}
+
+function sortDiscussions() {
+  const sortedPosts = [];
+
+  for (let i = 0; i < discussionPosts.length; i += 1) {
+    sortedPosts.push(discussionPosts[i]);
+  }
+
+  sortedPosts.sort(function (firstPost, secondPost) {
+    const firstTime = Number(firstPost.getAttribute("data-created-at"));
+    const secondTime = Number(secondPost.getAttribute("data-created-at"));
+
+    if (discussionSortBy.value === "oldest") {
+      return firstTime - secondTime;
+    }
+
+    return secondTime - firstTime;
+  });
+
+  for (let i = 0; i < sortedPosts.length; i += 1) {
+    discussionList.appendChild(sortedPosts[i]);
+  }
+}
+
+function updateDiscussionList() {
+  filterDiscussions();
+  sortDiscussions();
+}
+
+discussionFilterForm.addEventListener("submit", function (event) {
+  event.preventDefault();
+  updateDiscussionList();
+});
+
+discussionSearch.addEventListener("input", updateDiscussionList);
+discussionFilterBy.addEventListener("change", updateDiscussionList);
+discussionSortBy.addEventListener("change", updateDiscussionList);
+
+updateDiscussionList();

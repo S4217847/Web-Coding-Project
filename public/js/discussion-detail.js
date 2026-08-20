@@ -46,6 +46,12 @@ function checkDiscussionReply() {
     return false;
   }
 
+  if (replyText.length > 1000) {
+    replyErrorText.textContent =
+      "The reply content must be 1000 characters or less.";
+    return false;
+  }
+
   replyErrorText.textContent = "";
   return true;
 }

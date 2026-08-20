@@ -41,15 +41,16 @@
       <div class="middle">
         <!-- Show the current reply values so the author can change them. -->
         <form
+          id="edit-form"
           class="postbox"
           method="post"
           action="/discussions/<%= discussion._id %>/replies/<%= reply._id %>/edit"
         >
           <h1>Edit reply</h1>
 
-          <label for="reply-title">Reply title</label>
+          <label for="edit-title">Reply title</label>
           <input
-            id="reply-title"
+            id="edit-title"
             name="replyTitle"
             type="text"
             value="<%= reply.title %>"
@@ -57,8 +58,10 @@
             required
           />
 
-          <label for="reply-image">Reply image</label>
-          <select id="reply-image" name="replyImage" required>
+          <div class="error" id="edit-title-error-text"></div>
+
+          <label for="edit-image">Reply image</label>
+          <select id="edit-image" name="replyImage" required>
             <option
               value="/images/peer-workshop.jpg"
               <%= reply.image === "/images/peer-workshop.jpg" ? "selected" : "" %>
@@ -79,13 +82,17 @@
             </option>
           </select>
 
-          <label for="reply-content">Reply content</label>
+          <div class="error" id="edit-image-error-text"></div>
+
+          <label for="edit-content">Reply content</label>
           <textarea
-            id="reply-content"
+            id="edit-content"
             name="replyContent"
             maxlength="1000"
             required
           ><%= reply.content %></textarea>
+
+          <div class="error" id="edit-content-error-text"></div>
 
           <div class="postfooter">
             <a href="/discussions/<%= discussion._id %>">Cancel</a>
@@ -125,5 +132,6 @@
         </div>
       </div>
     </main>
+    <script src="/js/edit-form.js"></script>
   </body>
 </html>

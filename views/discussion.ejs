@@ -94,7 +94,7 @@
             id="discussion-filter-form"
             class="discussion-filter"
             method="get"
-            action = "/discussions"
+            action="/discussions"
           >
             <div class="discussion-search">
               <label for="search-discussion">Search discussions</label>
@@ -104,7 +104,6 @@
                 name="search"
                 type="text"
                 placeholder="Enter the keyword"
-                value="<%= searchText %>"
               />
             </div>
 
@@ -112,8 +111,8 @@
               <label for="filterby">Filter by</label>
 
               <select id="filterby" name="filterby">
-                <option value="title" <%= filterType === "title" ? "selected" : "" %>>Title</option>
-                <option value="content" <%= filterType === "content" ? "selected" : "" %>>Content</option>
+                <option value="title">Title</option>
+                <option value="content">Content</option>
               </select>
             </div>
 
@@ -121,20 +120,21 @@
               <label for="sortby">Sort by</label>
 
               <select id="sortby" name="sortby">
-                <option value="newest" <%= sortType === "newest" ? "selected" : "" %>>Newest</option>
-                <option value="oldest" <%= sortType === "oldest" ? "selected" : "" %>>Oldest</option>
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
               </select>
             </div>
 
             <button class="searchbutton" type="submit">Search</button>
           </form>
 
-          <% if (discussions.length === 0) { %>
-          <p class = "no-discussions">No discussions found.</p><%} %>
+          <p class="no-discussions" id="no-discussions" hidden>
+            No discussions found.
+          </p>
 
           <!-- Repeat this article once for every Discussion document from index.js. -->
           <% discussions.forEach(function(discussion, i) { %>
-            <article class="discussion-post">
+            <article class="discussion-post" data-created-at="<%= discussion.createdAt.getTime() %>">
               <div class="discussion-post-header">
                 <div class="user-info">
                   <img

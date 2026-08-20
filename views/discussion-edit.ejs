@@ -41,15 +41,16 @@
       <div class="middle">
         <!-- Show the current discussion values so the author can change them. -->
         <form
+          id="edit-form"
           class="postbox"
           method="post"
           action="/discussions/<%= discussion._id %>/edit"
         >
           <h1>Edit discussion</h1>
 
-          <label for="post-title">Post title</label>
+          <label for="edit-title">Post title</label>
           <input
-            id="post-title"
+            id="edit-title"
             name="postTitle"
             type="text"
             value="<%= discussion.title %>"
@@ -57,8 +58,10 @@
             required
           />
 
-          <label for="post-image">Post image</label>
-          <select id="post-image" name="postImage" required>
+          <div class="error" id="edit-title-error-text"></div>
+
+          <label for="edit-image">Post image</label>
+          <select id="edit-image" name="postImage" required>
             <option
               value="/images/peer-workshop.jpg"
               <%= discussion.image === "/images/peer-workshop.jpg" ? "selected" : "" %>
@@ -79,13 +82,17 @@
             </option>
           </select>
 
-          <label for="post-content">Post content</label>
+          <div class="error" id="edit-image-error-text"></div>
+
+          <label for="edit-content">Post content</label>
           <textarea
-            id="post-content"
+            id="edit-content"
             name="postContent"
             maxlength="1000"
             required
           ><%= discussion.content %></textarea>
+
+          <div class="error" id="edit-content-error-text"></div>
 
           <div class="postfooter">
             <a href="/discussions/<%= discussion._id %>">Cancel</a>
@@ -125,5 +132,6 @@
         </div>
       </div>
     </main>
+    <script src="/js/edit-form.js"></script>
   </body>
 </html>
