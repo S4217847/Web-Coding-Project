@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blog Post | RMIT Connect</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <header>
@@ -17,6 +17,9 @@
         <option value="all">All</option>
         <option value="name">Author</option>
         <option value="id">SID</option>
+        <option value="title">Title</option>
+        <option value="content">Content</option>
+        <option value="category">Category</option>
         <option value="tags">Tags</option>
       </select>
     </form>
@@ -49,9 +52,13 @@
     <div class="contentbox">
       <div class="content clearfix">
         <article class="main-content blog">
-        <a href="blog.html" class="back-btn">&larr; Back to Blog</a>
+        <a href="/blogs" class="back-btn">&larr; Back to Blog</a>
         <p class="list-status" id="blog-detail-status" aria-live="polite">Loading blog...</p>
         <div id="blog-detail" hidden>
+        <div class="detail-actions" id="detail-actions" hidden>
+          <button class="detail-edit-btn" id="detail-edit" type="button">Edit</button>
+          <button class="detail-delete-btn" id="detail-delete" type="button">Delete</button>
+        </div>
         <h1 class="blog-title" id="blog-post-title">Blog title</h1>
         <div class="blog-info">
           <div class="writer-details">
@@ -61,6 +68,7 @@
           </div>
           <div class="blog-tags" id="blog-detail-tags"></div>
           </div>
+        <p><strong>Category:</strong> <span id="blog-detail-category"></span></p>
         <div class="article-content">
           <p id="blog-detail-content"></p>
           <img class="article-bottom-image" id="blog-detail-image" src="" alt="">
@@ -70,29 +78,15 @@
         <section class="comments" aria-labelledby="comments-title">
           <h2 id="comments-title">Comments</h2>
 
-          <form class="comment-form" action="#" method="post">
+          <form class="comment-form" id="comment-form" action="#" method="post" novalidate>
             <label for="comment-text">Leave a comment</label>
             <textarea id="comment-text" name="comment" rows="4" placeholder="Write your comment here..." required></textarea>
             <button type="submit">Post comment</button>
+            <small class="field-error" id="comment-error" aria-live="polite"></small>
+            <p class="form-status" id="comment-status" aria-live="polite"></p>
           </form>
 
-          <div class="comment-list">
-            <article class="comment">
-              <div class="comment-header">
-                <strong>Student name - SID</strong>
-                <time datetime="...">Time and date of the comment</time>
-              </div>
-              <p>This is a sample comment on the blog post.</p>
-            </article>
-
-            <article class="comment">
-              <div class="comment-header">
-                <strong>Another student - SID</strong>
-                <time datetime="...">Time and date of the comment</time>
-              </div>
-              <p>Thank you for sharing this post!</p>
-            </article>
-          </div>
+          <div class="comment-list" id="comment-list" aria-live="polite"></div>
         </section>
         </article>
       </div>
@@ -132,6 +126,6 @@
     </div>
   </aside>
 </main>
-<script src="blog.js" defer></script>
+<script src="/blog.js" defer></script>
 </body>
 </html>

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blog | RMIT Connect</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <header>
@@ -17,6 +17,9 @@
         <option value="all">All</option>
         <option value="name">Author</option>
         <option value="id">SID</option>
+        <option value="title">Title</option>
+        <option value="content">Content</option>
+        <option value="category">Category</option>
         <option value="tags">Tags</option>
       </select>
     </form>
@@ -51,8 +54,19 @@
       <label class="text-label" for="blog-title">Blog title</label>
       <input class="article-input" id="blog-title" name="title" type="text" placeholder="Blog title" required maxlength="120">
       <small class="field-error" id="blog-title-error" aria-live="polite"></small>
+      <label class="text-label" for="blog-category">Blog category</label>
+      <select class="article-input" id="blog-category" name="category" required>
+        <option value="">Choose a category</option>
+        <option value="Academic">Academic</option>
+        <option value="Events">Events</option>
+        <option value="Student Life">Student Life</option>
+        <option value="Technology">Technology</option>
+        <option value="Other">Other</option>
+      </select>
+      <small class="field-error" id="blog-category-error" aria-live="polite"></small>
       <label class="text-label" for="blog-tags">Blog tags</label>
       <input class="article-input" id="blog-tags" name="tags" type="text" placeholder="Tags (for example: Technology, Business)">
+      <small class="field-error" id="blog-tags-error" aria-live="polite"></small>
       <label class="text-label" for="blog-content">Blog content</label>
       <textarea id="blog-content" name="content" placeholder="Write something for your blog..." required></textarea>
       <small class="field-error" id="blog-content-error" aria-live="polite"></small>
@@ -62,6 +76,7 @@
         📷 Upload image
         </label>
         <button class="articlebtn" type="submit">Post</button>
+        <button class="btn cancel-edit" id="cancel-edit" type="button" hidden>Cancel edit</button>
       </div>
       <small class="field-error" id="blog-image-error" aria-live="polite"></small>
       <p class="form-status" id="blog-form-status" aria-live="polite"></p>
@@ -72,6 +87,13 @@
 
         <div class="main-content">
           <h1 class="recent-article-title" id="recent-blogs-title">Recent blogs</h1>
+          <label for="blog-sort">Sort blogs</label>
+          <select id="blog-sort" class="article-input">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="title-az">Title A-Z</option>
+            <option value="title-za">Title Z-A</option>
+          </select>
 
           <p class="list-status" id="blog-list-status" aria-live="polite">Loading blogs...</p>
           <div id="blog-list"></div>
@@ -115,6 +137,6 @@
   </aside>
   
 </main>
-<script src="blog.js" defer></script>
+<script src="/blog.js" defer></script>
 </body>
 </html>
