@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Review Edit | RMIT Connect</title>
+    <link href="/css/review.css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <header>
+      <div class="logo">RMIT CONNECT</div>
+      <input
+        class="searchBar"
+        type="text"
+        placeholder="Search RMIT Connect..."
+      />
+      <nav>
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="/discussions">Discussions</a></li>
+          <li><a href="/blogs">My Blog</a></li>
+          <li><a href="/profile/profile.html">My Profile</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main>
+      <section class="section">
+        <div class="sectionCard">
+          <a href="/reviews/1" class="backLink">Back to review</a>
+
+          <h1 class="sectionLabel">Edit Review</h1>
+
+          <form
+            class="reviewForm"
+            action="/reviews/update"
+            method="post"
+            enctype="multipart/form-data"
+          >
+            <input type="hidden" name="id" value="1" />
+
+            <label for="reviewTitle">Title</label>
+            <input
+              id="reviewTitle"
+              name="title"
+              type="text"
+              value="Best intro course I've taken"
+            />
+
+            <label for="reviewDescription">Description</label>
+            <textarea id="reviewDescription" name="description">
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur ipsum nisi, euismod eu justo at, vulputate porttitor tellus.</textarea
+            >
+
+            <label for="reviewRating">Star Rating</label>
+            <select id="reviewRating" name="rating">
+              <option value="5" selected>5 stars</option>
+              <option value="4">4 stars</option>
+              <option value="3">3 stars</option>
+              <option value="2">2 stars</option>
+              <option value="1">1 star</option>
+            </select>
+
+            <label for="reviewerName">Reviewer Name</label>
+            <input
+              id="reviewerName"
+              name="reviewerName"
+              type="text"
+              value="Hung"
+            />
+
+            <label for="reviewImage">Image</label>
+            <div class="imageUploadBox">
+              <label for="reviewImage"
+                >Current image attached. Choose a new file to replace it.</label
+              >
+              <input
+                id="reviewImage"
+                name="image"
+                type="file"
+                accept="image/*"
+              />
+            </div>
+
+            <div class="formActions">
+              <div class="formActionsCell">
+                <button class="btnPrimary" type="submit">Save Changes</button>
+              </div>
+              <div class="formActionsCell">
+                <a class="btnSecondary" href="/reviews/1">Cancel</a>
+              </div>
+            </div>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <script src="/js/review.js"></script>
+  </body>
+</html>

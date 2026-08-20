@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Browse Items | RMIT Connect</title>
+    <link rel="stylesheet" href="/css/wishlist.css" />
+    <link rel="stylesheet" href="/css/app.css" />
+    <script type="module" src="js/catalogue.js"></script>
+  </head>
+
+  <body id="top">
+    <a class="skipLink" href="#main-content">Skip to main content</a>
+
+    <!-- Shared shell hooks populate the current user and perform session logout. -->
+    <header class="siteHeader">
+      <div class="logo">
+        <a href="/wishlist#top">RMIT CONNECT</a>
+      </div>
+
+      <nav class="mainNav" aria-label="Main navigation">
+        <ul>
+          <li>
+            <a href="/wishlist/add#catalogue-results" aria-current="page"
+              >Browse Items</a
+            >
+          </li>
+          <li><a href="/wishlist#savedItems">Wishlist</a></li>
+          <li><a href="/wishlist#purchasedItems">Purchased</a></li>
+        </ul>
+      </nav>
+
+      <span class="currentUser" data-current-user hidden> </span>
+
+      <button class="headerButton" type="button" data-logout hidden>
+        Log Out
+      </button>
+    </header>
+
+    <!-- Authenticated catalogue workspace. -->
+    <main id="main-content">
+      <section class="pageBanner">
+        <div class="pageBannerText">
+          <h1>Browse Campus Items</h1>
+          <p>Find activities and passes, then save them for later.</p>
+        </div>
+
+        <a class="bannerButton" href="/wishlist#savedItems"> View Wishlist </a>
+      </section>
+
+      <section class="browseSection" aria-labelledby="catalogue-heading">
+        <div class="sectionCard">
+          <div class="sectionHeading">
+            <div>
+              <h2 id="catalogue-heading">Popular with Students</h2>
+
+              <p>
+                Filters update immediately without loading the product list
+                again.
+              </p>
+            </div>
+
+            <a class="smallButton" href="/wishlist#savedItems">
+              Saved Items:
+              <span id="savedItemCount">0</span>
+            </a>
+          </div>
+
+          <!-- catalogue.js announces load, validation, and wishlist outcomes here. -->
+          <div
+            id="catalogueMessage"
+            class="notice"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></div>
+
+          <!-- Filter controls operate on the single API-loaded product collection. -->
+          <form
+            id="catalogueFilters"
+            class="catalogueFilters"
+            data-testid="catalogue-filters"
+            novalidate
+          >
+            <fieldset>
+              <legend>Search and filter items</legend>
+
+              <div class="filterGrid filterGrid--four">
+                <div class="filterField">
+                  <label for="catalogueSearch"> Keywords </label>
+
+                  <input
+                    id="catalogueSearch"
+                    name="keywords"
+                    type="search"
+                    maxlength="80"
+                    placeholder="Try coding, music, or photography"
+                    aria-describedby="catalogueSearchHint catalogueSearchError"
+                  />
+
+                  <small id="catalogueSearchHint">
+                    Enter at least 2 characters, or leave it blank.
+                  </small>
+
+                  <small
+                    id="catalogueSearchError"
+                    class="fieldError"
+                    data-error-for="keywords"
+                    hidden
+                  >
+                  </small>
+                </div>
+
+                <div class="filterField">
+                  <label for="catalogueCategory"> Category </label>
+
+                  <select id="catalogueCategory" name="category">
+                    <option value="all">All categories</option>
+
+                    <option value="workshop">Workshop</option>
+
+                    <option value="field-trip">Field trip</option>
+
+                    <option value="event">Event</option>
+
+                    <option value="club-activity">Club activity</option>
+
+                    <option value="short-course">Short course</option>
+                  </select>
+                </div>
+
+                <div class="filterField">
+                  <label for="catalogueStatus"> Wishlist status </label>
+
+                  <select id="catalogueStatus" name="status">
+                    <option value="all">All items</option>
+
+                    <option value="available">Available to add</option>
+
+                    <option value="saved">Already saved</option>
+                  </select>
+                </div>
+
+                <div class="filterField">
+                  <label for="catalogueSort"> Sort items </label>
+
+                  <select id="catalogueSort" name="sort">
+                    <option value="popular">Most wishlisted</option>
+
+                    <option value="price-low">Price: low to high</option>
+
+                    <option value="price-high">Price: high to low</option>
+
+                    <option value="purchased">Most purchased</option>
+
+                    <option value="name">Name: A to Z</option>
+                  </select>
+                </div>
+
+                <div class="filterActions">
+                  <button class="primaryButton" type="submit">
+                    Apply Filters
+                  </button>
+
+                  <button id="resetFilters" class="resetLink" type="button">
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </fieldset>
+          </form>
+
+          <div class="resultsSummary" id="catalogue-results">
+            <p id="catalogueResultCount" role="status" aria-live="polite">
+              Loading items…
+            </p>
+
+            <a href="/wishlist#savedItems"> Review saved items </a>
+          </div>
+
+          <!-- Product cards are safely constructed and inserted into this live region. -->
+          <div
+            id="catalogueGrid"
+            class="catalogueGrid"
+            data-testid="catalogue-grid"
+            aria-busy="true"
+          >
+            <p class="loadingState">Loading the campus catalogue…</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Shared project navigation and required acknowledgement. -->
+    <footer class="siteFooter">
+      <div class="footerInner">
+        <div class="footerBrand">
+          <strong>RMIT CONNECT</strong>
+          <p>A full-stack student community demo.</p>
+        </div>
+
+        <nav class="footerNav" aria-label="Footer navigation">
+          <a href="/wishlist#savedItems">Wishlist</a>
+          <a href="/wishlist/add#catalogue-results">Browse Items</a>
+          <a href="#top">Back to Top</a>
+        </nav>
+
+        <div class="aiAcknowledgement">
+          <strong>AI Use Acknowledgement</strong>
+          <p>
+            OpenAI Codex assisted with implementation guidance, debugging,
+            documentation, and testing. Dat Pham developed, reviewed,
+            understood, and verified the final implementation.
+          </p>
+          <p>Sample photographs sourced from Unsplash.</p>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

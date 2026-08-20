@@ -57,7 +57,8 @@
 }
 
 .postbox input,
-.postbox textarea {
+.postbox textarea,
+.postbox select {
   display: block;
   width: 100%;
   border: 1px solid #cccccc;
@@ -73,6 +74,7 @@
 
 .postfooter {
   display: flex;
+  gap: 30px;
   justify-content: flex-end;
 }
 
@@ -144,6 +146,14 @@
   gap: 12px;
 }
 
+.no-discussions {
+  background-color: #ffffff;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 16px;
+  color: #555555;
+}
+
 .discussion-list h1 {
   font-size: 24px;
   margin-bottom: 4px;
@@ -194,7 +204,8 @@
   margin-bottom: 8px;
 }
 
-.discussion-post > .post-image {
+.discussion-post > .post-image,
+.reply-image {
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
@@ -210,8 +221,23 @@
 
 .discussion-post-footer {
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 6px;
   margin-top: 14px;
+}
+
+.discussion-post-footer span {
+  margin-right: auto;
+}
+
+.discussion-post-footer form {
+  margin: 0;
+}
+
+.discussion-post-footer form .postbtn {
+  font-size: 13px;
+  padding: 6px 12px;
 }
 
 .discussion-post-footer a {

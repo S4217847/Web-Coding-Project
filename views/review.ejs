@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <link href="/css/review.css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <header>
+      <div class="logo">RMIT CONNECT</div>
+      <input
+        class="searchBar"
+        type="text"
+        placeholder="Search RMIT Connect..."
+      />
+      <nav>
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="/discussions">Discussions</a></li>
+          <li><a href="/blogs">My Blog</a></li>
+          <li><a href="/profile/profile.html">My Profile</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main>
+      <div class="pageBanner">
+        <div class="pageBannerInner">
+          <div class="pageBannerText">
+            <h1 class="pageTitle">Reviews</h1>
+          </div>
+          <div class="pageBannerButtonCell">
+            <a class="newReviewBtn" href="/reviews/browse"
+              >Browse All Reviews</a
+            >
+          </div>
+        </div>
+      </div>
+
+      <section class="section">
+        <div class="sectionCard">
+          <h2 class="sectionLabel">Make a Review</h2>
+          <form
+            class="reviewForm"
+            action="/reviews/create"
+            method="post"
+            enctype="multipart/form-data"
+          >
+            <label for="reviewTitle">Title</label>
+            <input
+              id="reviewTitle"
+              name="title"
+              type="text"
+              placeholder="Lorem ipsum dolor sit amet"
+            />
+
+            <label for="reviewDescription">Description</label>
+            <textarea
+              id="reviewDescription"
+              name="description"
+              placeholder="Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+            ></textarea>
+
+            <label for="reviewRating">Star Rating</label>
+            <select id="reviewRating" name="rating">
+              <option value="">Select a rating</option>
+              <option value="5">5 stars</option>
+              <option value="4">4 stars</option>
+              <option value="3">3 stars</option>
+              <option value="2">2 stars</option>
+              <option value="1">1 star</option>
+            </select>
+
+            <label for="reviewerName">Reviewer Name</label>
+            <input
+              id="reviewerName"
+              name="reviewerName"
+              type="text"
+              placeholder="Your name"
+            />
+
+            <label for="reviewImage">Image</label>
+            <div class="imageUploadBox">
+              <label for="reviewImage"
+                >Drag and drop an image here, or click to upload</label
+              >
+              <input
+                id="reviewImage"
+                name="image"
+                type="file"
+                accept="image/*"
+              />
+            </div>
+
+            <div class="formActions">
+              <div class="formActionsCell">
+                <button class="btnPrimary" type="submit" disabled>
+                  Save Review
+                </button>
+              </div>
+              <div class="formActionsCell">
+                <button class="btnSecondary" type="reset">Cancel</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="sectionCard">
+          <h2 class="sectionLabel">Your Reviews</h2>
+
+          <ul class="reviewList" id="myReviewListContainer"></ul>
+        </div>
+      </section>
+    </main>
+    <script src="/js/review.js"></script>
+  </body>
+</html>

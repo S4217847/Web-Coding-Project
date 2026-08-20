@@ -19,7 +19,7 @@
         <ul>
           <li><a href="/">Home</a></li>
           <li><a href="/discussions">Discussions</a></li>
-          <li><a href="/blog/blog.html">My Blog</a></li>
+          <li><a href="/blogs">My Blog</a></li>
           <li><a href="/profile/profile.html">My Profile</a></li>
         </ul>
       </nav>
@@ -32,7 +32,7 @@
             <li><a href="#">My Feed</a></li>
             <li><a href="#">My Clubs</a></li>
             <li><a href="#">Saved Posts</a></li>
-            <li><a href="/Wishlist/wishlist.html">Favourites</a></li>
+            <li><a href="/wishlist">Favourites</a></li>
             <li><a href="#">Settings</a></li>
           </ul>
         </div>
@@ -43,85 +43,102 @@
           <a class="back-link" href="/discussions">Back to discussions</a>
           <h1>Discussion Forum</h1>
 
+          <!-- discussion and author are sent from showDiscussionDetail in index.js. -->
           <article class="discussion-post">
             <div class="discussion-post-header">
               <div class="user-info">
                 <img
                   class="user-avatar"
-                  src="/images/user_icon.png"
-                  alt="User profile icon"
+                  src="<%= author.profileImage %>"
+                  alt="Profile image of <%= author.username %>"
                 />
                 <div>
-                  <p class="post-author">Jisoo Kim</p>
-                  <p class="post-course">Bachelor of Information Technology</p>
+                  <p class="post-author"><%= author.username %></p>
+                  <p class="post-course"><%= author.course %></p>
                 </div>
               </div>
-              <p class="post-time">Today, 10:30 AM</p>
+              <p class="post-time"><%= discussion.createdAt %></p>
             </div>
-            <h2>Where can I get help with HTML and CSS?</h2>
+            <h2><%= discussion.title %></h2>
             <img
               class="post-image"
-              src="/images/peer-workshop.jpg"
-              alt="Three students talking at a table with laptops"
+              src="<%= discussion.image %>"
+              alt="<%= discussion.title %>"
             />
-            <p class="post-content">
-              I am new to web programming. Is there a beginner-friendly workshop
-              where I can practice HTML and CSS with other students?
-            </p>
+            <p class="post-content"><%= discussion.content %></p>
             <div class="discussion-post-footer">
-              <span>2 replies</span>
+              <span><%= replies.length %> replies</span>
+              <% if (isAuthor) { %>
+                <form
+                  method="get"
+                  action="/discussions/<%= discussion._id %>/edit"
+                >
+                  <button class="postbtn" type="submit">Edit discussion</button>
+                </form>
+
+                <form
+                  method="post"
+                  action="/discussions/<%= discussion._id %>/delete"
+                >
+                  <button class="postbtn" type="submit">Delete discussion</button>
+                </form>
+              <% } %>
             </div>
           </article>
 
           <section class="reply-list">
             <h2>Replies</h2>
 
-            <article class="reply-card">
-              <div class="reply-header">
-                <div class="user-info">
-                  <img
-                    class="user-avatar"
-                    src="/images/user_icon.png"
-                    alt="User profile icon"
-                  />
-                  <div>
-                    <p class="post-author">Minjun Lee</p>
-                    <p class="post-course">
-                      Bachelor of Information Technology
-                    </p>
+            <!-- Repeat one reply card for every reply from MongoDB. -->
+            <% replies.forEach(function(reply, i) { %>
+              <article class="reply-card">
+                <div class="reply-header">
+                  <div class="user-info">
+                    <img
+                      class="user-avatar"
+                      src="<%= replyAuthors[i].profileImage %>"
+                      alt="Profile image of <%= replyAuthors[i].username %>"
+                    />
+                    <div>
+                      <p class="post-author"><%= replyAuthors[i].username %></p>
+                      <p class="post-course"><%= replyAuthors[i].course %></p>
+                    </div>
                   </div>
+                  <p class="post-time"><%= reply.createdAt %></p>
                 </div>
-                <p class="post-time">Today, 10:42 AM</p>
-              </div>
-              <p class="reply-content">
-                The peer workshop is beginner-friendly. Student mentors can help
-                you with basic HTML and CSS exercises.
-              </p>
-            </article>
 
-            <article class="reply-card">
-              <div class="reply-header">
-                <div class="user-info">
-                  <img
-                    class="user-avatar"
-                    src="/images/user_icon.png"
-                    alt="User profile icon"
-                  />
-                  <div>
-                    <p class="post-author">Yuna Park</p>
-                    <p class="post-course">Bachelor of Software Engineering</p>
+                <h3 class="reply-title"><%= reply.title %></h3>
+
+                <img
+                  class="reply-image"
+                  src="<%= reply.image %>"
+                  alt="<%= reply.title %>"
+                />
+
+                <p class="reply-content"><%= reply.content %></p>
+
+                <% if (isMyReply[i]) { %>
+                  <div class="postfooter">
+                    <form
+                      method="get"
+                      action="/discussions/<%= discussion._id %>/replies/<%= reply._id %>/edit"
+                    >
+                      <button class="postbtn" type="submit">Edit reply</button>
+                    </form>
+
+                    <form
+                      method="post"
+                      action="/discussions/<%= discussion._id %>/replies/<%= reply._id %>/delete"
+                    >
+                      <button class="postbtn" type="submit">Delete reply</button>
+                    </form>
                   </div>
-                </div>
-                <p class="post-time">Today, 11:05 AM</p>
-              </div>
-              <p class="reply-content">
-                You can check the Upcoming Events area for the next session.
-                Bring your laptop if you want to practise.
-              </p>
-            </article>
+                <% } %>
+              </article>
+            <% }); %>
           </section>
 
-          <form id="reply-form" class="reply-box" method="post">
+          <form id="reply-form" class="reply-box" method="post" action = "/discussions/<%= discussion._id %>/replies">
             <h2>Write a reply</h2>
 
             <label for="reply-title">Reply Title</label>

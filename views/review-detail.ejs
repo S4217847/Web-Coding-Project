@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Review Details | RMIT Connect</title>
+    <link href="/css/review.css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <header>
+      <div class="logo">RMIT CONNECT</div>
+      <input
+        class="searchBar"
+        type="text"
+        placeholder="Search RMIT Connect..."
+      />
+      <nav>
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="/discussions">Discussions</a></li>
+          <li><a href="/blogs">My Blog</a></li>
+          <li><a href="/profile/profile.html">My Profile</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main>
+      <section class="section">
+        <div class="sectionCard" id="reviewDetailContainer">
+          <a href="/reviews" class="backLink"> Back to all reviews</a>
+
+          <article>
+            <div class="reviewDetailHeader">
+              <div class="reviewDetailHeaderText">
+                <h1 class="reviewDetailTitle">Loading review...</h1>
+                <p class="reviewDetailMeta"></p>
+              </div>
+              <div class="reviewDetailHeaderActions">
+                <a class="btnPrimary" href="/reviews/1/edit">Edit</a>
+                <form action="/reviews/delete" method="post">
+                  <input type="hidden" name="id" value="" />
+                  <button class="btnSecondary" type="submit">Delete</button>
+                </form>
+              </div>
+            </div>
+
+            <img class="reviewDetailImage" src="/images/thumbnail.jpg" alt="" />
+
+            <p class="reviewDetailDescription"></p>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <script src="/js/review.js"></script>
+  </body>
+</html>

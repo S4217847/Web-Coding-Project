@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deactivate Account | RMIT Connect</title>
+    <link rel="stylesheet" href="/css/common.css" />
+    <link rel="stylesheet" href="/css/deactivate.css" />
+  </head>
+
+  <body>
+    <header>
+      <div class="logo">RMIT CONNECT</div>
+      <input
+        class="searchbar"
+        type="text"
+        placeholder="Search RMIT Connect..."
+      />
+
+      <nav>
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="/discussions">Discussions</a></li>
+          <li><a href="/blogs">My Blog</a></li>
+          <li><a href="/profile/profile.html">My Profile</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <div class="deactivate-page">
+      <div class="deactivate-card">
+        <h1>Deactivate Account</h1>
+
+        <p class="deactivate-text">
+          You are about to deactivate your RMIT Connect account.
+        </p>
+
+        <p class="deactivate-warning">
+          You will not be able to log in or access your account while it is
+          deactivated.
+        </p>
+
+        <!-- Sends the confirmation value to the Node route. -->
+        <form
+          id="deactivate-form"
+          class="deactivate-form"
+          action="/deactivate-account"
+          method="post"
+        >
+          <label class="deactivate-checkbox">
+            <input
+              id="deactivate-id-confirm"
+              name="deactivate-id-confirm"
+              type="checkbox"
+               value="confirmed"
+              required
+            />
+            I understand that my account will be deactivated.
+          </label>
+
+          <!-- Shows an error from JavaScript or Node. -->
+          <div class="error" id="deactivate-error-text">
+            <%= deactivateError %>
+          </div>
+
+          <button class="deactivatebutton" type="submit">
+            Deactivate Account
+          </button>
+        </form>
+
+        <p class="account-help">
+          <a href="/" class="common-link">Cancel</a>
+        </p>
+      </div>
+    </div>
+    <script src="/js/deactivate.js"></script>
+  </body>
+</html>

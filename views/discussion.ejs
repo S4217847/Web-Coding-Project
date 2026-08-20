@@ -19,7 +19,7 @@
         <ul>
           <li><a href="/">Home</a></li>
           <li><a href="/discussions">Discussions</a></li>
-          <li><a href="/blog/blog.html">My Blog</a></li>
+          <li><a href="/blogs">My Blog</a></li>
           <li><a href="/profile/profile.html">My Profile</a></li>
         </ul>
       </nav>
@@ -32,7 +32,7 @@
             <li><a href="#">My Feed</a></li>
             <li><a href="#">My Clubs</a></li>
             <li><a href="#">Saved Posts</a></li>
-            <li><a href="/Wishlist/wishlist.html">Favourites</a></li>
+            <li><a href="/wishlist">Favourites</a></li>
             <li><a href="#">Settings</a></li>
           </ul>
         </div>
@@ -43,13 +43,13 @@
           id="post-form"
           class="postbox"
           method="post"
-          enctype="multipart/form-data"
+          action="/discussions"
         >
           <label for="post-title">Post title</label>
 
           <input
             id="post-title"
-            name="post-title"
+            name="postTitle"
             type="text"
             placeholder="Enter a discussion title"
             maxlength="100"
@@ -60,14 +60,23 @@
 
           <label for="post-image">Post image</label>
 
-          <input id="post-image" name="post-image" type="file" />
+          <!-- Use an existing image for now. File upload will be added later. -->
+          <select id="post-image" name="postImage" required>
+            <option value="" selected>Choose an image</option>
+            <option value="/images/peer-workshop.jpg">Peer Workshop</option>
+            <option value="/images/RMIT_campus.png">RMIT Campus</option>
+            <option value="/images/saigonview.jpg">Saigon View</option>
+          </select>
+
+          <div class="error" id="image-error-text"></div>
 
           <label for="post-content">Post content</label>
 
           <textarea
             id="post-content"
-            name="post-content"
+            name="postContent"
             placeholder="Start a discussion with RMIT Connect..."
+            maxlength="1000"
             required
           ></textarea>
 
@@ -85,15 +94,17 @@
             id="discussion-filter-form"
             class="discussion-filter"
             method="get"
+            action = "/discussions"
           >
             <div class="discussion-search">
               <label for="search-discussion">Search discussions</label>
 
               <input
                 id="search-discussion"
-                name="search-discussion"
+                name="search"
                 type="text"
                 placeholder="Enter the keyword"
+                value="<%= searchText %>"
               />
             </div>
 
@@ -101,8 +112,8 @@
               <label for="filterby">Filter by</label>
 
               <select id="filterby" name="filterby">
-                <option value="title">Title</option>
-                <option value="content">Content</option>
+                <option value="title" <%= filterType === "title" ? "selected" : "" %>>Title</option>
+                <option value="content" <%= filterType === "content" ? "selected" : "" %>>Content</option>
               </select>
             </div>
 
@@ -110,107 +121,52 @@
               <label for="sortby">Sort by</label>
 
               <select id="sortby" name="sortby">
-                <option value="newest">Newest</option>
-                <option value="oldest">Oldest</option>
+                <option value="newest" <%= sortType === "newest" ? "selected" : "" %>>Newest</option>
+                <option value="oldest" <%= sortType === "oldest" ? "selected" : "" %>>Oldest</option>
               </select>
             </div>
 
             <button class="searchbutton" type="submit">Search</button>
           </form>
 
-          <article class="discussion-post">
-            <div class="discussion-post-header">
-              <div class="user-info">
-                <img
-                  class="user-avatar"
-                  src="/images/user_icon.png"
-                  alt="User profile icon"
-                />
-                <div>
-                  <p class="post-author">Jisoo Kim</p>
-                  <p class="post-course">Bachelor of Information Technology</p>
-                </div>
-              </div>
-              <p class="post-time">Today, 10:30 AM</p>
-            </div>
-            <h2>Where can I get help with HTML and CSS?</h2>
-            <img
-              class="post-image"
-              src="/images/peer-workshop.jpg"
-              alt="Three students talking at a table with laptops"
-            />
-            <p class="post-content">
-              I am new to web programming. Is there a beginner-friendly workshop
-              where I can practice HTML and CSS with other students?
-            </p>
-            <div class="discussion-post-footer">
-              <span>2 replies</span>
-              <a href="/discussions/1">View discussion</a>
-            </div>
-          </article>
+          <% if (discussions.length === 0) { %>
+          <p class = "no-discussions">No discussions found.</p><%} %>
 
-          <article class="discussion-post">
-            <div class="discussion-post-header">
-              <div class="user-info">
-                <img
-                  class="user-avatar"
-                  src="/images/user_icon.png"
-                  alt="User profile icon"
-                />
-                <div>
-                  <p class="post-author">Minseo Lee</p>
-                  <p class="post-course">Bachelor of Business</p>
+          <!-- Repeat this article once for every Discussion document from index.js. -->
+          <% discussions.forEach(function(discussion, i) { %>
+            <article class="discussion-post">
+              <div class="discussion-post-header">
+                <div class="user-info">
+                  <img
+                    class="user-avatar"
+                    src="<%= authors[i].profileImage %>"
+                    alt="Profile image of <%= authors[i].username %>"
+                  />
+                  <div>
+                    <p class="post-author"><%= authors[i].username %></p>
+                    <p class="post-course"><%= authors[i].course %></p>
+                  </div>
                 </div>
-              </div>
-              <p class="post-time">Yesterday, 4:15 PM</p>
-            </div>
-            <h2>Where is a quiet place to study on campus?</h2>
-            <img
-              class="post-image"
-              src="/images/RMIT_campus.png"
-              alt="RMIT campus building"
-            />
-            <p class="post-content">
-              I am new to RMIT and do not know the campus well. Is there a quiet
-              study area with charging points?
-            </p>
-            <div class="discussion-post-footer">
-              <span>3 replies</span>
-              <a href="/discussions/2">View discussion</a>
-            </div>
-          </article>
 
-          <article class="discussion-post">
-            <div class="discussion-post-header">
-              <div class="user-info">
-                <img
-                  class="user-avatar"
-                  src="/images/user_icon.png"
-                  alt="User profile icon"
-                />
-                <div>
-                  <p class="post-author">Hyunwoo Park</p>
-                  <p class="post-course">Master of Data Science</p>
-                </div>
+                <p class="post-time"><%= discussion.createdAt %></p>
               </div>
-              <p class="post-time">Jul 16, 9:00 AM</p>
-            </div>
-            <h2>Where can I see a good night view of Saigon?</h2>
-            <img
-              class="post-image"
-              src="/images/saigonview.jpg"
-              alt="Saigon skyline at sunset"
-            />
-            <p class="post-content">
-              I am new to Ho Chi Minh City and want to explore the city this
-              weekend. Can anyone recommend a safe place to see the Saigon
-              skyline at night?
-            </p>
-            <div class="discussion-post-footer">
-              <span>3 replies</span>
-              <a href="/discussions/3">View discussion</a>
-            </div>
-          </article>
+
+              <h2><%= discussion.title %></h2>
+
+              <img
+                class="post-image"
+                src="<%= discussion.image %>"
+                alt="<%= discussion.title %>"
+              />
+
+              <p class="post-content"><%= discussion.content %></p>
+
+              <div class="discussion-post-footer">
+                <span><%= replyCounts[i] %> replies</span>
+                <a href="/discussions/<%= discussion._id %>">View discussion</a>
+              </div>
+            </article>
+          <% }); %>
         </section>
       </div>
 

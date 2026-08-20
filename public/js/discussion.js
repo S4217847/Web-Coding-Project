@@ -1,26 +1,11 @@
 const discussionPostForm = document.getElementById("post-form");
 const discussionPostTitle = document.getElementById("post-title");
 const discussionPostContent = document.getElementById("post-content");
+const discussionPostImage = document.getElementById("post-image");
 const titleErrorText = document.getElementById("title-error-text");
 const contentErrorText = document.getElementById("content-error-text");
-const savedDiscussionTitle = localStorage.getItem("discussionTitle");
-const savedDiscussionContent = localStorage.getItem("discussionContent");
-const discussionFilterForm = document.getElementById("discussion-filter-form");
-const discussionSearch = document.getElementById("search-discussion");
-const discussionSortBy = document.getElementById("sortby");
-const discussionFilterBy = document.getElementById("filterby");
-const discussionPost = document.querySelectorAll(".discussion-post");
-const discussionList = document.querySelector(".discussion-list");
-
+const imageErrorText = document.getElementById("image-error-text");
 discussionPostForm.noValidate = true;
-
-if (savedDiscussionTitle !== null) {
-  discussionPostTitle.value = savedDiscussionTitle;
-}
-
-if (savedDiscussionContent !== null) {
-  discussionPostContent.value = savedDiscussionContent;
-}
 
 function checkDiscussionTitle() {
   const title = discussionPostTitle.value.trim();
@@ -47,65 +32,49 @@ function checkDiscussionContent() {
     return false;
   }
 
+  if (content.length > 1000) {
+    contentErrorText.textContent =
+      "The content must be 1000 characters or less.";
+    return false;
+  }
+
   contentErrorText.textContent = "";
+  return true;
+}
+
+function checkDiscussionImage() {
+  if (discussionPostImage.value === "") {
+    imageErrorText.textContent = "Please select a post image.";
+    return false;
+  }
+
+  imageErrorText.textContent = "";
   return true;
 }
 
 discussionPostTitle.addEventListener("input", function () {
   checkDiscussionTitle();
-  localStorage.setItem("discussionTitle", discussionPostTitle.value);
 });
 
 discussionPostContent.addEventListener("input", function () {
   checkDiscussionContent();
-  localStorage.setItem("discussionContent", discussionPostContent.value);
+});
+
+discussionPostImage.addEventListener("change", function () {
+  checkDiscussionImage();
 });
 
 discussionPostForm.addEventListener("submit", function (event) {
-  event.preventDefault();
-
   const discussionTitleIsValid = checkDiscussionTitle();
   const discussionContentIsValid = checkDiscussionContent();
+  const discussionImageIsValid = checkDiscussionImage();
 
-  if (discussionTitleIsValid === true && discussionContentIsValid === true) {
-    alert("The post is submitted.");
-  }
-});
-
-discussionFilterForm.addEventListener("submit", function (event) {
-  event.preventDefault();
-
-  const searchText = discussionSearch.value.trim().toLowerCase();
-  const filterType = discussionFilterBy.value;
-  const sortType = discussionSortBy.value;
-
-  for (let i = 0; i < discussionPost.length; i++) {
-    let postText = "";
-
-    if (filterType === "title") {
-      postText = discussionPost[i]
-        .querySelector("h2")
-        .textContent.toLowerCase();
-    } else {
-      postText = discussionPost[i]
-        .querySelector(".post-content")
-        .textContent.toLowerCase();
-    }
-
-    if (postText.includes(searchText)) {
-      discussionPost[i].style.display = "";
-    } else {
-      discussionPost[i].style.display = "none";
-    }
-  }
-
-  if (sortType === "oldest") {
-    for (let i = discussionPost.length - 1; i >= 0; i--) {
-      discussionList.appendChild(discussionPost[i]);
-    }
-  } else {
-    for (let i = 0; i < discussionPost.length; i++) {
-      discussionList.appendChild(discussionPost[i]);
-    }
+  if (
+    discussionTitleIsValid === false ||
+    discussionContentIsValid === false ||
+    discussionImageIsValid === false
+  ) {
+    event.preventDefault();
+    return;
   }
 });

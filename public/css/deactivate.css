@@ -1,0 +1,75 @@
+/* ------------------ Deactivate Account ------------------ */
+
+.deactivate-page {
+  display: block;
+  max-width: 620px;
+  margin: 50px auto;
+  padding: 0 20px;
+}
+
+.deactivate-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 32px;
+}
+
+.deactivate-card h1 {
+  margin-bottom: 10px;
+  font-size: 26px;
+}
+
+.deactivate-text {
+  color: #555555;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.deactivate-warning {
+  background-color: #fff0f0;
+  border-radius: 4px;
+  color: #8b0000;
+  line-height: 1.5;
+  margin-bottom: 24px;
+  padding: 12px;
+}
+
+.deactivate-form {
+  display: grid;
+  gap: 18px;
+}
+
+.deactivate-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.5;
+}
+
+.deactivate-checkbox input {
+  margin-top: 4px;
+}
+
+.deactivatebutton {
+  background-color: #e60028;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* ------------------ Responsive ------------------ */
+
+@media (max-width: 800px) {
+  .deactivate-page {
+    margin: 24px auto;
+    padding: 0 12px;
+  }
+
+  .deactivate-card {
+    padding: 20px;
+  }
+}

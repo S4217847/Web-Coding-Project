@@ -53,18 +53,17 @@ function checkDiscussionReply() {
 discussionReplyContent.addEventListener("input", checkDiscussionReply);
 discussionReplyTitle.addEventListener("input", checkDiscussionReplyTitle);
 discussionReplyImage.addEventListener("input", checkDiscussionReplyImage);
-discussionReplyForm.addEventListener("submit", function (event) {
-  event.preventDefault();
 
+discussionReplyForm.addEventListener("submit", function (event) {
   const discussionReplyTitleIsValid = checkDiscussionReplyTitle();
   const discussionReplyImageIsValid = checkDiscussionReplyImage();
   const discussionReplyContentIsValid = checkDiscussionReply();
 
   if (
-    discussionReplyTitleIsValid === true &&
-    discussionReplyImageIsValid === true &&
-    discussionReplyContentIsValid === true
+    discussionReplyTitleIsValid === false ||
+    discussionReplyImageIsValid === false ||
+    discussionReplyContentIsValid === false
   ) {
-    alert("The reply is submitted.");
+    event.preventDefault();
   }
 });
