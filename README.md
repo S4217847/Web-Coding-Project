@@ -249,3 +249,38 @@ and for accurately declaring their own AI use under the course requirements.
 - **Debugging assistance:** Help with interpreting error messages and providing conceptual debugging guidance.
 - **Implementation support:** Suggestions for implementation ideas and code explanations.
 - **README and translation assistance:** Help with organising and writing parts of the README.
+
+============================================================================
+
+### Nguyen Dac Gia Hung (s4217847)
+
+**Indiviual Module: Ratings and Review**
+
+**Shared User Account contribution: Account Creation (Unfinished)**
+
+**Ratings and Reviews Features**
+- Create, view, edit and delete review posts
+- Search and filter reviews in the browser 
+- Allow active logged-in users to edit or delete only their own ratings
+
+**Key Routes**
+- `POST /reviews`
+- `GET /reviews/:id`
+- `GET /reviews/:id/edit`
+- `POST /reviews/:id/edit`
+- `POST /reviews/:id/delete`
+
+**Main Files**
+- `index.js`
+- `review-data.js`
+- `views/review.ejs`
+- `views/review-detail.ejs`
+- `views/review-edit.ejs`
+- `views/reviews-browse.ejs`
+
+### AI assistance acknowledgement
+
+- **Review and code inspection:** Spelling and grammar review, code review, and comment suggestions.
+- **Debugging assistance:** Help with interpreting error messages and providing conceptual debugging guidance.
+- **Implementation support:** Suggestions for implementation ideas and code explanations.
+- **README and translation assistance:** Help with organising and writing parts of the README.
