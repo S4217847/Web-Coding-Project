@@ -234,7 +234,7 @@ function makeCurrentUser(loginUser) {
     username: loginUser.name,
     studentId: loginUser.studentId,
     email: loginUser.email,
-    shortDescription: loginUser.description,
+    description: loginUser.description,
     profileImage: loginUser.avatarUrl || "/images/user_icon.png",
     course: "RMIT student",
     accountStatus: loginUser.status,
