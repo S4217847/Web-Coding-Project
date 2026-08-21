@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wishlist &amp; Favourites | RMIT Connect</title>
+    <link rel="stylesheet" href="css/wishlist.css">
+    <link rel="stylesheet" href="css/app.css">
+    <script type="module" src="js/wishlist.js"></script>
+</head>
+
+<body id="top">
+    <a class="skipLink" href="#main-content">Skip to main content</a>
+
+    <!-- Shared shell hooks populate the current user and perform session logout. -->
+    <header class="siteHeader">
+        <div class="logo">
+            <a href="wishlist.html#top">RMIT CONNECT</a>
+        </div>
+
+        <nav class="mainNav" aria-label="Main navigation">
+            <ul>
+                <li><a href="wishlist-add.html#catalogue-results">Browse Items</a></li>
+                <li><a href="wishlist.html#savedItems" aria-current="page">Wishlist</a></li>
+                <li><a href="wishlist.html#purchasedItems">Purchased</a></li>
+            </ul>
+        </nav>
+
+        <span class="currentUser"
+              data-current-user
+              hidden>
+        </span>
+
+        <button class="headerButton"
+                type="button"
+                data-logout
+                hidden>
+            Log Out
+        </button>
+    </header>
+
+    <!-- Server-backed wishlist, cart-ready, and purchase views. -->
+    <main id="main-content">
+        <section class="pageBanner">
+            <div class="pageBannerText">
+                <h1>Wishlist &amp; Favourites</h1>
+                <p>Keep useful campus items in one place for later.</p>
+            </div>
+
+            <a class="bannerButton" href="wishlist-add.html#catalogue-results">+ Browse Items</a>
+        </section>
+
+        <!-- wishlist.js announces reads, mutations, and confirmation outcomes here. -->
+        <div id="wishlistMessage"
+             class="notice pageNotice"
+             role="status"
+             aria-live="polite"
+             aria-atomic="true"
+             hidden>
+        </div>
+
+        <!-- Summary values are refreshed from the same authoritative API response. -->
+        <section class="summarySection"
+                 aria-labelledby="summary-heading">
+            <h2 id="summary-heading">
+                Wishlist Summary
+            </h2>
+
+            <div class="summaryGrid">
+                <a class="summaryCard"
+                   href="#savedItems">
+                    <span id="summarySaved"
+                          class="summaryNumber">
+                        0
+                    </span>
+
+                    <span class="summaryLabel">
+                        Saved items
+                    </span>
+                </a>
+
+                <a class="summaryCard"
+                   href="#savedItems">
+                    <span id="summaryCart"
+                          class="summaryNumber">
+                        0
+                    </span>
+
+                    <span class="summaryLabel">
+                        Ready for cart
+                    </span>
+                </a>
+
+                <a class="summaryCard"
+                   href="#purchasedItems">
+                    <span id="summaryPurchased"
+                          class="summaryNumber">
+                        0
+                    </span>
+
+                    <span class="summaryLabel">
+                        Purchased
+                    </span>
+                </a>
+            </div>
+        </section>
+
+        <!-- Dynamic saved/cart cards are safely rendered into wishlistList. -->
+        <section id="savedItems"
+                 class="wishlistSection"
+                 aria-labelledby="saved-heading">
+
+            <div class="sectionCard">
+                <div class="sectionHeading">
+                    <div>
+                        <h2 id="saved-heading">
+                            Saved Items
+                        </h2>
+
+                        <p>
+                            Move, purchase, or remove items
+                            from your personal list.
+                        </p>
+                    </div>
+
+                    <a class="smallButton"
+                       href="wishlist-add.html#catalogue-results">
+                        Browse More
+                    </a>
+                </div>
+
+                <div id="wishlistList"
+                     class="wishlistList"
+                     aria-live="polite"
+                     aria-busy="true"
+                     data-testid="wishlist-list">
+
+                    <p class="loadingState">
+                        Loading your wishlist…
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dynamic purchase history and favourites are rendered separately. -->
+        <section id="purchasedItems"
+                 class="purchasedSection"
+                 aria-labelledby="purchased-heading">
+
+            <div class="sectionCard">
+                <div class="sectionHeading">
+                    <div>
+                        <h2 id="purchased-heading">
+                            Recent Purchases &amp; Favourites
+                        </h2>
+
+                        <p>
+                            Revisit items you may want
+                            to buy again.
+                        </p>
+                    </div>
+
+                    <a class="smallButton"
+                       href="wishlist-add.html#catalogue-results">
+                        Browse Similar Items
+                    </a>
+                </div>
+
+                <div id="purchasedList"
+                     class="purchasedList"
+                     aria-live="polite"
+                     aria-busy="true"
+                     data-testid="purchased-list">
+
+                    <p class="loadingState">
+                        Loading recent purchases…
+                    </p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Shared project navigation and required acknowledgement. -->
+    <footer class="siteFooter">
+        <div class="footerInner">
+            <div class="footerBrand">
+                <strong>RMIT CONNECT</strong>
+                <p>A full-stack student community demo.</p>
+            </div>
+
+            <nav class="footerNav" aria-label="Footer navigation">
+                <a href="wishlist.html#savedItems">Wishlist</a>
+                <a href="wishlist-add.html#catalogue-results">Browse Items</a>
+                <a href="#top">Back to Top</a>
+            </nav>
+
+            <div class="aiAcknowledgement">
+                <strong>AI Use Acknowledgement</strong>
+                <p>
+                    OpenAI Codex assisted with implementation guidance, debugging, documentation, and testing.
+                    Dat Pham developed, reviewed, understood, and verified the final implementation.
+                </p>
+                <p>Sample photographs sourced from Unsplash.</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+
+</html>

@@ -1,169 +1,142 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blog | RMIT Connect</title>
-    <link rel="stylesheet" href="/css/blog.css" />
-  </head>
-  <body>
-    <header>
-      <div class="logo">RMIT CONNECT</div>
-      <form action="#" class="searchbar" role="search">
-        <label class="text-label" for="blog-search">Search blogs</label>
-        <input
-          type="search"
-          id="blog-search"
-          placeholder="Search RMIT Connect..."
-          class="search-input"
-        />
-        <label class="text-label" for="search-category">Search category</label>
-        <select
-          id="search-category"
-          class="search-categories"
-          aria-label="Search category"
-        >
-          <option value="all">All</option>
-          <option value="name">Author</option>
-          <option value="id">SID</option>
-          <option value="tags">Tags</option>
-        </select>
-      </form>
+    <link rel="stylesheet" href="/css/blog.css">
+</head>
+<body>
+  <header>
+    <div class="logo">RMIT CONNECT</div>
+    <form action="#" class="searchbar" role="search">
+      <label class="text-label" for="blog-search">Search blogs</label>
+      <input type="search" id="blog-search" placeholder="Search RMIT Connect..." class="search-input">
+      <label class="text-label" for="search-category">Search category</label>
+      <select id="search-category" class="search-categories" aria-label="Search category">
+        <option value="all">All</option>
+        <option value="name">Author</option>
+        <option value="id">SID</option>
+        <option value="title">Title</option>
+        <option value="content">Content</option>
+        <option value="category">Category</option>
+        <option value="tags">Tags</option>
+      </select>
+    </form>
 
-      <nav>
-        <ul>
-          <li><a href="/">Home</a></li>
-          <li><a href="/discussions">Discussions</a></li>
-          <li><a href="/blogs">My Blog</a></li>
-          <li><a href="#">My Profile</a></li>
-        </ul>
-      </nav>
-    </header>
+    <nav>
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/discussions">Discussions</a></li>
+        <li><a href="/blogs">My Blog</a></li>
+        <li><a href="/editprofile.html">My Profile</a></li>
+      </ul>
+    </nav>
+  </header>
 
-    <main class="page">
-      <aside class="leftbar" aria-label="Personal navigation">
-        <div class="menu-card">
-          <ul>
-            <li><a href="#">My Feed</a></li>
-            <li><a href="#">My Clubs</a></li>
-            <li><a href="#">Saved Posts</a></li>
-            <li><a href="#">Favourites</a></li>
-            <li><a href="#">Settings</a></li>
-          </ul>
-        </div>
-      </aside>
+<main class="page">
+  <aside class="leftbar" aria-label="Personal navigation">
+    <div class="menu-card">
+      <ul>
+        <li><a href="#">My Feed</a></li>
+        <li><a href="#">My Clubs</a></li>
+        <li><a href="#">Saved Posts</a></li>
+        <li><a href="/wishlist">Favourites</a></li>
+        <li><a href="#">Settings</a></li>
+      </ul>
+    </div>
 
-      <section class="middle" aria-labelledby="recent-blogs-title">
-        <form
-          class="articlebox"
-          id="create-blog-form"
-          action="#"
-          method="post"
-          novalidate
-        >
-          <label class="text-label" for="blog-title">Blog title</label>
-          <input
-            class="article-input"
-            id="blog-title"
-            name="title"
-            type="text"
-            placeholder="Blog title"
-            required
-            maxlength="120"
-          />
-          <small
-            class="field-error"
-            id="blog-title-error"
-            aria-live="polite"
-          ></small>
-          <label class="text-label" for="blog-tags">Blog tags</label>
-          <input
-            class="article-input"
-            id="blog-tags"
-            name="tags"
-            type="text"
-            placeholder="Tags (for example: Technology, Business)"
-          />
-          <label class="text-label" for="blog-content">Blog content</label>
-          <textarea
-            id="blog-content"
-            name="content"
-            placeholder="Write something for your blog..."
-            required
-          ></textarea>
-          <small
-            class="field-error"
-            id="blog-content-error"
-            aria-live="polite"
-          ></small>
-          <div class="articlefooter">
-            <input
-              type="file"
-              id="imageUpload"
-              name="image"
-              accept="image/*"
-              class="text-label"
-            />
-            <label for="imageUpload" class="upload-btn">
-              📷 Upload image
-            </label>
-            <button class="articlebtn" type="submit">Post</button>
-          </div>
-          <small
-            class="field-error"
-            id="blog-image-error"
-            aria-live="polite"
-          ></small>
-          <p class="form-status" id="blog-form-status" aria-live="polite"></p>
-        </form>
+  </aside>
 
-        <div class="contentbox">
-          <div class="content clearfix">
-            <div class="main-content">
-              <h1 class="recent-article-title" id="recent-blogs-title">
-                Recent blogs
-              </h1>
+  <section class="middle" aria-labelledby="recent-blogs-title">
 
-              <p class="list-status" id="blog-list-status" aria-live="polite">
-                Loading blogs...
-              </p>
-              <div id="blog-list"></div>
-            </div>
-          </div>
-        </div>
-      </section>
+    <form class="articlebox" id="create-blog-form" action="#" method="post" novalidate>
+      <label class="text-label" for="blog-title">Blog title</label>
+      <input class="article-input" id="blog-title" name="title" type="text" placeholder="Blog title" required maxlength="120">
+      <small class="field-error" id="blog-title-error" aria-live="polite"></small>
+      <label class="text-label" for="blog-category">Blog category</label>
+      <select class="article-input" id="blog-category" name="category" required>
+        <option value="">Choose a category</option>
+        <option value="Academic">Academic</option>
+        <option value="Events">Events</option>
+        <option value="Student Life">Student Life</option>
+        <option value="Technology">Technology</option>
+        <option value="Other">Other</option>
+      </select>
+      <small class="field-error" id="blog-category-error" aria-live="polite"></small>
+      <label class="text-label" for="blog-tags">Blog tags</label>
+      <input class="article-input" id="blog-tags" name="tags" type="text" placeholder="Tags (for example: Technology, Business)">
+      <small class="field-error" id="blog-tags-error" aria-live="polite"></small>
+      <label class="text-label" for="blog-content">Blog content</label>
+      <textarea id="blog-content" name="content" placeholder="Write something for your blog..." required></textarea>
+      <small class="field-error" id="blog-content-error" aria-live="polite"></small>
+      <div class="articlefooter">
+        <input type="file" id="imageUpload" name="image" accept="image/*" class="text-label">
+        <label for="imageUpload" class="upload-btn">
+        📷 Upload image
+        </label>
+        <button class="articlebtn" type="submit">Post</button>
+        <button class="btn cancel-edit" id="cancel-edit" type="button" hidden>Cancel edit</button>
+      </div>
+      <small class="field-error" id="blog-image-error" aria-live="polite"></small>
+      <p class="form-status" id="blog-form-status" aria-live="polite"></p>
+    </form>
 
-      <aside class="rightbar" aria-label="Events and online friends">
-        <div class="itembar">
-          <div class="itemtitle">Upcoming Events</div>
-          <div class="eventitem">
-            <span class="eventdate">Jul #</span> - Coding Contest
-          </div>
-          <div class="eventitem">
-            <span class="eventdate">Jul #</span> - Something Contest
-          </div>
-          <div class="eventitem">
-            <span class="eventdate">Jul #</span> - Contest Contest
-          </div>
+    <div class="contentbox">
+      <div class="content clearfix">
+
+        <div class="main-content">
+          <h1 class="recent-article-title" id="recent-blogs-title">Recent blogs</h1>
+          <label for="blog-sort">Sort blogs</label>
+          <select id="blog-sort" class="article-input">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="title-az">Title A-Z</option>
+            <option value="title-za">Title Z-A</option>
+          </select>
+
+          <p class="list-status" id="blog-list-status" aria-live="polite">Loading blogs...</p>
+          <div id="blog-list"></div>
         </div>
 
-        <div class="itembar">
-          <div class="itemtitle">Friends Online</div>
-          <div class="frienditem">
-            <div class="friendavatar"></div>
-            <div class="friendname">Kim</div>
-          </div>
-          <div class="frienditem">
-            <div class="friendavatar"></div>
-            <div class="friendname">Dat</div>
-          </div>
-          <div class="frienditem">
-            <div class="friendavatar"></div>
-            <div class="friendname">Hoang</div>
-          </div>
-        </div>
-      </aside>
-    </main>
-    <script src="/js/blog.js" defer></script>
-  </body>
+      </div>
+    </div>
+
+  </section>
+
+  <aside class="rightbar" aria-label="Events and online friends">
+
+    <div class="itembar">
+      <div class="itemtitle">Upcoming Events</div>
+      <div class="eventitem">
+        <span class="eventdate">Jul #</span> - Coding Contest
+      </div>
+      <div class="eventitem">
+        <span class="eventdate">Jul #</span> - Something Contest
+      </div>
+      <div class="eventitem">
+        <span class="eventdate">Jul #</span> - Contest Contest
+      </div>
+    </div>
+
+    <div class="itembar">
+      <div class="itemtitle">Friends Online</div>
+      <div class="frienditem">
+        <div class="friendavatar"></div>
+        <div class="friendname">Kim</div>
+      </div>
+      <div class="frienditem">
+        <div class="friendavatar"></div>
+        <div class="friendname">Dat</div>
+      </div>
+      <div class="frienditem">
+        <div class="friendavatar"></div>
+        <div class="friendname">Jay Nguyen</div>
+      </div>
+    </div>
+  </aside>
+
+</main>
+<script src="/js/blog.js" defer></script>
+</body>
 </html>

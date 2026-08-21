@@ -20,7 +20,7 @@
           <li><a href="/">Home</a></li>
           <li><a href="/discussions">Discussions</a></li>
           <li><a href="/blogs">My Blog</a></li>
-          <li><a href="/profile/profile.html">My Profile</a></li>
+          <li><a href="/editprofile.html">My Profile</a></li>
         </ul>
       </nav>
     </header>
@@ -28,7 +28,7 @@
     <main>
       <section class="section">
         <div class="sectionCard" id="reviewDetailContainer">
-          <a href="/reviews" class="backLink"> Back to all reviews</a>
+          <a href="/reviews/browse" class="backLink"> Back to all reviews</a>
 
           <article>
             <div class="reviewDetailHeader">
@@ -37,7 +37,7 @@
                 <p class="reviewDetailMeta"></p>
               </div>
               <div class="reviewDetailHeaderActions">
-                <a class="btnPrimary" href="/reviews/1/edit">Edit</a>
+                <a class="btnPrimary" href="/reviews/browse">Edit</a>
                 <form action="/reviews/delete" method="post">
                   <input type="hidden" name="id" value="" />
                   <button class="btnSecondary" type="submit">Delete</button>
@@ -45,7 +45,11 @@
               </div>
             </div>
 
-            <img class="reviewDetailImage" src="/images/thumbnail.jpg" alt="" />
+            <img
+              class="reviewDetailImage"
+              src="/images/review-placeholder.jpg"
+              alt=""
+            />
 
             <p class="reviewDetailDescription"></p>
           </article>

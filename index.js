@@ -1,4 +1,5 @@
 const express = require("express");
+const session = require("express-session");
 const {
   users,
   discussions,
@@ -6,12 +7,42 @@ const {
   getDiscussionId,
   getReplyId,
 } = require("./forum-data");
+const { blogs } = require("./blog-data");
+const { registerBlogApi } = require("./routes/register-blog-api");
+const reviewData = require("./review-data");
+let reviews = reviewData.reviews;
+const getReviewId = reviewData.getReviewId;
+let loginStore = null;
+let createPasswordRecord = null;
 const app = express();
-// Uses the port from .env when it exists. Otherwise, it uses port 3000.
+// Uses the PORT environment variable when provided. Otherwise, it uses port 3000.
 const port = process.env.PORT || 3000;
+const isProduction = process.env.NODE_ENV === "production";
+const sessionSecret =
+  process.env.SESSION_SECRET || "local-demo-change-this-secret";
 
 // Sets EJS as the file type used to build the page on the server.
 app.set("view engine", "ejs");
+
+if (isProduction) {
+  app.set("trust proxy", 1);
+}
+
+app.use(express.json());
+app.use(
+  session({
+    name: "rmit.connect.sid",
+    secret: sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: isProduction,
+      maxAge: 2 * 60 * 60 * 1000,
+    },
+  })
+);
 // Reads values sent from normal HTML forms.
 app.use(express.urlencoded({ extended: true }));
 // Makes files inside public available to the browser, such as CSS and JavaScript.
@@ -21,12 +52,40 @@ function showHome(request, response) {
   response.render("index", { pageTitle: "RMIT Connect" });
 }
 
+function showSitemap(request, response) {
+  const activeDiscussions = [];
+  const activeBlogs = [];
+
+  for (let i = 0; i < discussions.length; i += 1) {
+    if (discussions[i].deletedAt === null) {
+      activeDiscussions.push(discussions[i]);
+    }
+  }
+
+  for (let i = 0; i < blogs.length; i += 1) {
+    if (blogs[i].deleted === false) {
+      activeBlogs.push(blogs[i]);
+    }
+  }
+
+  response.render("sitemap", {
+    pageTitle: "Site Map",
+    discussions: activeDiscussions,
+    blogs: activeBlogs,
+    reviews: reviews,
+  });
+}
+
+function redirectForumLogin(response) {
+  response.redirect("/login.html?returnTo=discussions");
+}
+
 // Show all active discussions.
 async function showDiscussions(request, response) {
-  const currentUser = await getCurrentUser();
+  const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
-    response.redirect("/deactivated-success");
+    redirectForumLogin(response);
     return;
   }
 
@@ -73,10 +132,10 @@ async function showDiscussions(request, response) {
 }
 
 async function showDiscussionDetail(request, response) {
-  const currentUser = await getCurrentUser();
+  const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
-    response.redirect("/deactivated-success");
+    redirectForumLogin(response);
     return;
   }
 
@@ -151,10 +210,10 @@ async function showEditDiscussion(request, response) {
     return;
   }
 
-  const currentUser = await getCurrentUser();
+  const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
-    response.redirect("/deactivated-success");
+    redirectForumLogin(response);
     return;
   }
 
@@ -169,15 +228,63 @@ async function showEditDiscussion(request, response) {
   });
 }
 
-// Gets a active test user until the shared login module is connected.
-async function getCurrentUser() {
+function makeCurrentUser(loginUser) {
+  const currentUser = {
+    _id: loginUser.id,
+    username: loginUser.name,
+    studentId: loginUser.studentId,
+    email: loginUser.email,
+    shortDescription: loginUser.description,
+    profileImage: loginUser.avatarUrl || "/images/user_icon.png",
+    course: "RMIT student",
+    accountStatus: loginUser.status,
+  };
+
   for (let i = 0; i < users.length; i += 1) {
-    if (users[i].accountStatus === "active") {
-      return users[i];
+    if (users[i]._id === currentUser._id) {
+      currentUser.course = users[i].course;
+      users[i] = currentUser;
+      return currentUser;
     }
   }
 
-  return null;
+  users.push(currentUser);
+  return currentUser;
+}
+
+// Gets the user stored in the shared Login session.
+async function getCurrentUser(request) {
+  if (!request.session || !request.session.userId || !loginStore) {
+    return null;
+  }
+
+  let loginUser = null;
+
+  for (let i = 0; i < loginStore.users.length; i += 1) {
+    if (loginStore.users[i].id === request.session.userId) {
+      loginUser = loginStore.users[i];
+    }
+  }
+
+  if (!loginUser || loginUser.status !== "active") {
+    return null;
+  }
+
+  return makeCurrentUser(loginUser);
+}
+
+async function getBlogCurrentUser(request) {
+  const currentUser = await getCurrentUser(request);
+
+  if (!currentUser) {
+    return null;
+  }
+
+  return {
+    id: currentUser._id,
+    name: currentUser.username,
+    sid: currentUser.studentId,
+  };
 }
 
 // Save a new discussion post from the Discussion Forum form.
@@ -207,10 +314,10 @@ async function createDiscussion(request, response) {
     return;
   }
 
-  const currentUser = await getCurrentUser();
+  const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
-    response.redirect("/deactivated-success");
+    redirectForumLogin(response);
     return;
   }
 
@@ -246,10 +353,10 @@ async function updateDiscussion(request, response) {
     return;
   }
 
-  const currentUser = await getCurrentUser();
+  const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
-    response.redirect("/deactivated-success");
+    redirectForumLogin(response);
     return;
   }
 
@@ -305,10 +412,10 @@ async function deleteDiscussion(request, response) {
     return;
   }
 
-  const currentUser = await getCurrentUser();
+  const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
-    response.redirect("/deactivated-success");
+    redirectForumLogin(response);
     return;
   }
 
@@ -342,10 +449,10 @@ async function showEditReply(request, response) {
     return;
   }
 
-  const currentUser = await getCurrentUser();
+  const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
-    response.redirect("/deactivated-success");
+    redirectForumLogin(response);
     return;
   }
 
@@ -401,10 +508,10 @@ async function createReply(request, response) {
     return;
   }
 
-  const currentUser = await getCurrentUser();
+  const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
-    response.redirect("/deactivated-success");
+    redirectForumLogin(response);
     return;
   }
 
@@ -481,10 +588,10 @@ async function updateReply(request, response) {
     return;
   }
 
-  const currentUser = await getCurrentUser();
+  const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
-    response.redirect("/deactivated-success");
+    redirectForumLogin(response);
     return;
   }
 
@@ -519,10 +626,10 @@ async function deleteReply(request, response) {
     return;
   }
 
-  const currentUser = await getCurrentUser();
+  const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
-    response.redirect("/deactivated-success");
+    redirectForumLogin(response);
     return;
   }
 
@@ -543,6 +650,169 @@ function showBlogs(request, response) {
 
 function showBlogDetails(request, response) {
   response.render("blog-details", { pageTitle: "Blog Details" });
+}
+
+function getReviewErrors(data) {
+  const errors = {};
+  const title = typeof data.title === "string" ? data.title.trim() : "";
+  const description =
+    typeof data.description === "string" ? data.description.trim() : "";
+  const reviewerName =
+    typeof data.reviewerName === "string" ? data.reviewerName.trim() : "";
+  const rating = Number(data.rating);
+
+  if (title.length < 5 || title.length > 100) {
+    errors.title = "Title must be between 5 and 100 characters.";
+  }
+
+  if (description.length < 20 || description.length > 1000) {
+    errors.description = "Description must be between 20 and 1000 characters.";
+  }
+
+  if (!rating || rating < 1 || rating > 5) {
+    errors.rating = "Rating must be a number between 1 and 5.";
+  }
+
+  if (reviewerName.length < 2 || reviewerName.length > 50) {
+    errors.reviewerName = "Reviewer name must be between 2 and 50 characters.";
+  }
+
+  return errors;
+}
+
+async function createReviewData(request, response) {
+  const currentUser = await getCurrentUser(request);
+
+  if (!currentUser) {
+    response.status(401).json({ error: "You must log in first." });
+    return;
+  }
+
+  const errors = getReviewErrors(request.body);
+
+  if (Object.keys(errors).length > 0) {
+    response.status(400).json({ errors: errors });
+    return;
+  }
+
+  const courseCode =
+    typeof request.body.courseCode === "string"
+      ? request.body.courseCode.trim()
+      : "";
+
+  const newReview = {
+    id: getReviewId(),
+    userId: currentUser._id,
+    courseCode: courseCode,
+    title: request.body.title.trim(),
+    description: request.body.description.trim(),
+    rating: Number(request.body.rating),
+    reviewerName: request.body.reviewerName.trim(),
+    imageUrl: "/images/review-placeholder.jpg",
+    createdAt: new Date().toISOString().slice(0, 10),
+  };
+
+  reviews.push(newReview);
+  response.status(201).json(newReview);
+}
+
+async function updateReviewData(request, response) {
+  let review = null;
+
+  for (let i = 0; i < reviews.length; i += 1) {
+    if (String(reviews[i].id) === request.params.id) {
+      review = reviews[i];
+    }
+  }
+
+  if (!review) {
+    response.status(404).json({ error: "Review not found." });
+    return;
+  }
+
+  const currentUser = await getCurrentUser(request);
+
+  if (!currentUser) {
+    response.status(401).json({ error: "You must log in first." });
+    return;
+  }
+
+  if (review.userId !== currentUser._id) {
+    response.status(403).json({
+      error: "You can only edit your own reviews.",
+    });
+    return;
+  }
+
+  const errors = getReviewErrors(request.body);
+
+  if (Object.keys(errors).length > 0) {
+    response.status(400).json({ errors: errors });
+    return;
+  }
+
+  review.title = request.body.title.trim();
+  review.description = request.body.description.trim();
+  review.rating = Number(request.body.rating);
+  review.reviewerName = request.body.reviewerName.trim();
+
+  response.json(review);
+}
+
+async function deleteReviewData(request, response) {
+  let review = null;
+
+  for (let i = 0; i < reviews.length; i += 1) {
+    if (String(reviews[i].id) === request.params.id) {
+      review = reviews[i];
+    }
+  }
+
+  if (!review) {
+    response.status(404).json({ error: "Review not found." });
+    return;
+  }
+
+  const currentUser = await getCurrentUser(request);
+
+  if (!currentUser) {
+    response.status(401).json({ error: "You must log in first." });
+    return;
+  }
+
+  if (review.userId !== currentUser._id) {
+    response.status(403).json({
+      error: "You can only delete your own reviews.",
+    });
+    return;
+  }
+
+  reviews = reviews.filter(function (item) {
+    return String(item.id) !== request.params.id;
+  });
+
+  response.status(204).send();
+}
+
+function showReviewData(request, response) {
+  response.json(reviews);
+}
+
+function showOneReviewData(request, response) {
+  let review = null;
+
+  for (let i = 0; i < reviews.length; i += 1) {
+    if (String(reviews[i].id) === request.params.id) {
+      review = reviews[i];
+    }
+  }
+
+  if (!review) {
+    response.status(404).json({ error: "Review not found." });
+    return;
+  }
+
+  response.json(review);
 }
 
 function showReviews(request, response) {
@@ -577,17 +847,41 @@ function showForgotPassword(request, response) {
   });
 }
 
-// Shows the message after a password reset link is requested.
+// Shows the page where a student chooses a new password.
 function showResetPassword(request, response) {
-  response.render("resetpassword", { pageTitle: "Reset Password" });
+  if (!request.session || !request.session.resetUserId) {
+    response.redirect("/forgot-password");
+    return;
+  }
+
+  response.render("resetpassword", {
+    pageTitle: "Reset Password",
+    resetComplete: false,
+    newPasswordError: "",
+    confirmPasswordError: "",
+  });
 }
 
 // Shows the logout result page.
 function showLogout(request, response) {
-  response.render("logout", { pageTitle: "Logged Out" });
+  request.session.destroy(function (error) {
+    if (error) {
+      response.status(500).send("Could not log out. Please try again.");
+      return;
+    }
+
+    response.clearCookie("rmit.connect.sid", {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: isProduction,
+    });
+
+    response.render("logout", { pageTitle: "Logged Out" });
+  });
 }
 
-// Checks the email on the server before showing the reset message.
+// Checks the email on the server before showing the reset form.
 function sendResetLink(request, response) {
   const email = (request.body["reset-email"] || "").trim().toLowerCase();
   const emailFormat = /^[^\s@]+@rmit\.edu\.vn$/;
@@ -601,11 +895,106 @@ function sendResetLink(request, response) {
     return;
   }
 
+  let loginUser = null;
+
+  for (let i = 0; i < loginStore.users.length; i += 1) {
+    if (loginStore.users[i].email.toLowerCase() === email) {
+      loginUser = loginStore.users[i];
+    }
+  }
+
+  if (!loginUser || loginUser.status !== "active") {
+    response.render("forgotpassword", {
+      pageTitle: "Forgot Password",
+      emailError: "No active account was found with this email address.",
+    });
+    return;
+  }
+
+  request.session.resetUserId = loginUser.id;
   response.redirect("/reset-password");
 }
 
-// Shows the account deactivation form.
-function showDeactivateAccount(request, response) {
+// Checks and saves the new password for the reset account.
+function resetPassword(request, response) {
+  const newPassword =
+    typeof request.body["new-password"] === "string"
+      ? request.body["new-password"]
+      : "";
+  const confirmPassword =
+    typeof request.body["confirm-password"] === "string"
+      ? request.body["confirm-password"]
+      : "";
+
+  if (!request.session || !request.session.resetUserId) {
+    response.redirect("/forgot-password");
+    return;
+  }
+
+  let loginUser = null;
+
+  for (let i = 0; i < loginStore.users.length; i += 1) {
+    if (loginStore.users[i].id === request.session.resetUserId) {
+      loginUser = loginStore.users[i];
+    }
+  }
+
+  if (!loginUser || loginUser.status !== "active") {
+    request.session.resetUserId = null;
+    response.redirect("/forgot-password");
+    return;
+  }
+
+  let newPasswordError = "";
+  let confirmPasswordError = "";
+
+  if (newPassword.length < 8 || newPassword.length > 128) {
+    newPasswordError = "Password must contain 8 to 128 characters.";
+  } else if (
+    !/[a-z]/.test(newPassword) ||
+    !/[A-Z]/.test(newPassword) ||
+    !/\d/.test(newPassword)
+  ) {
+    newPasswordError =
+      "Password must include uppercase and lowercase letters and a number.";
+  }
+
+  if (confirmPassword === "") {
+    confirmPasswordError = "Please confirm your new password.";
+  } else if (newPassword !== confirmPassword) {
+    confirmPasswordError = "Passwords do not match.";
+  }
+
+  if (newPasswordError !== "" || confirmPasswordError !== "") {
+    response.render("resetpassword", {
+      pageTitle: "Reset Password",
+      resetComplete: false,
+      newPasswordError: newPasswordError,
+      confirmPasswordError: confirmPasswordError,
+    });
+    return;
+  }
+
+  loginUser.password = createPasswordRecord(newPassword);
+  request.session.resetUserId = null;
+
+  response.render("resetpassword", {
+    pageTitle: "Password Reset Complete",
+    resetComplete: true,
+    newPasswordError: "",
+    confirmPasswordError: "",
+  });
+}
+
+// Shows the account deactivation form for the current user.
+async function showDeactivateAccount(request, response) {
+  const currentUser = await getCurrentUser(request);
+
+  if (!currentUser) {
+    response.redirect("/login.html");
+    return;
+  }
+
   response.render("deactivate-id", {
     pageTitle: "Deactivate Account",
     deactivateError: "",
@@ -631,7 +1020,7 @@ async function deactivateAccount(request, response) {
     return;
   }
 
-  const currentUser = await getCurrentUser();
+  const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
     response.render("deactivate-id", {
@@ -641,21 +1030,49 @@ async function deactivateAccount(request, response) {
     return;
   }
 
-  if (currentUser.accountStatus === "deactivated") {
+  let loginUser = null;
+
+  for (let i = 0; i < loginStore.users.length; i += 1) {
+    if (loginStore.users[i].id === currentUser._id) {
+      loginUser = loginStore.users[i];
+    }
+  }
+
+  if (!loginUser) {
     response.render("deactivate-id", {
       pageTitle: "Deactivate Account",
-      deactivateError: "This account is already deactivated.",
+      deactivateError: "Current user not found.",
     });
     return;
   }
 
-  currentUser.accountStatus = "deactivated";
+  loginUser.status = "locked";
 
-  response.redirect("/deactivated-success");
+  request.session.destroy(function (error) {
+    if (error) {
+      response.status(500).send("Could not deactivate the account.");
+      return;
+    }
+
+    response.clearCookie("rmit.connect.sid", {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: isProduction,
+    });
+
+    response.redirect("/deactivated-success");
+  });
 }
+
+registerBlogApi(app, {
+  blogs: blogs,
+  getCurrentUser: getBlogCurrentUser,
+});
 
 // GET routes show a page when the user opens its URL in the browser.
 app.get("/", showHome);
+app.get("/sitemap", showSitemap);
 app.get("/discussions", showDiscussions);
 app.get("/discussions/:id/edit", showEditDiscussion);
 app.get("/discussions/:id/replies/:replyId/edit", showEditReply);
@@ -668,23 +1085,56 @@ app.post("/discussions/:id/replies/:replyId/delete", deleteReply);
 app.post("/discussions/:id/delete", deleteDiscussion);
 app.get("/blogs", showBlogs);
 app.get("/blogs/:id", showBlogDetails);
+app.get("/api/reviews", showReviewData);
+app.get("/api/reviews/:id", showOneReviewData);
+app.post("/api/reviews", createReviewData);
+app.put("/api/reviews/:id", updateReviewData);
+app.delete("/api/reviews/:id", deleteReviewData);
 app.get("/reviews", showReviews);
 app.get("/reviews/browse", showReviewBrowse);
 app.get("/reviews/:id/edit", showReviewEdit);
 app.get("/reviews/:id", showReviewDetail);
 app.get("/wishlist", showWishlist);
 app.get("/wishlist/add", showWishlistAdd);
+app.get("/wishlist.html", (request, response) => {
+  response.redirect("/wishlist");
+});
+app.get("/wishlist-add.html", (request, response) => {
+  response.redirect("/wishlist/add");
+});
+app.get("/wishlist/login.html", (request, response) => {
+  response.redirect("/login.html?returnTo=wishlist-add.html");
+});
 
 // Shared User Account routes.
 app.get("/forgot-password", showForgotPassword);
 app.get("/reset-password", showResetPassword);
 app.post("/forgot-password", sendResetLink);
+app.post("/reset-password", resetPassword);
 app.get("/logout", showLogout);
 app.get("/deactivate-account", showDeactivateAccount);
 app.post("/deactivate-account", deactivateAccount);
 app.get("/deactivated-success", showDeactivatedSuccess);
 
 // Starts the local Express server after all routes are prepared.
-app.listen(port, () => {
-  console.log("RMIT Connect is running on http://localhost:" + port);
-});
+async function startServer() {
+  const { dataStore } = await import(
+    "./modules/account/src/data.js"
+  );
+  const passwordModule = await import(
+    "./modules/account/src/passwords.js"
+  );
+  const { createApp } = await import(
+    "./modules/account/src/app.js"
+  );
+
+  loginStore = dataStore;
+  createPasswordRecord = passwordModule.createPasswordRecord;
+  app.use(createApp());
+
+  app.listen(port, () => {
+    console.log("RMIT Connect is running on http://localhost:" + port);
+  });
+}
+
+startServer();

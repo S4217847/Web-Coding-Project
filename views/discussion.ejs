@@ -20,7 +20,7 @@
           <li><a href="/">Home</a></li>
           <li><a href="/discussions">Discussions</a></li>
           <li><a href="/blogs">My Blog</a></li>
-          <li><a href="/profile/profile.html">My Profile</a></li>
+          <li><a href="/editprofile.html">My Profile</a></li>
         </ul>
       </nav>
     </header>
@@ -60,7 +60,6 @@
 
           <label for="post-image">Post image</label>
 
-          <!-- Use an existing image for now. File upload will be added later. -->
           <select id="post-image" name="postImage" required>
             <option value="" selected>Choose an image</option>
             <option value="/images/peer-workshop.jpg">Peer Workshop</option>
@@ -132,7 +131,6 @@
             No discussions found.
           </p>
 
-          <!-- Repeat this article once for every Discussion document from index.js. -->
           <% discussions.forEach(function(discussion, i) { %>
             <article class="discussion-post" data-created-at="<%= discussion.createdAt.getTime() %>">
               <div class="discussion-post-header">
@@ -196,7 +194,7 @@
           </div>
           <div class="frienditem">
             <div class="friendavatar"></div>
-            <div class="friendname">Hoang</div>
+            <div class="friendname">Jay Nguyen</div>
           </div>
         </div>
       </div>

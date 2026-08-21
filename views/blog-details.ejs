@@ -1,156 +1,131 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blog Post | RMIT Connect</title>
-    <link rel="stylesheet" href="/css/blog.css" />
-  </head>
-  <body>
-    <header>
-      <div class="logo">RMIT CONNECT</div>
-      <form class="searchbar" action="#" role="search">
-        <label class="text-label" for="blog-search">Search blogs</label>
-        <input
-          class="search-input"
-          id="blog-search"
-          type="search"
-          placeholder="Search RMIT Connect..."
-        />
-        <label class="text-label" for="search-category">Search category</label>
-        <select
-          class="search-categories"
-          id="search-category"
-          aria-label="Search category"
-        >
-          <option value="all">All</option>
-          <option value="name">Author</option>
-          <option value="id">SID</option>
-          <option value="tags">Tags</option>
-        </select>
-      </form>
+    <link rel="stylesheet" href="/css/blog.css">
+</head>
+<body>
+  <header>
+    <div class="logo">RMIT CONNECT</div>
+    <form class="searchbar" action="#" role="search">
+      <label class="text-label" for="blog-search">Search blogs</label>
+      <input class="search-input" id="blog-search" type="search" placeholder="Search RMIT Connect...">
+      <label class="text-label" for="search-category">Search category</label>
+      <select class="search-categories" id="search-category" aria-label="Search category">
+        <option value="all">All</option>
+        <option value="name">Author</option>
+        <option value="id">SID</option>
+        <option value="title">Title</option>
+        <option value="content">Content</option>
+        <option value="category">Category</option>
+        <option value="tags">Tags</option>
+      </select>
+    </form>
 
-      <nav>
-        <ul>
-          <li><a href="/">Home</a></li>
-          <li><a href="/discussions">Discussions</a></li>
-          <li><a href="/blogs">My Blog</a></li>
-          <li><a href="#">My Profile</a></li>
-        </ul>
-      </nav>
-    </header>
+    <nav>
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/discussions">Discussions</a></li>
+        <li><a href="/blogs">My Blog</a></li>
+        <li><a href="/editprofile.html">My Profile</a></li>
+      </ul>
+    </nav>
+  </header>
 
-    <main class="page">
-      <aside class="leftbar" aria-label="Personal navigation">
-        <div class="menu-card">
-          <ul>
-            <li><a href="#">My Feed</a></li>
-            <li><a href="#">My Clubs</a></li>
-            <li><a href="#">Saved Posts</a></li>
-            <li><a href="#">Favourites</a></li>
-            <li><a href="#">Settings</a></li>
-          </ul>
+<main class="page">
+  <aside class="leftbar" aria-label="Personal navigation">
+    <div class="menu-card">
+      <ul>
+        <li><a href="#">My Feed</a></li>
+        <li><a href="#">My Clubs</a></li>
+        <li><a href="#">Saved Posts</a></li>
+        <li><a href="/wishlist">Favourites</a></li>
+        <li><a href="#">Settings</a></li>
+      </ul>
+    </div>
+
+  </aside>
+
+  <section class="middle" aria-labelledby="blog-post-title">
+    <div class="contentbox">
+      <div class="content clearfix">
+        <article class="main-content blog">
+        <a href="/blogs" class="back-btn">&larr; Back to Blog</a>
+        <p class="list-status" id="blog-detail-status" aria-live="polite">Loading blog...</p>
+        <div id="blog-detail" hidden>
+        <div class="detail-actions" id="detail-actions" hidden>
+          <button class="detail-edit-btn" id="detail-edit" type="button">Edit</button>
+          <button class="detail-delete-btn" id="detail-delete" type="button">Delete</button>
         </div>
-      </aside>
-
-      <section class="middle" aria-labelledby="blog-post-title">
-        <div class="contentbox">
-          <div class="content clearfix">
-            <article class="main-content blog">
-              <a href="/blogs" class="back-btn">&larr; Back to Blog</a>
-              <p class="list-status" id="blog-detail-status" aria-live="polite">
-                Loading blog...
-              </p>
-              <div id="blog-detail" hidden>
-                <h1 class="blog-title" id="blog-post-title">Blog title</h1>
-                <div class="blog-info">
-                  <div class="writer-details">
-                    <span class="author" id="blog-author"></span>
-                    <span>|</span>
-                    <time class="date" id="blog-date"></time>
-                  </div>
-                  <div class="blog-tags" id="blog-detail-tags"></div>
-                </div>
-                <div class="article-content">
-                  <p id="blog-detail-content"></p>
-                  <img
-                    class="article-bottom-image"
-                    id="blog-detail-image"
-                    src=""
-                    alt=""
-                  />
-                </div>
-              </div>
-
-              <section class="comments" aria-labelledby="comments-title">
-                <h2 id="comments-title">Comments</h2>
-
-                <form class="comment-form" action="#" method="post">
-                  <label for="comment-text">Leave a comment</label>
-                  <textarea
-                    id="comment-text"
-                    name="comment"
-                    rows="4"
-                    placeholder="Write your comment here..."
-                    required
-                  ></textarea>
-                  <button type="submit">Post comment</button>
-                </form>
-
-                <div class="comment-list">
-                  <article class="comment">
-                    <div class="comment-header">
-                      <strong>Student name - SID</strong>
-                      <time datetime="...">Time and date of the comment</time>
-                    </div>
-                    <p>This is a sample comment on the blog post.</p>
-                  </article>
-
-                  <article class="comment">
-                    <div class="comment-header">
-                      <strong>Another student - SID</strong>
-                      <time datetime="...">Time and date of the comment</time>
-                    </div>
-                    <p>Thank you for sharing this post!</p>
-                  </article>
-                </div>
-              </section>
-            </article>
+        <h1 class="blog-title" id="blog-post-title">Blog title</h1>
+        <div class="blog-info">
+          <div class="writer-details">
+            <span class="author" id="blog-author"></span>
+            <span>|</span>
+            <time class="date" id="blog-date"></time>
           </div>
+          <div class="blog-tags" id="blog-detail-tags"></div>
+          </div>
+        <p><strong>Category:</strong> <span id="blog-detail-category"></span></p>
+        <div class="article-content">
+          <p id="blog-detail-content"></p>
+          <img class="article-bottom-image" id="blog-detail-image" src="" alt="">
         </div>
-      </section>
-
-      <aside class="rightbar" aria-label="Events and online friends">
-        <div class="itembar">
-          <div class="itemtitle">Upcoming Events</div>
-          <div class="eventitem">
-            <span class="eventdate">Jul #</span> - Coding Contest
-          </div>
-          <div class="eventitem">
-            <span class="eventdate">Jul #</span> - Something Contest
-          </div>
-          <div class="eventitem">
-            <span class="eventdate">Jul #</span> - Contest Contest
-          </div>
         </div>
 
-        <div class="itembar">
-          <div class="itemtitle">Friends Online</div>
-          <div class="frienditem">
-            <div class="friendavatar"></div>
-            <div class="friendname">Kim</div>
-          </div>
-          <div class="frienditem">
-            <div class="friendavatar"></div>
-            <div class="friendname">Dat</div>
-          </div>
-          <div class="frienditem">
-            <div class="friendavatar"></div>
-            <div class="friendname">Hoang</div>
-          </div>
-        </div>
-      </aside>
-    </main>
-    <script src="/js/blog.js" defer></script>
-  </body>
+        <section class="comments" aria-labelledby="comments-title">
+          <h2 id="comments-title">Comments</h2>
+
+          <form class="comment-form" id="comment-form" action="#" method="post" novalidate>
+            <label for="comment-text">Leave a comment</label>
+            <textarea id="comment-text" name="comment" rows="4" placeholder="Write your comment here..." required></textarea>
+            <button type="submit">Post comment</button>
+            <small class="field-error" id="comment-error" aria-live="polite"></small>
+            <p class="form-status" id="comment-status" aria-live="polite"></p>
+          </form>
+
+          <div class="comment-list" id="comment-list" aria-live="polite"></div>
+        </section>
+        </article>
+      </div>
+    </div>
+  </section>
+
+
+  <aside class="rightbar" aria-label="Events and online friends">
+
+    <div class="itembar">
+      <div class="itemtitle">Upcoming Events</div>
+      <div class="eventitem">
+        <span class="eventdate">Jul #</span> - Coding Contest
+      </div>
+      <div class="eventitem">
+        <span class="eventdate">Jul #</span> - Something Contest
+      </div>
+      <div class="eventitem">
+        <span class="eventdate">Jul #</span> - Contest Contest
+      </div>
+    </div>
+
+    <div class="itembar">
+      <div class="itemtitle">Friends Online</div>
+      <div class="frienditem">
+        <div class="friendavatar"></div>
+        <div class="friendname">Kim</div>
+      </div>
+      <div class="frienditem">
+        <div class="friendavatar"></div>
+        <div class="friendname">Dat</div>
+      </div>
+      <div class="frienditem">
+        <div class="friendavatar"></div>
+        <div class="friendname">Jay Nguyen</div>
+      </div>
+    </div>
+  </aside>
+</main>
+<script src="/js/blog.js" defer></script>
+</body>
 </html>

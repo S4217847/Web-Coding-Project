@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration | RMIT Connect</title>
+    <link rel="stylesheet" href="css/account.css">
+    <link rel="stylesheet" href="css/app.css">
+    <script type="module" src="js/admin.js"></script>
+</head>
+
+<body id="top">
+    <a class="skipLink" href="#main-content">Skip to main content</a>
+
+    <!-- Shared shell hooks populate the current user and perform session logout. -->
+    <header class="siteHeader">
+        <a class="logo" href="wishlist-add.html">RMIT CONNECT</a>
+
+        <form class="headerSearch"
+              action="wishlist-add.html"
+              method="get"
+              role="search">
+            <label class="visuallyHidden" for="siteSearch">
+                Search campus items
+            </label>
+
+            <input id="siteSearch"
+                   name="q"
+                   type="search"
+                   maxlength="80"
+                   placeholder="Search campus items…">
+        </form>
+
+        <nav class="mainNav" aria-label="Main navigation">
+            <ul>
+                <li><a href="wishlist-add.html">Browse Items</a></li>
+                <li><a href="wishlist.html">Wishlist</a></li>
+                <li><a href="editprofile.html">Edit Profile</a></li>
+                <li><a href="admin.html" aria-current="page">Administration</a></li>
+            </ul>
+        </nav>
+
+        <span class="currentUser"
+              data-current-user
+              hidden>
+        </span>
+
+        <button class="headerButton"
+                type="button"
+                data-logout
+                hidden>
+            Log Out
+        </button>
+    </header>
+
+    <!-- Role-protected administration workspace. -->
+    <main id="main-content">
+        <section class="pageBanner">
+            <div class="pageBannerInner">
+                <div>
+                    <h1>Administration</h1>
+                    <p>Review user accounts and control access to RMIT Connect.</p>
+                </div>
+
+                <a class="bannerLink" href="editprofile.html">
+                    My Profile
+                </a>
+            </div>
+        </section>
+
+        <!-- Live API feedback is announced here without replacing page content. -->
+        <div id="adminMessage"
+             class="notice pageNotice"
+             role="status"
+             aria-live="polite"
+             aria-atomic="true"
+             hidden>
+        </div>
+
+        <!-- admin.js fills the counters and table body, and controls empty/loading states. -->
+        <section id="adminContent"
+                 class="adminSection"
+                 aria-labelledby="accounts-heading"
+                 aria-busy="true">
+
+            <div class="adminSummary"
+                 role="group"
+                 aria-label="Account summary">
+
+                <div class="summaryCard">
+                    <strong id="summaryTotalUsers">0</strong>
+                    <span>Total accounts</span>
+                </div>
+
+                <div class="summaryCard">
+                    <strong id="summaryActiveUsers">0</strong>
+                    <span>Active accounts</span>
+                </div>
+
+                <div class="summaryCard">
+                    <strong id="summaryLockedUsers">0</strong>
+                    <span>Locked accounts</span>
+                </div>
+            </div>
+
+            <div class="sectionCard">
+                <div class="sectionHeading">
+                    <div>
+                        <h2 id="accounts-heading">User Accounts</h2>
+                        <p>
+                            Locked users cannot perform operations until an
+                            administrator unlocks them.
+                        </p>
+                    </div>
+
+                    <form id="accountFilter"
+                          class="accountFilter"
+                          data-testid="admin-filters">
+
+                        <label class="visuallyHidden" for="accountSearch">
+                            Search user accounts
+                        </label>
+
+                        <input id="accountSearch"
+                               name="accountSearch"
+                               type="search"
+                               maxlength="80"
+                               placeholder="Username, ID, email, or role">
+
+                        <label class="visuallyHidden" for="statusFilter">
+                            Filter by account status
+                        </label>
+
+                        <select id="statusFilter" name="statusFilter">
+                            <option value="all">All statuses</option>
+                            <option value="active">Active</option>
+                            <option value="locked">Locked</option>
+                        </select>
+
+                        <button class="secondaryButton" type="submit">
+                            Search
+                        </button>
+
+                        <button id="resetAccountFilters"
+                                class="resetLink"
+                                type="button">
+                            Reset
+                        </button>
+                    </form>
+                </div>
+
+                <p id="adminResultCount"
+                   class="resultCount"
+                   role="status"
+                   aria-live="polite">
+                    Loading accounts…
+                </p>
+
+                <div class="tableWrapper">
+                    <table id="accountTable"
+                           class="accountTable"
+                           data-testid="account-table">
+
+                        <caption class="visuallyHidden">
+                            RMIT Connect user account list
+                        </caption>
+
+                        <thead>
+                            <tr>
+                                <th scope="col">Username</th>
+                                <th scope="col">Student ID</th>
+                                <th scope="col">Role</th>
+                                <th scope="col">Account Status</th>
+                                <th scope="col">Last Active</th>
+                                <th scope="col">Action</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="accountTableBody"></tbody>
+                    </table>
+                </div>
+
+                <div id="adminEmptyState"
+                     class="emptyState"
+                     hidden>
+                    <h3>No accounts match</h3>
+                    <p>Try another search or reset the filters.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Shared project navigation and required acknowledgement. -->
+    <footer class="siteFooter">
+        <div class="footerInner">
+            <div class="footerBrand">
+                <strong>RMIT CONNECT</strong>
+                <p>A full-stack student community demo.</p>
+            </div>
+
+            <nav class="footerNav" aria-label="Footer navigation">
+                <a href="wishlist-add.html">Browse Items</a>
+                <a href="wishlist.html">Wishlist</a>
+                <a href="editprofile.html">Edit Profile</a>
+                <a href="#top">Back to Top</a>
+            </nav>
+
+            <div class="aiAcknowledgement">
+                <strong>AI Use Acknowledgement</strong>
+                <p>
+                    OpenAI Codex assisted with implementation guidance, debugging, documentation, and testing.
+                    Dat Pham developed, reviewed, understood, and verified the final implementation.
+                </p>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>

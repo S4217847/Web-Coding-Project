@@ -1,12 +1,9 @@
-// Gets the form, email input, and error area from the page.
 const forgotPasswordForm = document.getElementById("forgot-password-form");
 const forgotPasswordEmail = document.getElementById("reset-email");
 const emailErrorText = document.getElementById("email-error-text");
 
-// Uses the custom error message instead of the browser message.
 forgotPasswordForm.noValidate = true;
 
-// Checks whether the email is an RMIT email address.
 function checkForgotPasswordEmail() {
   const email = forgotPasswordEmail.value.trim().toLowerCase();
   const emailFormat = /^[^\s@]+@rmit\.edu\.vn$/;
@@ -28,10 +25,8 @@ function checkForgotPasswordEmail() {
   return true;
 }
 
-// Checks the email while the student types.
 forgotPasswordEmail.addEventListener("input", checkForgotPasswordEmail);
 
-// Stops the form only when the email is not valid.
 forgotPasswordForm.addEventListener("submit", function (event) {
   const emailIsValid = checkForgotPasswordEmail();
 

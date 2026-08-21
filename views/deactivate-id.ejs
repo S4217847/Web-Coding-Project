@@ -22,12 +22,12 @@
           <li><a href="/">Home</a></li>
           <li><a href="/discussions">Discussions</a></li>
           <li><a href="/blogs">My Blog</a></li>
-          <li><a href="/profile/profile.html">My Profile</a></li>
+          <li><a href="/editprofile.html">My Profile</a></li>
         </ul>
       </nav>
     </header>
 
-    <div class="deactivate-page">
+    <main class="deactivate-page">
       <div class="deactivate-card">
         <h1>Deactivate Account</h1>
 
@@ -40,7 +40,6 @@
           deactivated.
         </p>
 
-        <!-- Sends the confirmation value to the Node route. -->
         <form
           id="deactivate-form"
           class="deactivate-form"
@@ -58,7 +57,6 @@
             I understand that my account will be deactivated.
           </label>
 
-          <!-- Shows an error from JavaScript or Node. -->
           <div class="error" id="deactivate-error-text">
             <%= deactivateError %>
           </div>
@@ -72,7 +70,7 @@
           <a href="/" class="common-link">Cancel</a>
         </p>
       </div>
-    </div>
+    </main>
     <script src="/js/deactivate.js"></script>
   </body>
 </html>

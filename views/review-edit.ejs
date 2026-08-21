@@ -20,7 +20,7 @@
           <li><a href="/">Home</a></li>
           <li><a href="/discussions">Discussions</a></li>
           <li><a href="/blogs">My Blog</a></li>
-          <li><a href="/profile/profile.html">My Profile</a></li>
+          <li><a href="/editprofile.html">My Profile</a></li>
         </ul>
       </nav>
     </header>
@@ -28,34 +28,33 @@
     <main>
       <section class="section">
         <div class="sectionCard">
-          <a href="/reviews/1" class="backLink">Back to review</a>
+          <a href="/reviews/browse" class="backLink">Back to review</a>
 
           <h1 class="sectionLabel">Edit Review</h1>
 
-          <form
-            class="reviewForm"
-            action="/reviews/update"
-            method="post"
-            enctype="multipart/form-data"
-          >
-            <input type="hidden" name="id" value="1" />
+          <form class="reviewForm" data-mode="edit" novalidate>
 
             <label for="reviewTitle">Title</label>
             <input
               id="reviewTitle"
               name="title"
               type="text"
-              value="Best intro course I've taken"
+              maxlength="100"
+              required
             />
 
             <label for="reviewDescription">Description</label>
-            <textarea id="reviewDescription" name="description">
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur ipsum nisi, euismod eu justo at, vulputate porttitor tellus.</textarea
-            >
+            <textarea
+              id="reviewDescription"
+              name="description"
+              maxlength="1000"
+              required
+            ></textarea>
 
             <label for="reviewRating">Star Rating</label>
-            <select id="reviewRating" name="rating">
-              <option value="5" selected>5 stars</option>
+            <select id="reviewRating" name="rating" required>
+              <option value="">Select a rating</option>
+              <option value="5">5 stars</option>
               <option value="4">4 stars</option>
               <option value="3">3 stars</option>
               <option value="2">2 stars</option>
@@ -67,7 +66,8 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur ipsum nisi, e
               id="reviewerName"
               name="reviewerName"
               type="text"
-              value="Hung"
+              maxlength="50"
+              required
             />
 
             <label for="reviewImage">Image</label>
@@ -88,7 +88,7 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur ipsum nisi, e
                 <button class="btnPrimary" type="submit">Save Changes</button>
               </div>
               <div class="formActionsCell">
-                <a class="btnSecondary" href="/reviews/1">Cancel</a>
+                <a class="btnSecondary" href="/reviews/browse">Cancel</a>
               </div>
             </div>
           </form>
