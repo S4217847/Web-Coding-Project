@@ -3,120 +3,151 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
+    <title>Create Review | RMIT Connect</title>
+    <link href="/css/navigation.css" rel="stylesheet" />
     <link href="/css/review.css" rel="stylesheet" />
   </head>
 
   <body>
-    <header>
-      <div class="logo">RMIT CONNECT</div>
-      <input
-        class="searchBar"
-        type="text"
-        placeholder="Search RMIT Connect..."
-      />
-      <nav>
-        <ul>
-          <li><a href="/">Home</a></li>
-          <li><a href="/discussions">Discussions</a></li>
-          <li><a href="/blogs">My Blog</a></li>
-          <li><a href="/editprofile.html">My Profile</a></li>
-        </ul>
-      </nav>
-    </header>
+    <%- include("partials/global-navigation", {
+      activePage: "reviews",
+      sessionAction: "logout"
+    }) %>
 
-    <main>
+    <main id="main-content">
       <div class="pageBanner">
         <div class="pageBannerInner">
-          <div class="pageBannerText">
-            <h1 class="pageTitle">Reviews</h1>
+          <div>
+            <h1 class="pageTitle">Ratings &amp; Reviews</h1>
+            <p class="pageSubtitle">
+              Share a useful, honest review of an RMIT course.
+            </p>
           </div>
-          <div class="pageBannerButtonCell">
-            <a class="newReviewBtn" href="/reviews/browse"
-              >Browse All Reviews</a
-            >
-          </div>
+          <a class="newReviewBtn" href="/reviews/browse">Browse All Reviews</a>
         </div>
       </div>
 
-      <section class="section">
+      <section class="section" aria-labelledby="createReviewHeading">
         <div class="sectionCard">
-          <h2 class="sectionLabel">Make a Review</h2>
+          <h2 class="sectionLabel" id="createReviewHeading">Create a Review</h2>
+
+          <!-- JavaScript validates the form and submits JSON to the Review API. -->
           <form class="reviewForm" data-mode="create" novalidate>
+            <p class="fieldLabel">Posting as</p>
+            <p class="reviewerIdentity" id="reviewerIdentity">Loading your account...</p>
+
+            <label for="reviewCourseCode">Course Code</label>
+            <input
+              id="reviewCourseCode"
+              name="courseCode"
+              type="text"
+              minlength="8"
+              maxlength="8"
+              pattern="[A-Za-z]{4}[0-9]{4}"
+              autocomplete="off"
+              aria-describedby="reviewCourseCodeHelp reviewCourseCodeError"
+              aria-invalid="false"
+              required
+              placeholder="COSC3060"
+            />
+            <span class="helpText" id="reviewCourseCodeHelp">
+              Use four letters followed by four numbers.
+            </span>
+            <span class="fieldError" id="reviewCourseCodeError" aria-live="polite"></span>
+
             <label for="reviewTitle">Title</label>
             <input
               id="reviewTitle"
               name="title"
               type="text"
+              minlength="5"
               maxlength="100"
+              aria-describedby="reviewTitleCount reviewTitleError"
+              aria-invalid="false"
               required
-              placeholder="Lorem ipsum dolor sit amet"
+              placeholder="Summarise your experience"
             />
+            <span class="charCount" id="reviewTitleCount">0 / 100</span>
+            <span class="fieldError" id="reviewTitleError" aria-live="polite"></span>
 
             <label for="reviewDescription">Description</label>
             <textarea
               id="reviewDescription"
               name="description"
+              minlength="20"
               maxlength="1000"
+              aria-describedby="reviewDescriptionCount reviewDescriptionError"
+              aria-invalid="false"
               required
-              placeholder="Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+              placeholder="Explain what was useful and what could be improved."
             ></textarea>
+            <span class="charCount" id="reviewDescriptionCount">0 / 1000</span>
+            <span class="fieldError" id="reviewDescriptionError" aria-live="polite"></span>
 
             <label for="reviewRating">Star Rating</label>
-            <select id="reviewRating" name="rating" required>
-              <option value="">Select a rating</option>
-              <option value="5">5 stars</option>
-              <option value="4">4 stars</option>
-              <option value="3">3 stars</option>
-              <option value="2">2 stars</option>
-              <option value="1">1 star</option>
-            </select>
-
-            <label for="reviewerName">Reviewer Name</label>
-            <input
-              id="reviewerName"
-              name="reviewerName"
-              type="text"
-              maxlength="50"
+            <select
+              id="reviewRating"
+              name="rating"
+              aria-describedby="reviewRatingError"
+              aria-invalid="false"
               required
-              placeholder="Your name"
-            />
+            >
+              <option value="">Select a rating</option>
+              <option value="5">5 stars — Excellent</option>
+              <option value="4">4 stars — Good</option>
+              <option value="3">3 stars — Average</option>
+              <option value="2">2 stars — Poor</option>
+              <option value="1">1 star — Very poor</option>
+            </select>
+            <span class="fieldError" id="reviewRatingError" aria-live="polite"></span>
 
-            <label for="reviewImage">Image</label>
             <div class="imageUploadBox">
-              <label for="reviewImage"
-                >Drag and drop an image here, or click to upload</label
-              >
+              <label for="reviewImage">Optional Course Image</label>
               <input
                 id="reviewImage"
                 name="image"
                 type="file"
-                accept="image/*"
+                accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp"
+                aria-describedby="reviewImageHelp reviewImageError"
+                aria-invalid="false"
               />
+              <span class="helpText" id="reviewImageHelp">
+                JPEG, PNG, GIF, or WebP; maximum 4 MB.
+              </span>
+              <span class="fieldError" id="reviewImageError" aria-live="polite"></span>
+              <figure class="imagePreviewContainer" id="reviewImagePreviewContainer" hidden>
+                <img class="imagePreview" id="reviewImagePreview" alt="Selected review image preview" />
+              </figure>
             </div>
+
+            <p class="formStatus" role="status" aria-live="polite"></p>
 
             <div class="formActions">
               <div class="formActionsCell">
-                <button class="btnPrimary" type="submit" disabled>
-                  Save Review
-                </button>
+                <button class="btnPrimary" type="submit">Save Review</button>
               </div>
               <div class="formActionsCell">
-                <button class="btnSecondary" type="reset">Cancel</button>
+                <button class="btnSecondary" type="reset">Clear Form</button>
               </div>
             </div>
           </form>
         </div>
       </section>
 
-      <section class="section">
+      <section class="section" aria-labelledby="myReviewsHeading">
         <div class="sectionCard">
-          <h2 class="sectionLabel">Your Reviews</h2>
-
-          <ul class="reviewList" id="myReviewListContainer"></ul>
+          <h2 class="sectionLabel" id="myReviewsHeading">Your Reviews</h2>
+          <p class="pageStatus" id="myReviewsStatus" role="status" aria-live="polite"></p>
+          <ul class="reviewList" id="myReviewListContainer">
+            <li class="emptyMessage">Loading your reviews...</li>
+          </ul>
         </div>
       </section>
     </main>
+
+    <footer class="siteFooter">
+      <p>RMIT Connect — student community prototype</p>
+    </footer>
     <script src="/js/review.js"></script>
   </body>
 </html>

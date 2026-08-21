@@ -1,214 +1,364 @@
-const API = "/api/blogs";
+const BLOG_API = "/api/blogs";
+const DEFAULT_BLOG_IMAGE = "/images/image-for-blog.png";
 const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+const BLOG_CATEGORIES = ["Academic", "Events", "Student Life", "Technology", "Other"];
+const SEARCH_FIELDS = ["all", "name", "id", "title", "content", "category", "tags"];
 
 let blogs = [];
 let currentUser = null;
 let editingId = null;
 let detailComments = [];
 
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", initialiseBlogPage);
+
+async function initialiseBlogPage() {
   try {
     currentUser = await requestJson("/api/current-user");
   } catch {
     currentUser = null;
   }
-  if (document.querySelector("#blog-list")) setupBlogList();
-  if (document.querySelector("#blog-detail")) setupBlogDetails();
-});
 
-// LIST, SEARCH, SORT
+  updateSessionLink();
+
+  if (document.querySelector("#blog-list")) await setupBlogList();
+  if (document.querySelector("#blog-detail")) await setupBlogDetails();
+}
+
+function updateSessionLink() {
+  const link = document.querySelector(".globalSessionLink");
+  if (!link) return;
+  link.href = currentUser ? "/logout" : "/login.html";
+  link.textContent = currentUser ? "Log out" : "Log in";
+}
+
+// Set up the searchable Blog list and create/edit form.
 async function setupBlogList() {
   const form = document.querySelector("#create-blog-form");
+  const searchForm = document.querySelector("#blog-search-form");
+  const searchInput = document.querySelector("#blog-search");
+  const searchField = document.querySelector("#search-category");
+  const sortInput = document.querySelector("#blog-sort");
+
+  restoreSearchFromUrl(searchInput, searchField);
+  searchForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    updateSearchUrl(searchInput.value, searchField.value);
+    filterAndSort();
+  });
+  searchInput.addEventListener("input", filterAndSort);
+  searchField.addEventListener("change", filterAndSort);
+  sortInput.addEventListener("change", filterAndSort);
+
   if (!currentUser) {
     form.hidden = true;
-    document.querySelector("#blog-list-status").textContent = "Log in to create a blog.";
+    const prompt = document.createElement("p");
+    prompt.className = "login-prompt";
+    prompt.append("Want to publish a blog? ");
+    const loginLink = textElement("a", "", "Log in");
+    loginLink.href = "/login.html";
+    prompt.append(loginLink, ".");
+    form.before(prompt);
+  } else {
+    form.addEventListener("submit", saveBlog);
+    form.addEventListener("input", validateAndSaveDraft);
+    form.addEventListener("change", validateAndSaveDraft);
+    document.querySelector("#cancel-edit").addEventListener("click", cancelEdit);
+    restoreDraft(form);
   }
-  form.addEventListener("submit", saveBlog);
-  form.addEventListener("input", () => {
-    saveDraft(form);
-    showErrors(validateForm(form));
-  });
-  document.querySelector("#cancel-edit").addEventListener("click", cancelEdit);
-  document.querySelector("#blog-search").addEventListener("input", filterAndSort);
-  document.querySelector("#search-category").addEventListener("change", filterAndSort);
-  document.querySelector("#blog-sort").addEventListener("change", filterAndSort);
 
-  restoreDraft(form);
   try {
-    blogs = await requestJson(API);
+    blogs = await requestJson(BLOG_API);
     filterAndSort();
+
     const editId = new URLSearchParams(location.search).get("edit");
     if (editId) {
       startEdit(editId);
-      history.replaceState({}, "", "/blogs");
+      const cleanUrl = new URL(location.href);
+      cleanUrl.searchParams.delete("edit");
+      history.replaceState({}, "", `${cleanUrl.pathname}${cleanUrl.search}`);
     }
   } catch (error) {
-    document.querySelector("#blog-list-status").textContent = error.message;
+    setStatus(document.querySelector("#blog-list-status"), error.message, "error");
+  }
+
+  function validateAndSaveDraft() {
+    saveDraft(form);
+    showBlogErrors(validateBlogForm(form));
   }
 }
 
+function restoreSearchFromUrl(searchInput, searchField) {
+  const params = new URLSearchParams(location.search);
+  searchInput.value = params.get("q") || "";
+  const field = params.get("field") || "all";
+  searchField.value = SEARCH_FIELDS.includes(field) ? field : "all";
+}
+
+function updateSearchUrl(keyword, field) {
+  const url = new URL(location.href);
+  const query = keyword.trim();
+
+  if (query) url.searchParams.set("q", query);
+  else url.searchParams.delete("q");
+
+  if (field && field !== "all") url.searchParams.set("field", field);
+  else url.searchParams.delete("field");
+
+  history.replaceState({}, "", `${url.pathname}${url.search}`);
+}
+
 function filterAndSort() {
-  const keyword = document.querySelector("#blog-search").value.trim().toLowerCase();
-  const field = document.querySelector("#search-category").value;
-  const sort = document.querySelector("#blog-sort").value;
+  const searchInput = document.querySelector("#blog-search");
+  const searchField = document.querySelector("#search-category");
+  const sortInput = document.querySelector("#blog-sort");
+  if (!searchInput || !searchField || !sortInput) return;
+
+  const keyword = searchInput.value.trim().toLowerCase();
+  const field = SEARCH_FIELDS.includes(searchField.value) ? searchField.value : "all";
+  const sort = sortInput.value;
 
   const filtered = blogs.filter((blog) => {
+    const tags = Array.isArray(blog.tags) ? blog.tags.join(" ") : "";
     const values = {
-      title: blog.title,
-      name: blog.authorName,
-      id: blog.authorSid,
-      content: blog.content,
-      category: blog.category,
-      tags: blog.tags.join(" "),
-      all: `${blog.title} ${blog.authorName} ${blog.authorSid} ${blog.content} ${blog.category} ${blog.tags.join(" ")}`
+      title: String(blog.title || ""),
+      name: String(blog.authorName || ""),
+      id: String(blog.authorSid || ""),
+      content: String(blog.content || ""),
+      category: String(blog.category || ""),
+      tags,
+      all: `${blog.title || ""} ${blog.authorName || ""} ${blog.authorSid || ""} ${blog.content || ""} ${blog.category || ""} ${tags}`,
     };
     return values[field].toLowerCase().includes(keyword);
   });
 
   filtered.sort((a, b) => {
     if (sort === "oldest") return new Date(a.dateAdded) - new Date(b.dateAdded);
-    if (sort === "title-az") return a.title.localeCompare(b.title);
-    if (sort === "title-za") return b.title.localeCompare(a.title);
+    if (sort === "title-az") return String(a.title).localeCompare(String(b.title));
+    if (sort === "title-za") return String(b.title).localeCompare(String(a.title));
     return new Date(b.dateAdded) - new Date(a.dateAdded);
   });
+
   displayBlogs(filtered);
 }
 
+// Build cards with DOM methods so stored user text is never interpreted as HTML.
 function displayBlogs(items) {
   const list = document.querySelector("#blog-list");
-  document.querySelector("#blog-list-status").textContent = items.length ? "" : "No blogs found.";
+  const status = document.querySelector("#blog-list-status");
+  list.replaceChildren();
+  setStatus(status, items.length ? `${items.length} blog${items.length === 1 ? "" : "s"} found.` : "No blogs found.");
 
-  list.innerHTML = items.map((blog) => {
-    return `
-      <article class="article">
-        <img class="article-image" src="${escapeHtml(blog.image)}" alt="Image for ${escapeHtml(blog.title)}">
-        <div class="article-preview">
-          <h2><a href="/blogs/${encodeURIComponent(blog.id)}">${escapeHtml(blog.title)}</a></h2>
-          <span class="articleinfo-student">${escapeHtml(blog.authorName)} - ${escapeHtml(blog.authorSid)}</span>
-          <time class="articleinfo-calendar" datetime="${escapeHtml(blog.dateAdded)}">${formatDate(blog.dateAdded)}</time>
-          <p><strong>${escapeHtml(blog.category)}</strong></p>
-          <div class="tags">${blog.tags.map((tag) => `<p>${escapeHtml(tag)}</p>`).join("")}</div>
-          <p class="preview-text">${escapeHtml(shorten(blog.content))}</p>
-          <a class="btn read-more" href="/blogs/${encodeURIComponent(blog.id)}">Read more</a>
-        </div>
-      </article>
-    `;
-  }).join("");
+  items.forEach((blog) => {
+    const article = document.createElement("article");
+    article.className = "article";
+
+    const image = document.createElement("img");
+    image.className = "article-image";
+    image.src = safeImageSource(blog.image);
+    image.alt = `Image for ${String(blog.title || "blog post")}`;
+    image.addEventListener("error", () => {
+      image.src = DEFAULT_BLOG_IMAGE;
+    }, { once: true });
+
+    const preview = document.createElement("div");
+    preview.className = "article-preview";
+
+    const heading = document.createElement("h3");
+    const titleLink = document.createElement("a");
+    titleLink.href = `/blogs/${encodeURIComponent(blog.id)}`;
+    titleLink.textContent = blog.title;
+    heading.append(titleLink);
+
+    const author = textElement("span", "articleinfo-student", `${blog.authorName} – ${blog.authorSid}`);
+    const date = textElement("time", "articleinfo-calendar", formatDate(blog.dateAdded));
+    date.dateTime = String(blog.dateAdded || "");
+
+    const category = document.createElement("p");
+    const categoryText = textElement("strong", "", blog.category);
+    category.append(categoryText);
+
+    const tags = document.createElement("div");
+    tags.className = "tags";
+    (Array.isArray(blog.tags) ? blog.tags : []).forEach((tag) => {
+      tags.append(textElement("span", "tag", `#${tag}`));
+    });
+
+    const content = textElement("p", "preview-text", shorten(String(blog.content || "")));
+    const readMore = textElement("a", "btn read-more", "Read more");
+    readMore.href = `/blogs/${encodeURIComponent(blog.id)}`;
+
+    preview.append(heading, author, date, category, tags, content, readMore);
+    article.append(image, preview);
+    list.append(article);
+  });
 }
 
-// CREATE, UPDATE, DELETE
+// Create or update a Blog after client-side validation succeeds.
 async function saveBlog(event) {
   event.preventDefault();
   const form = event.currentTarget;
-  const errors = validateForm(form);
-  showErrors(errors);
-  if (Object.keys(errors).length) return;
+  if (form.dataset.pending === "true") return;
 
-  const oldBlog = blogs.find((blog) => blog.id === editingId);
+  const errors = validateBlogForm(form);
+  showBlogErrors(errors);
+  if (Object.keys(errors).length) {
+    setFormStatus("Please correct the highlighted fields.", "error");
+    focusFirstInvalidField(errors);
+    return;
+  }
+
+  const wasEditing = Boolean(editingId);
+  const blogId = editingId;
+  const oldBlog = blogs.find((blog) => blog.id === blogId);
   const file = form.elements.image.files[0];
-  const data = {
-    title: form.elements.title.value.trim(),
-    category: form.elements.category.value,
-    tags: form.elements.tags.value.split(",").map((tag) => tag.trim()).filter(Boolean),
-    content: form.elements.content.value.trim(),
-    image: file ? await readImage(file) : oldBlog?.image || ""
-  };
+
+  setFormPending(form, true, wasEditing ? "Updating..." : "Publishing...");
+  setFormStatus(wasEditing ? "Updating blog..." : "Publishing blog...");
 
   try {
-    const saved = await requestJson(editingId ? `${API}/${editingId}` : API, {
-      method: editingId ? "PUT" : "POST",
+    const data = {
+      title: form.elements.title.value.trim(),
+      category: form.elements.category.value,
+      tags: parseTags(form.elements.tags.value),
+      content: form.elements.content.value.trim(),
+      image: file ? await readImage(file) : oldBlog?.image || "",
+    };
+
+    const saved = await requestJson(blogId ? `${BLOG_API}/${encodeURIComponent(blogId)}` : BLOG_API, {
+      method: blogId ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
 
-    if (editingId) {
-      blogs = blogs.map((blog) => blog.id === editingId ? saved : blog);
-    } else {
-      blogs.unshift(saved);
-    }
-    resetForm(form);
-    filterAndSort();
-    setFormStatus(editingId ? "Blog updated successfully." : "Blog published successfully.");
+    if (blogId) blogs = blogs.map((blog) => (blog.id === blogId ? saved : blog));
+    else blogs.unshift(saved);
+
+    clearCurrentDraft();
+    setFormPending(form, false);
     editingId = null;
+    resetBlogForm(form);
+    filterAndSort();
+    setFormStatus(wasEditing ? "Blog updated successfully." : "Blog published successfully.", "success");
   } catch (error) {
-    showErrors(error.data?.errors || {});
-    setFormStatus(error.message);
+    showBlogErrors(error.data?.errors || {});
+    setFormStatus(error.message, "error");
+  } finally {
+    setFormPending(form, false);
   }
 }
 
 function startEdit(id) {
   const blog = blogs.find((item) => item.id === id);
-  if (!blog || blog.authorId !== currentUser?.id) return;
   const form = document.querySelector("#create-blog-form");
+
+  if (!blog) {
+    setFormStatus("The blog selected for editing was not found.", "error");
+    return;
+  }
+  if (!currentUser || blog.authorId !== currentUser.id) {
+    setFormStatus("You can edit only your own blogs.", "error");
+    return;
+  }
+
   editingId = id;
   form.elements.title.value = blog.title;
   form.elements.category.value = blog.category;
-  form.elements.tags.value = blog.tags.join(", ");
+  form.elements.tags.value = Array.isArray(blog.tags) ? blog.tags.join(", ") : "";
   form.elements.content.value = blog.content;
+  restoreDraft(form);
+  showBlogErrors(validateBlogForm(form));
   form.querySelector(".articlebtn").textContent = "Update";
   document.querySelector("#cancel-edit").hidden = false;
-  form.scrollIntoView({ behavior: "smooth" });
+  setFormStatus("Editing this blog. Its existing image will be kept unless you choose a new one.");
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function cancelEdit() {
+  clearCurrentDraft();
   editingId = null;
-  resetForm(document.querySelector("#create-blog-form"));
-  setFormStatus("");
+  resetBlogForm(document.querySelector("#create-blog-form"));
+  setFormStatus("Edit cancelled.");
 }
 
 async function deleteBlog(id) {
-  if (!confirm("Delete this blog?")) return;
+  if (!window.confirm("Delete this blog? This cannot be undone during this session.")) return;
+
+  const actions = document.querySelector("#detail-actions");
+  if (actions?.dataset.pending === "true") return;
+  setActionPending(actions, true);
+  setStatus(document.querySelector("#blog-detail-status"), "Deleting blog...");
+
   try {
-    await requestJson(`${API}/${id}`, { method: "DELETE" });
-    if (document.querySelector("#blog-list")) {
-      blogs = blogs.filter((blog) => blog.id !== id);
-      filterAndSort();
-    } else {
-      location.href = "/blogs";
-    }
+    await requestJson(`${BLOG_API}/${encodeURIComponent(id)}`, { method: "DELETE" });
+    location.assign("/blogs");
   } catch (error) {
-    const status = document.querySelector("#blog-list-status") ||
-      document.querySelector("#blog-detail-status");
-    status.textContent = error.message;
+    setStatus(document.querySelector("#blog-detail-status"), error.message, "error");
+    setActionPending(actions, false);
   }
 }
 
-// DETAILS AND COMMENTS
+// Load a single Blog and enable comments for signed-in users.
 async function setupBlogDetails() {
   const id = location.pathname.split("/").filter(Boolean).pop();
   const form = document.querySelector("#comment-form");
-  if (!currentUser) form.hidden = true;
-  form.addEventListener("submit", (event) => addComment(event, id));
+  const commentInput = form.elements.comment;
+
+  form.action = `${BLOG_API}/${encodeURIComponent(id)}/comments`;
+  if (!currentUser) {
+    commentInput.disabled = true;
+    form.querySelector('button[type="submit"]').disabled = true;
+    setStatus(document.querySelector("#comment-status"), "Log in to post a comment.");
+  } else {
+    form.addEventListener("submit", (event) => addComment(event, id));
+    commentInput.addEventListener("input", () => {
+      showCommentError(validateComment(commentInput.value));
+      setStatus(document.querySelector("#comment-status"), "");
+    });
+  }
 
   try {
-    const blog = await requestJson(`${API}/${encodeURIComponent(id)}`);
+    const blog = await requestJson(`${BLOG_API}/${encodeURIComponent(id)}`);
     document.title = `${blog.title} | RMIT Connect`;
     document.querySelector("#blog-post-title").textContent = blog.title;
-    document.querySelector("#blog-author").textContent = `${blog.authorName} - ${blog.authorSid}`;
-    document.querySelector("#blog-date").textContent = formatDate(blog.dateAdded);
+    document.querySelector("#blog-author").textContent = `${blog.authorName} – ${blog.authorSid}`;
+
+    const date = document.querySelector("#blog-date");
+    date.textContent = formatDate(blog.dateAdded);
+    date.dateTime = String(blog.dateAdded || "");
+
     document.querySelector("#blog-detail-category").textContent = blog.category;
     document.querySelector("#blog-detail-content").textContent = blog.content;
-    document.querySelector("#blog-detail-image").src = blog.image;
-    document.querySelector("#blog-detail-image").alt = `Image for ${blog.title}`;
-    document.querySelector("#blog-detail-tags").innerHTML =
-      blog.tags.map((tag) => `<p>#${escapeHtml(tag)}</p>`).join("");
-    document.querySelector("#blog-detail-status").textContent = "";
+
+    const image = document.querySelector("#blog-detail-image");
+    image.src = safeImageSource(blog.image);
+    image.alt = `Image for ${String(blog.title || "blog post")}`;
+    image.addEventListener("error", () => {
+      image.src = DEFAULT_BLOG_IMAGE;
+    }, { once: true });
+
+    const tags = document.querySelector("#blog-detail-tags");
+    tags.replaceChildren();
+    (Array.isArray(blog.tags) ? blog.tags : []).forEach((tag) => {
+      tags.append(textElement("span", "tag", `#${tag}`));
+    });
+
+    setStatus(document.querySelector("#blog-detail-status"), "");
     document.querySelector("#blog-detail").hidden = false;
+
     if (currentUser && blog.authorId === currentUser.id) {
       const actions = document.querySelector("#detail-actions");
       actions.hidden = false;
       document.querySelector("#detail-edit").addEventListener("click", () => {
-        location.href = `/blogs?edit=${encodeURIComponent(blog.id)}`;
+        location.assign(`/blogs?edit=${encodeURIComponent(blog.id)}`);
       });
-      document.querySelector("#detail-delete").addEventListener("click", () => {
-        deleteBlog(blog.id);
-      });
+      document.querySelector("#detail-delete").addEventListener("click", () => deleteBlog(blog.id));
     }
-    detailComments = blog.comments;
+
+    detailComments = Array.isArray(blog.comments) ? blog.comments : [];
     displayComments(detailComments);
   } catch (error) {
-    document.querySelector("#blog-detail-status").textContent = error.message;
+    setStatus(document.querySelector("#blog-detail-status"), error.message, "error");
     form.hidden = true;
   }
 }
@@ -216,71 +366,141 @@ async function setupBlogDetails() {
 async function addComment(event, blogId) {
   event.preventDefault();
   const form = event.currentTarget;
-  const content = form.elements.comment.value.trim();
-  const errorElement = document.querySelector("#comment-error");
+  if (form.dataset.pending === "true") return;
 
-  errorElement.textContent = content.length < 2 || content.length > 500
-    ? "Comment must contain between 2 and 500 characters."
-    : "";
-  if (errorElement.textContent) return;
+  const content = form.elements.comment.value.trim();
+  const validationError = validateComment(content);
+  showCommentError(validationError);
+  if (validationError) {
+    setStatus(document.querySelector("#comment-status"), "Please correct the comment.", "error");
+    form.elements.comment.focus();
+    return;
+  }
+
+  setFormPending(form, true, "Posting...");
+  setStatus(document.querySelector("#comment-status"), "Posting comment...");
 
   try {
-    const comment = await requestJson(`${API}/${blogId}/comments`, {
+    const comment = await requestJson(`${BLOG_API}/${encodeURIComponent(blogId)}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content })
+      body: JSON.stringify({ content }),
     });
     detailComments.push(comment);
     displayComments(detailComments);
     form.reset();
-    document.querySelector("#comment-status").textContent = "Comment posted.";
+    showCommentError("");
+    setStatus(document.querySelector("#comment-status"), "Comment posted successfully.", "success");
   } catch (error) {
-    document.querySelector("#comment-status").textContent = error.message;
+    showCommentError(error.data?.errors?.content || "");
+    setStatus(document.querySelector("#comment-status"), error.message, "error");
+  } finally {
+    setFormPending(form, false);
   }
 }
 
 function displayComments(comments) {
   const list = document.querySelector("#comment-list");
-  list.innerHTML = comments.length ? comments.map((comment) => `
-    <article class="comment">
-      <div class="comment-header">
-        <strong>${escapeHtml(comment.authorName)} - ${escapeHtml(comment.authorSid)}</strong>
-        <time datetime="${escapeHtml(comment.dateAdded)}">${formatDate(comment.dateAdded)}</time>
-      </div>
-      <p>${escapeHtml(comment.content)}</p>
-    </article>
-  `).join("") : "<p>No comments yet.</p>";
+  list.replaceChildren();
+
+  if (!comments.length) {
+    list.append(textElement("p", "empty-comments", "No comments yet. Be the first to respond."));
+    return;
+  }
+
+  comments.forEach((comment) => {
+    const article = document.createElement("article");
+    article.className = "comment";
+
+    const header = document.createElement("div");
+    header.className = "comment-header";
+    header.append(textElement("strong", "", `${comment.authorName} – ${comment.authorSid}`));
+
+    const date = textElement("time", "", formatDate(comment.dateAdded));
+    date.dateTime = String(comment.dateAdded || "");
+    header.append(date);
+
+    article.append(header, textElement("p", "", comment.content));
+    list.append(article);
+  });
 }
 
-// VALIDATION AND WEB STORAGE
-function validateForm(form) {
+// Apply the same validation rules used by the server.
+function validateBlogForm(form) {
   const title = form.elements.title.value.trim();
   const category = form.elements.category.value;
-  const tags = form.elements.tags.value.split(",").map((tag) => tag.trim()).filter(Boolean);
+  const tags = parseTags(form.elements.tags.value);
   const content = form.elements.content.value.trim();
   const image = form.elements.image.files[0];
   const errors = {};
 
-  if (title.length < 5 || title.length > 120) errors.title = "Title must contain between 5 and 120 characters.";
-  if (!category) errors.category = "Choose a category.";
-  if (tags.length < 1 || tags.length > 5 || tags.some((tag) => tag.length > 30)) {
-    errors.tags = "Enter 1 to 5 tags; each tag can have up to 30 characters.";
+  if (title.length < 5 || title.length > 120) {
+    errors.title = "Title must contain between 5 and 120 characters.";
   }
-  if (content.length < 20 || content.length > 5000) errors.content = "Content must contain between 20 and 5000 characters.";
+  if (!BLOG_CATEGORIES.includes(category)) errors.category = "Choose a valid category.";
+  if (tags.length < 1 || tags.length > 5 || tags.some((tag) => tag.length > 30)) {
+    errors.tags = "Enter 1–5 tags; each tag can have up to 30 characters.";
+  }
+  if (content.length < 20 || content.length > 5000) {
+    errors.content = "Content must contain between 20 and 5000 characters.";
+  }
   if (image && (!IMAGE_TYPES.includes(image.type) || image.size > MAX_IMAGE_SIZE)) {
     errors.image = "Use PNG, JPEG, GIF, or WebP up to 4 MB.";
   }
   return errors;
 }
 
-function showErrors(errors) {
-  ["title", "category", "tags", "content", "image"].forEach((field) => {
-    document.querySelector(`#blog-${field}-error`).textContent = errors[field] || "";
+function validateComment(value) {
+  const length = value.trim().length;
+  return length < 2 || length > 500
+    ? "Comment must contain between 2 and 500 characters."
+    : "";
+}
+
+function showBlogErrors(errors) {
+  const fieldIds = {
+    title: "blog-title",
+    category: "blog-category",
+    tags: "blog-tags",
+    content: "blog-content",
+    image: "imageUpload",
+  };
+
+  Object.entries(fieldIds).forEach(([name, fieldId]) => {
+    const field = document.querySelector(`#${fieldId}`);
+    const error = document.querySelector(`#blog-${name}-error`);
+    const message = errors[name] || "";
+    error.textContent = message;
+    field.setAttribute("aria-invalid", message ? "true" : "false");
   });
 }
 
+function showCommentError(message) {
+  const input = document.querySelector("#comment-text");
+  document.querySelector("#comment-error").textContent = message;
+  input.setAttribute("aria-invalid", message ? "true" : "false");
+}
+
+function focusFirstInvalidField(errors) {
+  const first = Object.keys(errors)[0];
+  const ids = {
+    title: "blog-title",
+    category: "blog-category",
+    tags: "blog-tags",
+    content: "blog-content",
+    image: "imageUpload",
+  };
+  if (ids[first]) document.querySelector(`#${ids[first]}`).focus();
+}
+
+function parseTags(value) {
+  return [...new Set(value.split(",").map((tag) => tag.trim()).filter(Boolean))];
+}
+
+// Keep create and edit drafts separate for each signed-in user.
 function draftKey() {
-  return currentUser ? `blogDraft:${currentUser.id}` : null;
+  if (!currentUser) return null;
+  return `blogDraft:${currentUser.id}:${editingId || "new"}`;
 }
 
 function saveDraft(form) {
@@ -291,10 +511,10 @@ function saveDraft(form) {
       title: form.elements.title.value,
       category: form.elements.category.value,
       tags: form.elements.tags.value,
-      content: form.elements.content.value
+      content: form.elements.content.value,
     }));
   } catch {
-    // The page remains usable when storage is disabled or full.
+    // Draft storage is optional; the form remains usable when storage is unavailable.
   }
 }
 
@@ -303,50 +523,100 @@ function restoreDraft(form) {
   if (!key) return;
   try {
     const draft = JSON.parse(localStorage.getItem(key) || "null");
-    if (!draft) return;
+    if (!draft || typeof draft !== "object") return;
     ["title", "category", "tags", "content"].forEach((field) => {
-      form.elements[field].value = draft[field] || "";
+      if (typeof draft[field] === "string") form.elements[field].value = draft[field];
     });
   } catch {
     // Ignore unavailable or malformed storage.
   }
 }
 
-function resetForm(form) {
-  form.reset();
-  form.querySelector(".articlebtn").textContent = "Post";
-  document.querySelector("#cancel-edit").hidden = true;
+function clearCurrentDraft() {
   const key = draftKey();
   try {
     if (key) localStorage.removeItem(key);
   } catch {
     // Ignore unavailable storage.
   }
-  showErrors({});
 }
 
-// SMALL HELPERS
-async function requestJson(url, options) {
+function resetBlogForm(form) {
+  form.reset();
+  form.querySelector(".articlebtn").textContent = "Post";
+  document.querySelector("#cancel-edit").hidden = true;
+  showBlogErrors({});
+}
+
+function setFormPending(form, pending, pendingLabel = "Working...") {
+  form.dataset.pending = String(pending);
+  const submit = form.querySelector('button[type="submit"]');
+  if (!submit) return;
+
+  if (pending) {
+    submit.dataset.normalLabel = submit.textContent;
+    submit.textContent = pendingLabel;
+  } else if (submit.dataset.normalLabel) {
+    submit.textContent = submit.dataset.normalLabel;
+    delete submit.dataset.normalLabel;
+  }
+  submit.disabled = pending;
+  submit.setAttribute("aria-busy", String(pending));
+}
+
+function setActionPending(container, pending) {
+  if (!container) return;
+  container.dataset.pending = String(pending);
+  container.querySelectorAll("button").forEach((button) => {
+    button.disabled = pending;
+  });
+  container.setAttribute("aria-busy", String(pending));
+}
+
+async function requestJson(url, options = {}) {
   const response = await fetch(url, options);
-  const data = response.status === 204 ? null : await response.json();
+  let data = null;
+  const contentType = response.headers.get("content-type") || "";
+
+  if (response.status !== 204 && contentType.includes("application/json")) {
+    data = await response.json();
+  }
+
   if (!response.ok) {
-    const error = new Error(data?.error || "Request failed.");
+    const message = data?.error || (data?.errors ? "Please correct the highlighted fields." : `Request failed (${response.status}).`);
+    const error = new Error(message);
     error.data = data;
     throw error;
   }
   return data;
 }
 
-function setFormStatus(message) {
-  document.querySelector("#blog-form-status").textContent = message;
+function setFormStatus(message, type = "") {
+  setStatus(document.querySelector("#blog-form-status"), message, type);
+}
+
+function setStatus(element, message, type = "") {
+  if (!element) return;
+  element.textContent = message;
+  element.classList.remove("is-error", "is-success");
+  if (type === "error") element.classList.add("is-error");
+  if (type === "success") element.classList.add("is-success");
+}
+
+function textElement(tagName, className, text) {
+  const element = document.createElement(tagName);
+  if (className) element.className = className;
+  element.textContent = text ?? "";
+  return element;
 }
 
 function shorten(text) {
-  return text.length > 150 ? `${text.slice(0, 150)}...` : text;
+  return text.length > 180 ? `${text.slice(0, 180)}…` : text;
 }
 
 function formatDate(value) {
-  return new Date(value).toLocaleString("en-AU");
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Unknown date" : date.toLocaleString("en-AU");
 }
 
 function readImage(file) {
@@ -358,8 +628,9 @@ function readImage(file) {
   });
 }
 
-function escapeHtml(value = "") {
-  const element = document.createElement("div");
-  element.textContent = value;
-  return element.innerHTML;
+function safeImageSource(value) {
+  if (typeof value !== "string") return DEFAULT_BLOG_IMAGE;
+  if (/^\/images\/[\w.-]+$/i.test(value)) return value;
+  if (/^data:image\/(png|jpeg|gif|webp);base64,[a-z0-9+/=]+$/i.test(value)) return value;
+  return DEFAULT_BLOG_IMAGE;
 }

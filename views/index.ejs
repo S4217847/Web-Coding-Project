@@ -5,26 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title><%= pageTitle %> | RMIT Connect</title>
     <link rel="stylesheet" href="/css/sitemap.css" />
+    <link rel="stylesheet" href="/css/navigation.css" />
   </head>
 
-  <body>
-    <header>
-      <div class="logo">RMIT CONNECT</div>
-      <input
-        class="searchBar"
-        type="text"
-        placeholder="Search RMIT Connect..."
-      />
-      <nav>
-        <ul>
-          <li><a href="/">Home</a></li>
-          <li><a href="/sitemap">Sitemap</a></li>
-          <li><a href="/discussions">Discussions</a></li>
-          <li><a href="/blogs">My Blog</a></li>
-          <li><a href="/editprofile.html">My Profile</a></li>
-        </ul>
-      </nav>
-    </header>
+  <body id="top">
+    <%- include("partials/global-navigation", {
+      activePage: "home",
+      sessionAction: "login"
+    }) %>
 
     <section class="pageBanner">
       <div class="pageBannerInner">
@@ -35,7 +23,7 @@
       </div>
     </section>
 
-    <main class="siteMapWrapper">
+    <main id="main-content" class="siteMapWrapper">
       <section class="mapSection">
         <h2 class="mapSectionTitle">Main Navigation</h2>
 
@@ -60,6 +48,7 @@
             <div class="linkList">
               <a href="/wishlist">Wishlist and Favourites</a>
               <a href="/wishlist/add">Browse Items</a>
+              <a href="/sitemap">Complete site map</a>
             </div>
           </div>
         </div>
@@ -80,6 +69,7 @@
             <h3 class="groupHeading">Account</h3>
             <div class="linkList">
               <a href="/editprofile.html">Edit Profile</a>
+              <a href="/admin.html">Administration</a>
               <a href="/deactivate-account">Deactivate Account</a>
             </div>
           </div>

@@ -4,59 +4,51 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Review Details | RMIT Connect</title>
+    <link href="/css/navigation.css" rel="stylesheet" />
     <link href="/css/review.css" rel="stylesheet" />
   </head>
 
   <body>
-    <header>
-      <div class="logo">RMIT CONNECT</div>
-      <input
-        class="searchBar"
-        type="text"
-        placeholder="Search RMIT Connect..."
-      />
-      <nav>
-        <ul>
-          <li><a href="/">Home</a></li>
-          <li><a href="/discussions">Discussions</a></li>
-          <li><a href="/blogs">My Blog</a></li>
-          <li><a href="/editprofile.html">My Profile</a></li>
-        </ul>
-      </nav>
-    </header>
+    <%- include("partials/global-navigation", {
+      activePage: "reviews",
+      sessionAction: "logout"
+    }) %>
 
-    <main>
+    <main id="main-content">
       <section class="section">
+        <!-- Review data is loaded safely from GET /api/reviews/:id. -->
         <div class="sectionCard" id="reviewDetailContainer">
-          <a href="/reviews/browse" class="backLink"> Back to all reviews</a>
+          <a href="/reviews/browse" class="backLink">← Back to all reviews</a>
 
           <article>
             <div class="reviewDetailHeader">
               <div class="reviewDetailHeaderText">
+                <p class="reviewDetailCourse">Loading...</p>
                 <h1 class="reviewDetailTitle">Loading review...</h1>
                 <p class="reviewDetailMeta"></p>
               </div>
+
               <div class="reviewDetailHeaderActions">
-                <a class="btnPrimary" href="/reviews/browse">Edit</a>
-                <form action="/reviews/delete" method="post">
-                  <input type="hidden" name="id" value="" />
-                  <button class="btnSecondary" type="submit">Delete</button>
-                </form>
+                <a class="btnPrimary actionEditButton" href="/reviews/browse">Edit</a>
+                <button class="btnSecondary actionDeleteButton" type="button">Delete</button>
               </div>
             </div>
 
+            <p class="detailStatus" role="status" aria-live="polite"></p>
             <img
               class="reviewDetailImage"
               src="/images/review-placeholder.jpg"
               alt=""
             />
-
             <p class="reviewDetailDescription"></p>
           </article>
         </div>
       </section>
     </main>
 
+    <footer class="siteFooter">
+      <p>RMIT Connect — student community prototype</p>
+    </footer>
     <script src="/js/review.js"></script>
   </body>
 </html>

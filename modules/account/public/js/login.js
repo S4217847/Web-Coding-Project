@@ -34,19 +34,30 @@ function safeReturnDestination(
     rawValue
 ) {
     const fallback =
-        "wishlist-add.html";
+        "/wishlist/add";
 
     if (!rawValue) {
         return fallback;
     }
 
-    const allowedPages = new Set([
-        "wishlist-add.html",
-        "wishlist.html",
-        "editprofile.html",
-        "admin.html",
-        "discussions"
+    const allowedPaths = new Set([
+        "/",
+        "/admin.html",
+        "/blogs",
+        "/discussions",
+        "/editprofile.html",
+        "/login.html",
+        "/reviews",
+        "/reviews/browse",
+        "/sitemap",
+        "/wishlist",
+        "/wishlist/add",
+        "/wishlist-add.html",
+        "/wishlist.html"
     ]);
+
+    const allowedDynamicPath =
+        /^\/(?:blogs|discussions|reviews)\/[a-zA-Z0-9_-]+(?:\/edit)?$/;
 
     try {
         const url =
@@ -55,21 +66,17 @@ function safeReturnDestination(
                 location.href
             );
 
-        const page =
-            url.pathname
-                .split("/")
-                .pop();
-
         if (
             url.origin !==
                 location.origin ||
-            !allowedPages.has(page)
+            (!allowedPaths.has(url.pathname) &&
+                !allowedDynamicPath.test(url.pathname))
         ) {
             return fallback;
         }
 
         return `${
-            page
+            url.pathname
         }${
             url.search
         }${

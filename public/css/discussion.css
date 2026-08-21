@@ -14,6 +14,7 @@
 }
 .middle {
   grid-area: feed;
+  min-width: 0;
 }
 .rightbar {
   grid-area: right;
@@ -24,9 +25,13 @@
   border-radius: 8px;
   padding: 8px 0px;
   margin-bottom: 16px;
+  margin-left: 0;
 }
 
 .menu-card ul {
+  display: block;
+  margin: 0;
+  padding: 0;
   list-style: none;
 }
 
@@ -40,6 +45,12 @@
 
 .menu-card ul li a:hover {
   background-color: #ffdea8;
+}
+
+.menu-card ul li a[aria-current="page"] {
+  border-left: 4px solid #e60028;
+  background-color: #fff3de;
+  font-weight: bold;
 }
 
 .postbox {
@@ -217,6 +228,7 @@
 .post-content {
   color: #333333;
   font-size: 14px;
+  overflow-wrap: anywhere;
 }
 
 .discussion-post-footer {
@@ -348,6 +360,21 @@
 .reply-content {
   color: #333333;
   font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.menu-card a:focus-visible,
+.back-link:focus-visible,
+.discussion-post-footer a:focus-visible,
+.postbtn:focus-visible,
+.searchbutton:focus-visible,
+.postbox input:focus-visible,
+.postbox select:focus-visible,
+.postbox textarea:focus-visible,
+.discussion-filter input:focus-visible,
+.discussion-filter select:focus-visible {
+  outline: 3px solid #000054;
+  outline-offset: 3px;
 }
 
 .reply-box {

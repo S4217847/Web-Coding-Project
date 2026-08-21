@@ -11,13 +11,14 @@ complete team application.
 | --- | --- | --- |
 | Accounts, login, profile, and administration | Implemented with resettable in-memory users and sessions | `users`, `sessions`, `passwordResetTokens`, and `adminActions` |
 | Catalogue, wishlist, cart hand-off, and purchase history | Implemented with in-memory products and user-owned relations | `products`, `wishlistEntries`, `cartItems`, `purchases`, `purchaseItems`, and `productActivityEvents` |
-| Discussion forum | Teammate-owned; not part of Dat's implemented slice | `forumThreads` and `forumPosts` |
-| Blog and comments | Teammate-owned; not part of Dat's implemented slice | `blogPosts` and `blogComments` |
-| Product reviews and ratings | Teammate-owned; not part of Dat's implemented slice | `reviews` linked to users, products, and purchase history |
-| Sitemap | Not persisted | Generated from registered/static routes and public database records |
+| Discussion forum | Implemented with in-memory discussions, replies, ownership, and soft deletion | `forumThreads` and `forumPosts` |
+| Blog and comments | Implemented with in-memory posts, comments, ownership, and soft deletion | `blogPosts` and `blogComments` |
+| Course reviews and ratings | Implemented with in-memory reviews linked to the signed-in user and course code | `reviews` linked to users, products/courses, and purchase history where applicable |
+| Sitemap | Generated from active in-memory records and registered routes; not persisted | Generated from registered/static routes and public database records |
 
-The added collections are a team integration contract, not a claim that the
-teammate-owned modules have already been implemented on this branch.
+The collections below form the persistence contract for the now-integrated
+in-memory modules. Some production-oriented fields are intentionally
+future-facing and would be introduced when the prototype migrates to MongoDB.
 
 ## Full-team relationship diagram
 

@@ -7,6 +7,7 @@
     <title>Browse Items | RMIT Connect</title>
     <link rel="stylesheet" href="css/wishlist.css">
     <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="/css/navigation.css">
     <script type="module" src="js/catalogue.js"></script>
 </head>
 
@@ -14,25 +15,26 @@
     <a class="skipLink" href="#main-content">Skip to main content</a>
 
     <!-- Shared shell hooks populate the current user and perform session logout. -->
-    <header class="siteHeader">
-        <div class="logo">
-            <a href="wishlist.html#top">RMIT CONNECT</a>
-        </div>
+    <header class="siteHeader globalHeader">
+        <a class="globalLogo" href="/">RMIT CONNECT</a>
 
-        <nav class="mainNav" aria-label="Main navigation">
+        <nav class="mainNav globalNav" aria-label="Main navigation">
             <ul>
-                <li><a href="wishlist-add.html#catalogue-results" aria-current="page">Browse Items</a></li>
-                <li><a href="wishlist.html#savedItems">Wishlist</a></li>
-                <li><a href="wishlist.html#purchasedItems">Purchased</a></li>
+                <li><a href="/">Home</a></li>
+                <li><a href="/discussions">Discussions</a></li>
+                <li><a href="/blogs">Blogs</a></li>
+                <li><a href="/reviews/browse">Reviews</a></li>
+                <li><a href="/wishlist" aria-current="page">Wishlist</a></li>
+                <li><a href="/editprofile.html">Profile</a></li>
             </ul>
         </nav>
 
-        <span class="currentUser"
+        <span class="currentUser globalCurrentUser"
               data-current-user
               hidden>
         </span>
 
-        <button class="headerButton"
+        <button class="headerButton globalLogoutButton"
                 type="button"
                 data-logout
                 hidden>
@@ -48,7 +50,7 @@
                 <p>Find activities and passes, then save them for later.</p>
             </div>
 
-            <a class="bannerButton" href="wishlist.html#savedItems">
+            <a class="bannerButton" href="/wishlist#savedItems">
                 View Wishlist
             </a>
         </section>
@@ -69,7 +71,7 @@
                     </div>
 
                     <a class="smallButton"
-                       href="wishlist.html#savedItems">
+                       href="/wishlist#savedItems">
                         Saved Items:
                         <span id="savedItemCount">0</span>
                     </a>
@@ -226,7 +228,7 @@
                         Loading items…
                     </p>
 
-                    <a href="wishlist.html#savedItems">
+                    <a href="/wishlist#savedItems">
                         Review saved items
                     </a>
                 </div>
@@ -254,8 +256,10 @@
             </div>
 
             <nav class="footerNav" aria-label="Footer navigation">
-                <a href="wishlist.html#savedItems">Wishlist</a>
-                <a href="wishlist-add.html#catalogue-results">Browse Items</a>
+                <a href="/">Home</a>
+                <a href="/sitemap">Site Map</a>
+                <a href="/wishlist#savedItems">Wishlist</a>
+                <a href="/wishlist/add#catalogue-results">Browse Items</a>
                 <a href="#top">Back to Top</a>
             </nav>
 

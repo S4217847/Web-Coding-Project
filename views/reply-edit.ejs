@@ -6,36 +6,25 @@
     <title><%= pageTitle %> | RMIT Connect</title>
     <link rel="stylesheet" href="/css/common.css" />
     <link rel="stylesheet" href="/css/discussion.css" />
+    <link rel="stylesheet" href="/css/navigation.css" />
   </head>
-  <body>
-    <header>
-      <div class="logo">RMIT CONNECT</div>
-      <input
-        class="searchbar"
-        type="text"
-        placeholder="Search RMIT Connect..."
-      />
-      <nav>
-        <ul>
-          <li><a href="/">Home</a></li>
-          <li><a href="/discussions">Discussions</a></li>
-          <li><a href="/blogs">My Blog</a></li>
-          <li><a href="/editprofile.html">My Profile</a></li>
-        </ul>
-      </nav>
-    </header>
+  <body id="top">
+    <%- include("partials/global-navigation", {
+      activePage: "discussions",
+      sessionAction: "logout"
+    }) %>
 
-    <main class="page">
+    <main id="main-content" class="page">
       <div class="leftbar">
-        <div class="menu-card">
+        <nav class="menu-card" aria-label="Explore RMIT Connect">
           <ul>
-            <li><a href="#">My Feed</a></li>
-            <li><a href="#">My Clubs</a></li>
-            <li><a href="#">Saved Posts</a></li>
+            <li><a href="/discussions" aria-current="page">Discussion Forum</a></li>
+            <li><a href="/blogs">Blogs</a></li>
+            <li><a href="/reviews/browse">Reviews</a></li>
             <li><a href="/wishlist">Favourites</a></li>
-            <li><a href="#">Settings</a></li>
+            <li><a href="/editprofile.html">Profile settings</a></li>
           </ul>
-        </div>
+        </nav>
       </div>
 
       <div class="middle">

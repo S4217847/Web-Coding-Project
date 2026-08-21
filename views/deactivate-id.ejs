@@ -6,28 +6,16 @@
     <title>Deactivate Account | RMIT Connect</title>
     <link rel="stylesheet" href="/css/common.css" />
     <link rel="stylesheet" href="/css/deactivate.css" />
+    <link rel="stylesheet" href="/css/navigation.css" />
   </head>
 
-  <body>
-    <header>
-      <div class="logo">RMIT CONNECT</div>
-      <input
-        class="searchbar"
-        type="text"
-        placeholder="Search RMIT Connect..."
-      />
+  <body id="top">
+    <%- include("partials/global-navigation", {
+      activePage: "profile",
+      sessionAction: "logout"
+    }) %>
 
-      <nav>
-        <ul>
-          <li><a href="/">Home</a></li>
-          <li><a href="/discussions">Discussions</a></li>
-          <li><a href="/blogs">My Blog</a></li>
-          <li><a href="/editprofile.html">My Profile</a></li>
-        </ul>
-      </nav>
-    </header>
-
-    <main class="deactivate-page">
+    <main id="main-content" class="deactivate-page">
       <div class="deactivate-card">
         <h1>Deactivate Account</h1>
 

@@ -2,6 +2,7 @@ const express = require("express");
 
 const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
 const DEFAULT_IMAGE = "/images/image-for-blog.png";
+const BLOG_CATEGORIES = ["Academic", "Events", "Student Life", "Technology", "Other"];
 
 function createBlogRouter({ blogs, getCurrentUser }) {
   const router = express.Router();
@@ -126,14 +127,15 @@ function validateBlog(input = {}) {
   const title = typeof input.title === "string" ? input.title.trim() : "";
   const content = typeof input.content === "string" ? input.content.trim() : "";
   const category = typeof input.category === "string" ? input.category.trim() : "";
-  const tags = Array.isArray(input.tags)
-    ? input.tags.map((tag) => String(tag).trim()).filter(Boolean)
+  const tagsAreStrings = Array.isArray(input.tags) && input.tags.every((tag) => typeof tag === "string");
+  const tags = tagsAreStrings
+    ? [...new Set(input.tags.map((tag) => tag.trim()).filter(Boolean))]
     : [];
 
   if (title.length < 5 || title.length > 120) errors.title = "Title must contain between 5 and 120 characters.";
   if (content.length < 20 || content.length > 5000) errors.content = "Content must contain between 20 and 5000 characters.";
-  if (category.length < 2 || category.length > 40) errors.category = "Choose a valid category.";
-  if (tags.length < 1 || tags.length > 5 || tags.some((tag) => tag.length > 30)) {
+  if (!BLOG_CATEGORIES.includes(category)) errors.category = "Choose a valid category.";
+  if (!tagsAreStrings || tags.length < 1 || tags.length > 5 || tags.some((tag) => tag.length > 30)) {
     errors.tags = "Enter between 1 and 5 tags; each tag can have up to 30 characters.";
   }
   if (!isValidImage(input.image)) errors.image = "Image must be a PNG, JPEG, GIF, or WebP and no larger than 4 MB.";
@@ -148,4 +150,4 @@ function isValidImage(image = "") {
   return Boolean(match) && Math.ceil(match[2].length * 0.75) <= MAX_IMAGE_SIZE;
 }
 
-module.exports = { createBlogRouter, normaliseUser, MAX_IMAGE_SIZE };
+module.exports = { createBlogRouter, normaliseUser, MAX_IMAGE_SIZE, BLOG_CATEGORIES };

@@ -2,40 +2,36 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8"> 
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Log In | RMIT Connect</title>
     <link rel="stylesheet" href="css/account.css">
     <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="/css/navigation.css">
     <script type="module" src="js/login.js"></script>
 </head>
 
 <body id="top">
     <a class="skipLink" href="#main-content">Skip to main content</a>
     <!-- Public shell; session hooks reveal authenticated controls when appropriate. -->
-    <header class="siteHeader">
-        <a class="logo" href="login.html">RMIT CONNECT</a>
+    <header class="siteHeader globalHeader">
+        <a class="globalLogo" href="/">RMIT CONNECT</a>
 
-        <div class="headerSearch" role="search">
-            <label class="visuallyHidden" for="siteSearch">
-                Search RMIT Connect
-            </label>
-            <input id="siteSearch"
-                type="search"
-                placeholder="Search RMIT Connect...">
-        </div>
-
-        <nav class="mainNav" aria-label="Main navigation">
+        <nav class="mainNav globalNav" aria-label="Main navigation">
             <ul>
-                <li><a href="login.html" aria-current="page">Log In</a></li>
-                <li><a href="editprofile.html">Edit Profile</a></li>
-                <li><a href="admin.html">Administration</a></li>
+                <li><a href="/">Home</a></li>
+                <li><a href="/discussions">Discussions</a></li>
+                <li><a href="/blogs">Blogs</a></li>
+                <li><a href="/reviews/browse">Reviews</a></li>
+                <li><a href="/wishlist">Wishlist</a></li>
+                <li><a href="/editprofile.html">Profile</a></li>
+                <li><a class="globalSessionLink" href="/login.html" aria-current="page">Log in</a></li>
             </ul>
         </nav>
 
-        <span class="currentUser" data-current-user hidden></span>
+        <span class="currentUser globalCurrentUser" data-current-user hidden></span>
 
-        <button class="headerButton" type="button" data-logout hidden>
+        <button class="headerButton globalLogoutButton" type="button" data-logout hidden>
             Log Out
         </button>
     </header>
@@ -137,9 +133,11 @@
             </div>
 
             <nav class="footerNav" aria-label="Footer navigation">
-                <a href="login.html">Log In</a>
-                <a href="editprofile.html">Edit Profile</a>
-                <a href="admin.html">Administration</a>
+                <a href="/">Home</a>
+                <a href="/sitemap">Site Map</a>
+                <a href="/login.html">Log In</a>
+                <a href="/editprofile.html">Edit Profile</a>
+                <a href="/admin.html">Administration</a>
                 <a href="#top">Back to Top</a>
             </nav>
 

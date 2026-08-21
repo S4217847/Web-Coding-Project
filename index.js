@@ -1,5 +1,6 @@
 const express = require("express");
 const session = require("express-session");
+const path = require("node:path");
 const {
   users,
   discussions,
@@ -15,20 +16,60 @@ const getReviewId = reviewData.getReviewId;
 let loginStore = null;
 let createPasswordRecord = null;
 const app = express();
+let accountAppMounted = false;
 // Uses the PORT environment variable when provided. Otherwise, it uses port 3000.
 const port = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === "production";
 const sessionSecret =
   process.env.SESSION_SECRET || "local-demo-change-this-secret";
 
+if (isProduction && !process.env.SESSION_SECRET) {
+  throw new Error("SESSION_SECRET is required when NODE_ENV is production.");
+}
+
 // Sets EJS as the file type used to build the page on the server.
 app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
+app.disable("x-powered-by");
 
 if (isProduction) {
   app.set("trust proxy", 1);
 }
 
-app.use(express.json());
+// Apply one security policy before any team module registers routes.
+app.use((_request, response, next) => {
+  response.set({
+    "Content-Security-Policy":
+      "default-src 'self'; " +
+      "img-src 'self' data: https:; " +
+      "script-src 'self'; " +
+      "style-src 'self'; " +
+      "connect-src 'self'; " +
+      "object-src 'none'; " +
+      "base-uri 'self'; " +
+      "frame-ancestors 'none'; " +
+      "form-action 'self'",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
+  });
+  next();
+});
+
+// API responses may contain account data and must never be cached.
+app.use("/api", (_request, response, next) => {
+  response.set("Cache-Control", "no-store");
+  next();
+});
+
+/*
+ * Base64 expands a 4 MB image to roughly 5.4 MB. A 6 MB JSON limit therefore
+ * supports the documented Blog and Review image ceiling without accepting
+ * unbounded request bodies.
+ */
+app.use(express.json({ limit: "6mb", strict: true }));
 app.use(
   session({
     name: "rmit.connect.sid",
@@ -44,9 +85,25 @@ app.use(
   })
 );
 // Reads values sent from normal HTML forms.
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 // Makes files inside public available to the browser, such as CSS and JavaScript.
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
+
+const forumImagePaths = new Set([
+  "/images/peer-workshop.jpg",
+  "/images/RMIT_campus.png",
+  "/images/saigonview.jpg",
+]);
+
+// Create and edit forms historically used different path shapes; store one form.
+function normaliseForumImage(value) {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const cleanValue = value.trim();
+  const imagePath = cleanValue.startsWith("/images/")
+    ? cleanValue
+    : `/images/${cleanValue.replace(/^\/+/, "")}`;
+  return forumImagePaths.has(imagePath) ? imagePath : null;
+}
 
 function showHome(request, response) {
   response.render("index", { pageTitle: "RMIT Connect" });
@@ -148,7 +205,7 @@ async function showDiscussionDetail(request, response) {
   }
 
   if (!discussion || discussion.deletedAt !== null) {
-    response.send("Discussion not found");
+    response.status(404).send("Discussion not found.");
     return;
   }
 
@@ -206,7 +263,7 @@ async function showEditDiscussion(request, response) {
   }
 
   if (!discussion || discussion.deletedAt !== null) {
-    response.send("Discussion not found");
+    response.status(404).send("Discussion not found.");
     return;
   }
 
@@ -218,7 +275,7 @@ async function showEditDiscussion(request, response) {
   }
 
   if (discussion.authorId !== currentUser._id) {
-    response.send("You can only edit your own post.");
+    response.status(403).send("You can only edit your own post.");
     return;
   }
 
@@ -291,26 +348,20 @@ async function getBlogCurrentUser(request) {
 async function createDiscussion(request, response) {
   const postTitle = (request.body.postTitle || "").trim();
   const postContent = (request.body.postContent || "").trim();
-  const postImage = request.body.postImage || "";
-
-  const allowedImages = [
-    "/images/peer-workshop.jpg",
-    "/images/RMIT_campus.png",
-    "/images/saigonview.jpg",
-  ];
+  const postImage = normaliseForumImage(request.body.postImage);
 
   if (postTitle === "" || postTitle.length > 100) {
-    response.send("Please enter a title with 100 characters or less.");
+    response.status(400).send("Please enter a title with 100 characters or less.");
     return;
   }
 
   if (postContent === "" || postContent.length > 1000) {
-    response.send("Please enter content with 1000 characters or less.");
+    response.status(400).send("Please enter content with 1000 characters or less.");
     return;
   }
 
-  if (allowedImages.includes(postImage) === false) {
-    response.send("Please select a post image.");
+  if (!postImage) {
+    response.status(400).send("Please select a post image.");
     return;
   }
 
@@ -349,7 +400,7 @@ async function updateDiscussion(request, response) {
   }
 
   if (!discussion || discussion.deletedAt !== null) {
-    response.send("Discussion not found.");
+    response.status(404).send("Discussion not found.");
     return;
   }
 
@@ -361,32 +412,26 @@ async function updateDiscussion(request, response) {
   }
 
   if (discussion.authorId !== currentUser._id) {
-    response.send("You can only edit your own discussion.");
+    response.status(403).send("You can only edit your own discussion.");
     return;
   }
 
   const postTitle = (request.body.postTitle || "").trim();
   const postContent = (request.body.postContent || "").trim();
-  const postImage = request.body.postImage || "";
-
-  const allowedImages = [
-    "/images/peer-workshop.jpg",
-    "/images/RMIT_campus.png",
-    "/images/saigonview.jpg",
-  ];
+  const postImage = normaliseForumImage(request.body.postImage);
 
   if (postTitle === "" || postTitle.length > 100) {
-    response.send("Please enter a title with 100 characters or less.");
+    response.status(400).send("Please enter a title with 100 characters or less.");
     return;
   }
 
   if (postContent === "" || postContent.length > 1000) {
-    response.send("Please enter content with 1000 characters or less.");
+    response.status(400).send("Please enter content with 1000 characters or less.");
     return;
   }
 
-  if (allowedImages.includes(postImage) === false) {
-    response.send("Please select a post image.");
+  if (!postImage) {
+    response.status(400).send("Please select a post image.");
     return;
   }
 
@@ -408,7 +453,7 @@ async function deleteDiscussion(request, response) {
   }
 
   if (!discussion || discussion.deletedAt !== null) {
-    response.send("Discussion not found.");
+    response.status(404).send("Discussion not found.");
     return;
   }
 
@@ -420,7 +465,7 @@ async function deleteDiscussion(request, response) {
   }
 
   if (discussion.authorId !== currentUser._id) {
-    response.send("You can only delete your own discussion.");
+    response.status(403).send("You can only delete your own discussion.");
     return;
   }
 
@@ -445,7 +490,7 @@ async function showEditReply(request, response) {
     reply.deletedAt !== null ||
     reply.discussionId !== request.params.id
   ) {
-    response.send("Reply not found.");
+    response.status(404).send("Reply not found.");
     return;
   }
 
@@ -457,7 +502,7 @@ async function showEditReply(request, response) {
   }
 
   if (reply.authorId !== currentUser._id) {
-    response.send("You can only edit your own reply.");
+    response.status(403).send("You can only edit your own reply.");
     return;
   }
 
@@ -470,7 +515,7 @@ async function showEditReply(request, response) {
   }
 
   if (!discussion || discussion.deletedAt !== null) {
-    response.send("Discussion not found.");
+    response.status(404).send("Discussion not found.");
     return;
   }
 
@@ -485,26 +530,20 @@ async function showEditReply(request, response) {
 async function createReply(request, response) {
   const replyTitle = (request.body.replyTitle || "").trim();
   const replyContent = (request.body.replyContent || "").trim();
-  const replyImage = request.body.replyImage || "";
-
-  const allowedImages = [
-    "peer-workshop.jpg",
-    "RMIT_campus.png",
-    "saigonview.jpg",
-  ];
+  const replyImage = normaliseForumImage(request.body.replyImage);
 
   if (replyTitle === "" || replyTitle.length > 100) {
-    response.send("Please enter a reply title with 100 characters or less.");
+    response.status(400).send("Please enter a reply title with 100 characters or less.");
     return;
   }
 
   if (replyContent === "" || replyContent.length > 1000) {
-    response.send("Please enter reply content with 1000 characters or less.");
+    response.status(400).send("Please enter reply content with 1000 characters or less.");
     return;
   }
 
-  if (allowedImages.includes(replyImage) === false) {
-    response.send("Please select a reply image.");
+  if (!replyImage) {
+    response.status(400).send("Please select a reply image.");
     return;
   }
 
@@ -524,7 +563,7 @@ async function createReply(request, response) {
   }
 
   if (!discussion || discussion.deletedAt !== null) {
-    response.send("Discussion not found.");
+    response.status(404).send("Discussion not found.");
     return;
   }
 
@@ -532,7 +571,7 @@ async function createReply(request, response) {
     _id: getReplyId(),
     title: replyTitle,
     content: replyContent,
-    image: "/images/" + replyImage,
+    image: replyImage,
     authorId: currentUser._id,
     discussionId: request.params.id,
     createdAt: new Date(),
@@ -548,26 +587,20 @@ async function createReply(request, response) {
 async function updateReply(request, response) {
   const replyTitle = (request.body.replyTitle || "").trim();
   const replyContent = (request.body.replyContent || "").trim();
-  const replyImage = request.body.replyImage || "";
-
-  const allowedImages = [
-    "/images/peer-workshop.jpg",
-    "/images/RMIT_campus.png",
-    "/images/saigonview.jpg",
-  ];
+  const replyImage = normaliseForumImage(request.body.replyImage);
 
   if (replyTitle === "" || replyTitle.length > 100) {
-    response.send("Please enter a reply title with 100 characters or less.");
+    response.status(400).send("Please enter a reply title with 100 characters or less.");
     return;
   }
 
   if (replyContent === "" || replyContent.length > 1000) {
-    response.send("Please enter reply content with 1000 characters or less.");
+    response.status(400).send("Please enter reply content with 1000 characters or less.");
     return;
   }
 
-  if (allowedImages.includes(replyImage) === false) {
-    response.send("Please select a reply image.");
+  if (!replyImage) {
+    response.status(400).send("Please select a reply image.");
     return;
   }
 
@@ -584,7 +617,7 @@ async function updateReply(request, response) {
     reply.deletedAt !== null ||
     reply.discussionId !== request.params.id
   ) {
-    response.send("Reply not found.");
+    response.status(404).send("Reply not found.");
     return;
   }
 
@@ -596,7 +629,7 @@ async function updateReply(request, response) {
   }
 
   if (reply.authorId !== currentUser._id) {
-    response.send("You can only edit your own reply.");
+    response.status(403).send("You can only edit your own reply.");
     return;
   }
 
@@ -622,7 +655,7 @@ async function deleteReply(request, response) {
     reply.deletedAt !== null ||
     reply.discussionId !== request.params.id
   ) {
-    response.send("Reply not found.");
+    response.status(404).send("Reply not found.");
     return;
   }
 
@@ -634,7 +667,7 @@ async function deleteReply(request, response) {
   }
 
   if (reply.authorId !== currentUser._id) {
-    response.send("You can only delete your own reply.");
+    response.status(403).send("You can only delete your own reply.");
     return;
   }
 
@@ -652,14 +685,39 @@ function showBlogDetails(request, response) {
   response.render("blog-details", { pageTitle: "Blog Details" });
 }
 
+const maxReviewImageBytes = 4 * 1024 * 1024;
+const reviewImagePattern =
+  /^data:image\/(png|jpeg|gif|webp);base64,([a-z0-9+/]+={0,2})$/i;
+
+function isValidReviewImage(imageUrl) {
+  if (imageUrl === undefined || imageUrl === null || imageUrl === "") return true;
+  if (imageUrl === "/images/review-placeholder.jpg") return true;
+  if (typeof imageUrl !== "string") return false;
+
+  const match = imageUrl.match(reviewImagePattern);
+  if (!match) return false;
+
+  const padding = (match[2].match(/=*$/) || [""])[0].length;
+  const byteLength = Math.floor((match[2].length * 3) / 4) - padding;
+  return byteLength <= maxReviewImageBytes;
+}
+
 function getReviewErrors(data) {
   const errors = {};
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return { form: "Request body must be a JSON object." };
+  }
+
+  const courseCode =
+    typeof data.courseCode === "string" ? data.courseCode.trim().toUpperCase() : "";
   const title = typeof data.title === "string" ? data.title.trim() : "";
   const description =
     typeof data.description === "string" ? data.description.trim() : "";
-  const reviewerName =
-    typeof data.reviewerName === "string" ? data.reviewerName.trim() : "";
   const rating = Number(data.rating);
+
+  if (!/^[A-Z]{4}\d{4}$/.test(courseCode)) {
+    errors.courseCode = "Course code must use four letters followed by four digits.";
+  }
 
   if (title.length < 5 || title.length > 100) {
     errors.title = "Title must be between 5 and 100 characters.";
@@ -669,12 +727,13 @@ function getReviewErrors(data) {
     errors.description = "Description must be between 20 and 1000 characters.";
   }
 
-  if (!rating || rating < 1 || rating > 5) {
-    errors.rating = "Rating must be a number between 1 and 5.";
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    errors.rating = "Rating must be a whole number between 1 and 5.";
   }
 
-  if (reviewerName.length < 2 || reviewerName.length > 50) {
-    errors.reviewerName = "Reviewer name must be between 2 and 50 characters.";
+  if (!isValidReviewImage(data.imageUrl)) {
+    errors.imageUrl =
+      "Choose a PNG, JPEG, GIF, or WebP image no larger than 4 MB.";
   }
 
   return errors;
@@ -697,7 +756,7 @@ async function createReviewData(request, response) {
 
   const courseCode =
     typeof request.body.courseCode === "string"
-      ? request.body.courseCode.trim()
+      ? request.body.courseCode.trim().toUpperCase()
       : "";
 
   const newReview = {
@@ -707,8 +766,8 @@ async function createReviewData(request, response) {
     title: request.body.title.trim(),
     description: request.body.description.trim(),
     rating: Number(request.body.rating),
-    reviewerName: request.body.reviewerName.trim(),
-    imageUrl: "/images/review-placeholder.jpg",
+    reviewerName: currentUser.username,
+    imageUrl: request.body.imageUrl || "/images/review-placeholder.jpg",
     createdAt: new Date().toISOString().slice(0, 10),
   };
 
@@ -752,9 +811,14 @@ async function updateReviewData(request, response) {
   }
 
   review.title = request.body.title.trim();
+  review.courseCode = request.body.courseCode.trim().toUpperCase();
   review.description = request.body.description.trim();
   review.rating = Number(request.body.rating);
-  review.reviewerName = request.body.reviewerName.trim();
+  review.reviewerName = currentUser.username;
+
+  if (request.body.imageUrl) {
+    review.imageUrl = request.body.imageUrl;
+  }
 
   response.json(review);
 }
@@ -1094,6 +1158,31 @@ app.get("/reviews", showReviews);
 app.get("/reviews/browse", showReviewBrowse);
 app.get("/reviews/:id/edit", showReviewEdit);
 app.get("/reviews/:id", showReviewDetail);
+
+// Preserve Assessment 1 bookmarks while serving the dynamic EJS Review pages.
+app.get(["/review.html", "/review/review.html"], (_request, response) => {
+  response.redirect(301, "/reviews");
+});
+app.get(
+  ["/review-browse.html", "/review/review-browse.html"],
+  (_request, response) => {
+    response.redirect(301, "/reviews/browse");
+  }
+);
+app.get(
+  ["/review-detail.html", "/review/review-detail.html"],
+  (request, response) => {
+    const id = String(request.query.id || "").trim();
+    response.redirect(301, /^\d+$/.test(id) ? `/reviews/${id}` : "/reviews/browse");
+  }
+);
+app.get(
+  ["/review-edit.html", "/review/review-edit.html"],
+  (request, response) => {
+    const id = String(request.query.id || "").trim();
+    response.redirect(301, /^\d+$/.test(id) ? `/reviews/${id}/edit` : "/reviews/browse");
+  }
+);
 app.get("/wishlist", showWishlist);
 app.get("/wishlist/add", showWishlistAdd);
 app.get("/wishlist.html", (request, response) => {
@@ -1116,8 +1205,34 @@ app.get("/deactivate-account", showDeactivateAccount);
 app.post("/deactivate-account", deactivateAccount);
 app.get("/deactivated-success", showDeactivatedSuccess);
 
-// Starts the local Express server after all routes are prepared.
-async function startServer() {
+function handleRootError(error, request, response, _next) {
+  const isApiRequest = request.path.startsWith("/api/");
+
+  if (error?.type === "entity.too.large" || error?.status === 413) {
+    const message = "Request body is larger than the 6 MB limit.";
+    return isApiRequest
+      ? response.status(413).json({ error: message, code: "PAYLOAD_TOO_LARGE" })
+      : response.status(413).type("text").send(message);
+  }
+
+  if (error instanceof SyntaxError && error.status === 400 && "body" in error) {
+    const message = "Request body contains invalid JSON.";
+    return isApiRequest
+      ? response.status(400).json({ error: message, code: "INVALID_JSON" })
+      : response.status(400).type("text").send(message);
+  }
+
+  console.error(error);
+  const message = "Something went wrong on the server.";
+  return isApiRequest
+    ? response.status(500).json({ error: message, code: "INTERNAL_ERROR" })
+    : response.status(500).type("text").send(message);
+}
+
+// Mount Dat's shared account application exactly once for tests and production.
+async function prepareApp() {
+  if (accountAppMounted) return app;
+
   const { dataStore } = await import(
     "./modules/account/src/data.js"
   );
@@ -1130,11 +1245,60 @@ async function startServer() {
 
   loginStore = dataStore;
   createPasswordRecord = passwordModule.createPasswordRecord;
-  app.use(createApp());
+  app.use(createApp({ sessionSecret }));
+  app.use(handleRootError);
+  accountAppMounted = true;
 
-  app.listen(port, () => {
-    console.log("RMIT Connect is running on http://localhost:" + port);
+  return app;
+}
+
+// Starts the local Express server after all routes are prepared.
+async function startServer(listenPort = port) {
+  await prepareApp();
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+
+    const rejectOnce = (error) => {
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    };
+
+    // Express 5 passes listen errors to this callback instead of guaranteeing
+    // that a callback means the socket is ready.
+    const server = app.listen(listenPort, (error) => {
+      if (error) {
+        rejectOnce(error);
+        return;
+      }
+
+      const address = server.address();
+      if (!address) {
+        rejectOnce(new Error("The HTTP server did not acquire a listening address."));
+        return;
+      }
+
+      const activePort = typeof address === "object" ? address.port : listenPort;
+      settled = true;
+      console.log(`RMIT Connect is running on http://localhost:${activePort}`);
+      resolve(server);
+    });
+
+    server.once("error", rejectOnce);
   });
 }
 
-startServer();
+if (require.main === module) {
+  startServer().catch((error) => {
+    if (error.code === "EADDRINUSE") {
+      console.error(`Port ${port} is already in use. Stop that server or choose another PORT.`);
+    } else {
+      console.error(error);
+    }
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { app, prepareApp, startServer };

@@ -1,263 +1,713 @@
 document.addEventListener("DOMContentLoaded", async function () {
-  // Gets the signed-in user from the shared Login session.
-  let currentUser = null;
+  const reviewApi = "/api/reviews";
+  const placeholderImage = "/images/review-placeholder.jpg";
+  const maximumImageBytes = 4 * 1024 * 1024;
+  const allowedImageTypes = [
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+  ];
 
+  // All Review pages use the same authenticated user supplied by the shared server.
+  let currentUser;
   try {
-    const response = await fetch("/api/current-user");
-
-    if (!response.ok) {
-      window.location.href = "/login.html";
-      return;
-    }
-
-    currentUser = await response.json();
+    currentUser = await requestJson("/api/current-user");
   } catch (error) {
-    window.location.href = "/login.html";
+    const returnTo = encodeURIComponent(
+      window.location.pathname + window.location.search,
+    );
+    window.location.assign("/login.html?returnTo=" + returnTo);
     return;
   }
 
-  // Page URLs and API URLs are separate so fetch() always receives JSON.
-  const api = "/api/reviews";
-  const getId = function () { return location.pathname.split("/")[2] || null; };
+  function requestJson(url, options) {
+    return fetch(url, options).then(async function (response) {
+      if (response.status === 204) {
+        return null;
+      }
 
-  function request(url, options) {
-    return fetch(url, options).then(function (response) {
-      if (response.status === 204) return null;
-      return response.json().then(function (data) {
-        if (!response.ok) {
-          const error = new Error(data.error || "The request could not be completed.");
-          error.fields = data.errors;
-          throw error;
-        }
-        return data;
-      });
+      const contentType = response.headers.get("content-type") || "";
+      const data = contentType.includes("application/json")
+        ? await response.json()
+        : { error: await response.text() };
+
+      if (!response.ok) {
+        const error = new Error(
+          data.error || "The request could not be completed.",
+        );
+        error.fields = data.errors || null;
+        throw error;
+      }
+
+      return data;
     });
   }
 
-  function text(tag, className, value) {
-    const element = document.createElement(tag);
-    if (className) element.className = className;
+  // Text is always assigned with textContent so review content cannot become markup.
+  function createTextElement(tagName, className, value) {
+    const element = document.createElement(tagName);
+    if (className) {
+      element.className = className;
+    }
     element.textContent = value;
     return element;
   }
 
-  // Build review content safely and preserve the Assessment 1 CSS classes.
-  function reviewCard(review) {
-    const article = text("article", "reviewListItem", "");
-    const imageCell = text("div", "reviewThumbnailCell", "");
+  function reviewIdFromPath() {
+    const parts = window.location.pathname.split("/").filter(Boolean);
+    return parts[0] === "reviews" && parts[1] ? parts[1] : null;
+  }
+
+  function formatDate(dateValue) {
+    const date = new Date(dateValue + "T00:00:00");
+    if (Number.isNaN(date.getTime())) {
+      return dateValue;
+    }
+    return new Intl.DateTimeFormat("en-AU", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }).format(date);
+  }
+
+  function makeStars(rating) {
+    const stars = createTextElement(
+      "span",
+      "stars",
+      "★".repeat(rating) + "☆".repeat(5 - rating),
+    );
+    stars.setAttribute("aria-label", rating + " out of 5 stars");
+    return stars;
+  }
+
+  function setStatus(element, message, isError) {
+    if (!element) {
+      return;
+    }
+    element.textContent = message;
+    element.classList.toggle("statusError", Boolean(isError));
+    element.classList.toggle("statusSuccess", Boolean(message) && !isError);
+  }
+
+  function makeAction(label, className, href) {
+    const link = createTextElement("a", className, label);
+    link.href = href;
+    return link;
+  }
+
+  // Builds one list card using DOM methods rather than interpolated HTML.
+  function makeReviewCard(review) {
+    const article = document.createElement("article");
+    article.className = "reviewListItem";
+
+    const imageCell = document.createElement("div");
+    imageCell.className = "reviewThumbnailCell";
     const image = document.createElement("img");
     image.className = "reviewThumbnail";
-    image.src = review.imageUrl;
-    image.alt = "Thumbnail for " + review.title;
+    image.src = review.imageUrl || placeholderImage;
+    image.alt = "Image for " + review.courseCode + ": " + review.title;
     imageCell.appendChild(image);
-    const content = text("div", "reviewListContentCell", "");
-    const heading = text("h3", "reviewListTitle", "");
-    const title = text("a", "", review.title);
-    title.href = "/reviews/" + review.id;
-    heading.appendChild(title);
-    const meta = text("p", "reviewListMeta", "");
-    const stars = text("span", "stars", "★".repeat(review.rating));
-    stars.setAttribute("aria-label", review.rating + " out of 5 stars");
-    meta.append(stars, text("span", "", review.reviewerName), text("span", "", "Added " + review.createdAt));
-    content.append(heading, text("p", "reviewListSummary", review.description.slice(0, 140)), meta);
-    const actions = text("div", "reviewListActionsCell", "");
-    function action(label, className, href) {
-      const link = text("a", className, label);
-      link.href = href;
-      actions.appendChild(link);
-      return link;
+
+    const content = document.createElement("div");
+    content.className = "reviewListContentCell";
+    const courseCode = createTextElement("p", "courseCode", review.courseCode);
+    const heading = document.createElement("h3");
+    heading.className = "reviewListTitle";
+    heading.appendChild(
+      makeAction(review.title, "reviewTitleLink", "/reviews/" + review.id),
+    );
+    const summary = createTextElement(
+      "p",
+      "reviewListSummary",
+      review.description.length > 160
+        ? review.description.slice(0, 157) + "..."
+        : review.description,
+    );
+    const meta = document.createElement("p");
+    meta.className = "reviewListMeta";
+    meta.append(
+      makeStars(review.rating),
+      createTextElement("span", "reviewerMeta", review.reviewerName),
+      createTextElement(
+        "span",
+        "dateMeta",
+        "Added " + formatDate(review.createdAt),
+      ),
+    );
+    content.append(courseCode, heading, summary, meta);
+
+    const actions = document.createElement("div");
+    actions.className = "reviewListActionsCell";
+    actions.appendChild(
+      makeAction("View", "actionView", "/reviews/" + review.id),
+    );
+
+    if (String(review.userId) === String(currentUser.id)) {
+      actions.appendChild(
+        makeAction("Edit", "actionEdit", "/reviews/" + review.id + "/edit"),
+      );
+      const removeButton = createTextElement("button", "actionDelete", "Delete");
+      removeButton.type = "button";
+      removeButton.dataset.reviewId = review.id;
+      removeButton.setAttribute("aria-label", "Delete review: " + review.title);
+      actions.appendChild(removeButton);
     }
-    action("View", "actionView", "/reviews/" + review.id);
-    if (String(review.userId) === currentUser.id) {
-      action("Edit", "actionEdit", "/reviews/" + review.id + "/edit");
-      const remove = action("Delete", "actionDelete", "#");
-      remove.dataset.reviewId = review.id;
-    }
+
     article.append(imageCell, content, actions);
     return article;
   }
 
-  function listMessage(list, message) { list.replaceChildren(text("li", "", message)); }
+  function showListMessage(list, message) {
+    const item = createTextElement("li", "emptyMessage", message);
+    list.replaceChildren(item);
+  }
+
+  function readImageFile(file) {
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.addEventListener("load", function () {
+        resolve(String(reader.result));
+      });
+      reader.addEventListener("error", function () {
+        reject(new Error("The selected image could not be read."));
+      });
+      reader.readAsDataURL(file);
+    });
+  }
 
   const form = document.querySelector(".reviewForm");
   if (form) {
-    const titleInput = form.querySelector("#reviewTitle");
-    const descriptionInput = form.querySelector("#reviewDescription");
-    const ratingInput = form.querySelector("#reviewRating");
-    const nameInput = form.querySelector("#reviewerName");
-    const imageInput = form.querySelector("#reviewImage");
-    const submit = form.querySelector(".btnPrimary");
-    const fields = [titleInput, descriptionInput, ratingInput, nameInput];
-    const isEdit = form.dataset.mode === "edit";
-    const id = isEdit ? getId() : null;
-    const draftKey = isEdit ? "reviewEditDraft-" + id : "reviewCreateDraft";
-    const limits = { reviewTitle: [5, 100, "Title"], reviewDescription: [20, 1000, "Description"], reviewerName: [2, 50, "Name"] };
+    initialiseReviewForm(form);
+  }
 
-    function errorFor(input) {
-      let error = form.querySelector(".fieldError[data-for='" + input.id + "']");
-      if (!error) {
-        error = text("span", "fieldError", "");
-        error.dataset.for = input.id;
-        input.insertAdjacentElement("afterend", error);
-      }
-      return error;
+  function initialiseReviewForm(reviewForm) {
+    const titleInput = reviewForm.querySelector("#reviewTitle");
+    const courseInput = reviewForm.querySelector("#reviewCourseCode");
+    const descriptionInput = reviewForm.querySelector("#reviewDescription");
+    const ratingInput = reviewForm.querySelector("#reviewRating");
+    const imageInput = reviewForm.querySelector("#reviewImage");
+    const imagePreview = reviewForm.querySelector("#reviewImagePreview");
+    const previewContainer = reviewForm.querySelector("#reviewImagePreviewContainer");
+    const reviewerIdentity = reviewForm.querySelector("#reviewerIdentity");
+    const formStatus = reviewForm.querySelector(".formStatus");
+    const submitButton = reviewForm.querySelector(".btnPrimary");
+    const fields = [courseInput, titleInput, descriptionInput, ratingInput];
+    const isEdit = reviewForm.dataset.mode === "edit";
+    const reviewId = isEdit ? reviewIdFromPath() : null;
+    const draftKey = isEdit
+      ? "reviewEditDraft-" + reviewId
+      : "reviewCreateDraft";
+    let replacementImageUrl = null;
+    let pendingImageRead = Promise.resolve();
+
+    reviewerIdentity.textContent = currentUser.name + " (" + currentUser.sid + ")";
+
+    function fieldError(input) {
+      return reviewForm.querySelector("#" + input.id + "Error");
     }
-    function validate(input) {
+
+    function validateField(input, showState) {
+      const value = input.value.trim();
       let message = "";
-      if (input.id === "reviewRating") message = ["1", "2", "3", "4", "5"].includes(input.value) ? "" : "Please select a rating from 1 to 5.";
-      else {
-        const rule = limits[input.id];
-        const length = input.value.trim().length;
-        if (length < rule[0]) message = rule[2] + " must be at least " + rule[0] + " characters.";
-        if (length > rule[1]) message = rule[2] + " must be " + rule[1] + " characters or less.";
+
+      if (input === courseInput && !/^[A-Za-z]{4}\d{4}$/.test(value)) {
+        message = "Enter a course code using four letters and four numbers.";
+      } else if (input === titleInput && value.length < 5) {
+        message = "Title must be at least 5 characters.";
+      } else if (input === titleInput && value.length > 100) {
+        message = "Title must be 100 characters or less.";
+      } else if (input === descriptionInput && value.length < 20) {
+        message = "Description must be at least 20 characters.";
+      } else if (input === descriptionInput && value.length > 1000) {
+        message = "Description must be 1000 characters or less.";
+      } else if (
+        input === ratingInput &&
+        !["1", "2", "3", "4", "5"].includes(value)
+      ) {
+        message = "Select a whole-number rating from 1 to 5.";
       }
-      errorFor(input).textContent = message;
-      input.classList.toggle("inputInvalid", Boolean(message));
-      input.classList.toggle("inputValid", !message);
+
+      if (showState) {
+        fieldError(input).textContent = message;
+        input.classList.toggle("inputInvalid", Boolean(message));
+        input.classList.toggle("inputValid", !message);
+        input.setAttribute("aria-invalid", String(Boolean(message)));
+      }
       return !message;
     }
-    function validateAll() {
-      const valid = fields.every(validate);
-      submit.disabled = !valid;
-      return valid;
+
+    // A loop is intentional: every invalid field is reported on one submission.
+    function validateAll(showState) {
+      let formIsValid = true;
+      fields.forEach(function (input) {
+        if (!validateField(input, showState)) {
+          formIsValid = false;
+        }
+      });
+      return formIsValid;
     }
-    function count(input, maximum) {
-      let counter = form.querySelector(".charCount[data-for='" + input.id + "']");
-      if (!counter) {
-        counter = text("span", "charCount", "");
-        counter.dataset.for = input.id;
-        input.insertAdjacentElement("afterend", counter);
-      }
-      counter.textContent = input.value.length + " / " + maximum + " characters";
+
+    function updateCounter(input, maximum) {
+      const counter = reviewForm.querySelector("#" + input.id + "Count");
+      counter.textContent = input.value.length + " / " + maximum;
     }
+
+    function refreshCounters() {
+      updateCounter(titleInput, 100);
+      updateCounter(descriptionInput, 1000);
+    }
+
     function saveDraft() {
-      localStorage.setItem(draftKey, JSON.stringify({ title: titleInput.value, description: descriptionInput.value, rating: ratingInput.value, reviewerName: nameInput.value }));
+      const draft = {
+        courseCode: courseInput.value,
+        title: titleInput.value,
+        description: descriptionInput.value,
+        rating: ratingInput.value,
+      };
+      localStorage.setItem(draftKey, JSON.stringify(draft));
     }
+
     function restoreDraft() {
       try {
         const draft = JSON.parse(localStorage.getItem(draftKey));
-        if (!draft) return;
+        if (!draft) {
+          return;
+        }
+        courseInput.value = draft.courseCode || "";
         titleInput.value = draft.title || "";
         descriptionInput.value = draft.description || "";
         ratingInput.value = draft.rating || "";
-        nameInput.value = draft.reviewerName || "";
-      } catch (error) { localStorage.removeItem(draftKey); }
+      } catch (error) {
+        localStorage.removeItem(draftKey);
+      }
     }
-    function refreshForm() { count(titleInput, 100); count(descriptionInput, 1000); validateAll(); }
-    function populate(review) {
+
+    function displayPreview(imageUrl) {
+      imagePreview.src = imageUrl;
+      previewContainer.hidden = false;
+    }
+
+    async function handleImageSelection() {
+      const file = imageInput.files[0];
+      const errorElement = fieldError(imageInput);
+      replacementImageUrl = null;
+
+      if (!file) {
+        errorElement.textContent = "";
+        imageInput.classList.remove("inputInvalid", "inputValid");
+        imageInput.setAttribute("aria-invalid", "false");
+        if (!isEdit) {
+          previewContainer.hidden = true;
+          imagePreview.removeAttribute("src");
+        }
+        return;
+      }
+
+      let message = "";
+      if (!allowedImageTypes.includes(file.type)) {
+        message = "Choose a JPEG, PNG, GIF, or WebP image.";
+      } else if (file.size > maximumImageBytes) {
+        message = "Image size must not exceed 4 MB.";
+      }
+
+      if (message) {
+        errorElement.textContent = message;
+        imageInput.classList.add("inputInvalid");
+        imageInput.classList.remove("inputValid");
+        imageInput.setAttribute("aria-invalid", "true");
+        imageInput.value = "";
+        return;
+      }
+
+      try {
+        replacementImageUrl = await readImageFile(file);
+        displayPreview(replacementImageUrl);
+        errorElement.textContent = "";
+        imageInput.classList.add("inputValid");
+        imageInput.classList.remove("inputInvalid");
+        imageInput.setAttribute("aria-invalid", "false");
+      } catch (error) {
+        errorElement.textContent = error.message;
+        imageInput.classList.add("inputInvalid");
+        imageInput.classList.remove("inputValid");
+        imageInput.setAttribute("aria-invalid", "true");
+      }
+    }
+
+    function populateForm(review) {
+      courseInput.value = review.courseCode;
       titleInput.value = review.title;
       descriptionInput.value = review.description;
-      ratingInput.value = review.rating;
-      nameInput.value = review.reviewerName;
-      const detail = "/reviews/" + review.id;
-      document.querySelector(".backLink").href = detail;
-      form.querySelector(".btnSecondary").href = detail;
+      ratingInput.value = String(review.rating);
+      displayPreview(review.imageUrl || placeholderImage);
+      imagePreview.alt = "Current image for " + review.title;
+      const detailUrl = "/reviews/" + review.id;
+      reviewForm.querySelector(".btnSecondary").href = detailUrl;
+      document.querySelector(".backLink").href = detailUrl;
     }
+
     fields.forEach(function (input) {
-      input.addEventListener("input", function () { validate(input); refreshForm(); saveDraft(); });
-      input.addEventListener("change", function () { validate(input); refreshForm(); saveDraft(); });
-      input.addEventListener("blur", function () { validate(input); });
-    });
-    if (imageInput) imageInput.addEventListener("change", function () {
-      const file = imageInput.files[0];
-      if (!file) return;
-      const allowed = ["image/jpeg", "image/png", "image/webp"].includes(file.type);
-      const smallEnough = file.size <= 5 * 1024 * 1024;
-      const error = errorFor(imageInput);
-      error.textContent = allowed && smallEnough ? "" : "Image must be a JPG, PNG or WEBP file under 5 MB.";
-      if (!allowed || !smallEnough) imageInput.value = "";
-    });
-    if (isEdit) {
-      if (!id) form.replaceWith(text("p", "fieldError", "No review was selected for editing."));
-      else request(api + "/" + id).then(function (review) {
-        if (String(review.userId) !== currentUser.id) throw new Error("You can only edit your own reviews.");
-        populate(review);
-        restoreDraft(); // Edit drafts are restored after the server review is loaded.
-        refreshForm();
-      }).catch(function (error) { form.replaceWith(text("p", "fieldError", error.message)); });
-    } else { restoreDraft(); refreshForm(); }
-    form.addEventListener("reset", function () { setTimeout(function () { localStorage.removeItem(draftKey); refreshForm(); }, 0); });
-    const cancel = form.querySelector(".btnSecondary");
-    if (cancel) cancel.addEventListener("click", function () { localStorage.removeItem(draftKey); });
-    form.addEventListener("submit", function (event) {
-      event.preventDefault();
-      if (!validateAll()) return;
-      request(isEdit ? api + "/" + id : api, {
-        method: isEdit ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: titleInput.value, description: descriptionInput.value, rating: ratingInput.value, reviewerName: nameInput.value })
-      }).then(function (review) {
-        localStorage.removeItem(draftKey);
-        location.href = "/reviews/" + review.id;
-      }).catch(function (error) {
-        if (error.fields) Object.keys(error.fields).forEach(function (name) {
-          const field = form.querySelector("[name='" + name + "']");
-          if (field) errorFor(field).textContent = error.fields[name];
-        });
-        else alert(error.message);
+      input.addEventListener("input", function () {
+        if (input === courseInput) {
+          input.value = input.value.toUpperCase();
+        }
+        validateField(input, true);
+        refreshCounters();
+        saveDraft();
       });
+      input.addEventListener("change", function () {
+        validateField(input, true);
+        saveDraft();
+      });
+      input.addEventListener("blur", function () {
+        validateField(input, true);
+      });
+    });
+    imageInput.addEventListener("change", function () {
+      pendingImageRead = handleImageSelection();
+    });
+
+    if (isEdit) {
+      if (!reviewId || !/^\d+$/.test(reviewId)) {
+        reviewForm.replaceWith(
+          createTextElement(
+            "p",
+            "pageMessage statusError",
+            "No valid review was selected.",
+          ),
+        );
+        return;
+      }
+
+      requestJson(reviewApi + "/" + reviewId)
+        .then(function (review) {
+          if (String(review.userId) !== String(currentUser.id)) {
+            throw new Error("You can only edit your own reviews.");
+          }
+          populateForm(review);
+          restoreDraft();
+          refreshCounters();
+        })
+        .catch(function (error) {
+          reviewForm.replaceWith(
+            createTextElement("p", "pageMessage statusError", error.message),
+          );
+        });
+    } else {
+      restoreDraft();
+      refreshCounters();
+    }
+
+    reviewForm.addEventListener("reset", function () {
+      window.setTimeout(function () {
+        localStorage.removeItem(draftKey);
+        replacementImageUrl = null;
+        fields.forEach(function (input) {
+          fieldError(input).textContent = "";
+          input.classList.remove("inputInvalid", "inputValid");
+          input.setAttribute("aria-invalid", "false");
+        });
+        fieldError(imageInput).textContent = "";
+        previewContainer.hidden = true;
+        imagePreview.removeAttribute("src");
+        refreshCounters();
+        setStatus(formStatus, "Form cleared.", false);
+      }, 0);
+    });
+
+    const cancelLink = reviewForm.querySelector(".btnSecondary");
+    if (cancelLink && cancelLink.tagName === "A") {
+      cancelLink.addEventListener("click", function () {
+        localStorage.removeItem(draftKey);
+      });
+    }
+
+    reviewForm.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      setStatus(formStatus, "", false);
+
+      if (!validateAll(true)) {
+        setStatus(formStatus, "Please correct the highlighted fields.", true);
+        const firstInvalid = reviewForm.querySelector(".inputInvalid");
+        if (firstInvalid) {
+          firstInvalid.focus();
+        }
+        return;
+      }
+
+      submitButton.disabled = true;
+      submitButton.textContent = isEdit ? "Saving changes..." : "Saving review...";
+
+      // Prevent a fast submission from racing a FileReader operation.
+      await pendingImageRead;
+
+      const payload = {
+        courseCode: courseInput.value.trim().toUpperCase(),
+        title: titleInput.value.trim(),
+        description: descriptionInput.value.trim(),
+        rating: Number(ratingInput.value),
+      };
+      if (replacementImageUrl) {
+        payload.imageUrl = replacementImageUrl;
+      }
+
+      try {
+        const review = await requestJson(
+          isEdit ? reviewApi + "/" + reviewId : reviewApi,
+          {
+            method: isEdit ? "PUT" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          },
+        );
+        localStorage.removeItem(draftKey);
+        window.location.assign("/reviews/" + review.id);
+      } catch (error) {
+        if (error.fields) {
+          Object.keys(error.fields).forEach(function (name) {
+            const input =
+              name === "imageUrl"
+                ? imageInput
+                : reviewForm.querySelector("[name='" + name + "']");
+            if (input) {
+              fieldError(input).textContent = error.fields[name];
+              input.classList.add("inputInvalid");
+              input.classList.remove("inputValid");
+              input.setAttribute("aria-invalid", "true");
+            }
+          });
+        }
+        setStatus(formStatus, error.message, true);
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = isEdit ? "Save Changes" : "Save Review";
+      }
     });
   }
 
   const browseList = document.querySelector("#reviewListContainer");
   if (browseList) {
-    const search = document.querySelector("#browseSearch");
-    const rating = document.querySelector("#browseRating");
-    const sort = document.querySelector("#browseSort");
-    const count = document.querySelector("#listCount");
-    let reviews = [];
-    function render() {
-      const query = search.value.trim().toLowerCase();
-      const minimum = Number(rating.value) || 0;
-      const visible = reviews.filter(function (review) {
-        return review.rating >= minimum && [review.title, review.description, review.reviewerName].some(function (value) { return value.toLowerCase().includes(query); });
-      });
-      visible.sort(function (a, b) { return sort.value === "oldest" ? new Date(a.createdAt) - new Date(b.createdAt) : sort.value === "newest" ? new Date(b.createdAt) - new Date(a.createdAt) : 0; });
-      browseList.replaceChildren();
-      visible.forEach(function (review) { const item = document.createElement("li"); item.appendChild(reviewCard(review)); browseList.appendChild(item); });
-      count.textContent = "Showing " + visible.length + " of " + reviews.length + " reviews";
-    }
-    document.querySelector(".filterBar").addEventListener("submit", function (event) { event.preventDefault(); });
-    search.addEventListener("input", render); rating.addEventListener("change", render); sort.addEventListener("change", render);
-    browseList.addEventListener("click", function (event) {
-      const remove = event.target.closest(".actionDelete");
-      if (!remove) return;
-      event.preventDefault();
-      if (!confirm("Delete this review? This cannot be undone.")) return;
-      request(api + "/" + remove.dataset.reviewId, { method: "DELETE" }).then(function () { reviews = reviews.filter(function (review) { return String(review.id) !== remove.dataset.reviewId; }); render(); }).catch(function (error) { alert(error.message); });
-    });
-    request(api).then(function (data) { reviews = data; render(); }).catch(function (error) { listMessage(browseList, error.message); });
+    initialiseBrowsePage(browseList);
   }
 
-  const mine = document.querySelector("#myReviewListContainer");
-  if (mine) request(api).then(function (reviews) {
-    const own = reviews.filter(function (review) { return String(review.userId) === currentUser.id; });
-    if (!own.length) return listMessage(mine, "You have not written any reviews yet.");
-    mine.replaceChildren(); own.forEach(function (review) { const item = document.createElement("li"); item.appendChild(reviewCard(review)); mine.appendChild(item); });
-  }).catch(function (error) { listMessage(mine, error.message); });
-  if (mine) mine.addEventListener("click", function (event) {
-    const remove = event.target.closest(".actionDelete");
-    if (!remove) return;
-    event.preventDefault();
-    if (!confirm("Delete this review? This cannot be undone.")) return;
-    request(api + "/" + remove.dataset.reviewId, { method: "DELETE" })
-      .then(function () { remove.closest("li").remove(); })
-      .catch(function (error) { alert(error.message); });
-  });
+  function initialiseBrowsePage(reviewList) {
+    const filterForm = document.querySelector(".filterBar");
+    const searchInput = document.querySelector("#browseSearch");
+    const ratingInput = document.querySelector("#browseRating");
+    const sortInput = document.querySelector("#browseSort");
+    const count = document.querySelector("#listCount");
+    const pageStatus = document.querySelector("#browseStatus");
+    let allReviews = [];
 
-  const detail = document.querySelector("#reviewDetailContainer");
-  if (detail) {
-    const id = getId();
-    if (!id) detail.replaceChildren(text("p", "fieldError", "No review was specified."));
-    else request(api + "/" + id).then(function (review) {
-      detail.querySelector(".reviewDetailTitle").textContent = review.title;
-      const meta = detail.querySelector(".reviewDetailMeta"); meta.replaceChildren(text("span", "stars", "★".repeat(review.rating)), text("span", "", review.reviewerName), text("span", "", "Added " + review.createdAt));
-      detail.querySelector(".reviewDetailImage").src = review.imageUrl;
-      detail.querySelector(".reviewDetailDescription").textContent = review.description;
-      const actions = detail.querySelector(".reviewDetailHeaderActions");
-      if (String(review.userId) !== currentUser.id) return actions.style.display = "none";
-      actions.querySelector("a").href = "/reviews/" + review.id + "/edit";
-      actions.querySelector("form").addEventListener("submit", function (event) { event.preventDefault(); if (confirm("Delete this review? This cannot be undone.")) request(api + "/" + review.id, { method: "DELETE" }).then(function () { location.href = "/reviews/browse"; }).catch(function (error) { alert(error.message); }); });
-    }).catch(function (error) { detail.replaceChildren(text("p", "fieldError", error.message)); });
+    function renderReviews() {
+      const query = searchInput.value.trim().toLowerCase();
+      const minimumRating = Number(ratingInput.value) || 0;
+      const visibleReviews = allReviews.filter(function (review) {
+        const searchableValues = [
+          review.courseCode,
+          review.title,
+          review.description,
+          review.reviewerName,
+        ];
+        return (
+          review.rating >= minimumRating &&
+          searchableValues.some(function (value) {
+            return String(value).toLowerCase().includes(query);
+          })
+        );
+      });
+
+      visibleReviews.sort(function (first, second) {
+        if (sortInput.value === "oldest") {
+          return new Date(first.createdAt) - new Date(second.createdAt);
+        }
+        if (sortInput.value === "highest") {
+          return second.rating - first.rating;
+        }
+        return new Date(second.createdAt) - new Date(first.createdAt);
+      });
+
+      reviewList.replaceChildren();
+      if (!visibleReviews.length) {
+        showListMessage(reviewList, "No reviews match those filters.");
+      } else {
+        visibleReviews.forEach(function (review) {
+          const item = document.createElement("li");
+          item.appendChild(makeReviewCard(review));
+          reviewList.appendChild(item);
+        });
+      }
+      count.textContent =
+        "Showing " + visibleReviews.length + " of " + allReviews.length + " reviews";
+    }
+
+    filterForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      renderReviews();
+    });
+    searchInput.addEventListener("input", renderReviews);
+    ratingInput.addEventListener("change", renderReviews);
+    sortInput.addEventListener("change", renderReviews);
+
+    reviewList.addEventListener("click", async function (event) {
+      const removeButton = event.target.closest(".actionDelete");
+      if (!removeButton) {
+        return;
+      }
+      if (!window.confirm("Delete this review? This cannot be undone.")) {
+        return;
+      }
+
+      try {
+        await requestJson(reviewApi + "/" + removeButton.dataset.reviewId, {
+          method: "DELETE",
+        });
+        allReviews = allReviews.filter(function (review) {
+          return String(review.id) !== removeButton.dataset.reviewId;
+        });
+        renderReviews();
+        setStatus(pageStatus, "Review deleted.", false);
+      } catch (error) {
+        setStatus(pageStatus, error.message, true);
+      }
+    });
+
+    requestJson(reviewApi)
+      .then(function (reviews) {
+        allReviews = reviews;
+        renderReviews();
+      })
+      .catch(function (error) {
+        showListMessage(reviewList, error.message);
+        setStatus(pageStatus, error.message, true);
+      });
+  }
+
+  const myReviewList = document.querySelector("#myReviewListContainer");
+  if (myReviewList) {
+    initialiseMyReviews(myReviewList);
+  }
+
+  function initialiseMyReviews(reviewList) {
+    const pageStatus = document.querySelector("#myReviewsStatus");
+
+    requestJson(reviewApi)
+      .then(function (reviews) {
+        const ownReviews = reviews.filter(function (review) {
+          return String(review.userId) === String(currentUser.id);
+        });
+        if (!ownReviews.length) {
+          showListMessage(reviewList, "You have not written any reviews yet.");
+          return;
+        }
+        reviewList.replaceChildren();
+        ownReviews.forEach(function (review) {
+          const item = document.createElement("li");
+          item.appendChild(makeReviewCard(review));
+          reviewList.appendChild(item);
+        });
+      })
+      .catch(function (error) {
+        showListMessage(reviewList, error.message);
+      });
+
+    reviewList.addEventListener("click", async function (event) {
+      const removeButton = event.target.closest(".actionDelete");
+      if (!removeButton) {
+        return;
+      }
+      if (!window.confirm("Delete this review? This cannot be undone.")) {
+        return;
+      }
+      try {
+        await requestJson(reviewApi + "/" + removeButton.dataset.reviewId, {
+          method: "DELETE",
+        });
+        removeButton.closest("li").remove();
+        if (!reviewList.children.length) {
+          showListMessage(reviewList, "You have not written any reviews yet.");
+        }
+        setStatus(pageStatus, "Review deleted.", false);
+      } catch (error) {
+        setStatus(pageStatus, error.message, true);
+      }
+    });
+  }
+
+  const detailContainer = document.querySelector("#reviewDetailContainer");
+  if (detailContainer) {
+    initialiseDetailPage(detailContainer);
+  }
+
+  function initialiseDetailPage(container) {
+    const reviewId = reviewIdFromPath();
+    if (!reviewId || !/^\d+$/.test(reviewId)) {
+      container.replaceChildren(
+        createTextElement(
+          "p",
+          "pageMessage statusError",
+          "No valid review was specified.",
+        ),
+      );
+      return;
+    }
+
+    requestJson(reviewApi + "/" + reviewId)
+      .then(function (review) {
+        document.title = review.courseCode + " review | RMIT Connect";
+        container.querySelector(".reviewDetailCourse").textContent = review.courseCode;
+        container.querySelector(".reviewDetailTitle").textContent = review.title;
+
+        const meta = container.querySelector(".reviewDetailMeta");
+        meta.replaceChildren(
+          makeStars(review.rating),
+          createTextElement("span", "reviewerMeta", review.reviewerName),
+          createTextElement(
+            "span",
+            "dateMeta",
+            "Added " + formatDate(review.createdAt),
+          ),
+        );
+
+        const image = container.querySelector(".reviewDetailImage");
+        image.src = review.imageUrl || placeholderImage;
+        image.alt = "Image for " + review.courseCode + ": " + review.title;
+        container.querySelector(".reviewDetailDescription").textContent =
+          review.description;
+
+        const actions = container.querySelector(".reviewDetailHeaderActions");
+        if (String(review.userId) !== String(currentUser.id)) {
+          actions.hidden = true;
+          return;
+        }
+
+        actions.querySelector(".actionEditButton").href =
+          "/reviews/" + review.id + "/edit";
+        actions
+          .querySelector(".actionDeleteButton")
+          .addEventListener("click", async function () {
+            if (!window.confirm("Delete this review? This cannot be undone.")) {
+              return;
+            }
+            try {
+              await requestJson(reviewApi + "/" + review.id, {
+                method: "DELETE",
+              });
+              window.location.assign("/reviews/browse");
+            } catch (error) {
+              setStatus(
+                container.querySelector(".detailStatus"),
+                error.message,
+                true,
+              );
+            }
+          });
+      })
+      .catch(function (error) {
+        container.replaceChildren(
+          createTextElement("p", "pageMessage statusError", error.message),
+        );
+      });
   }
 });
