@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log In | RMIT Connect</title>
+    <link rel="stylesheet" href="css/account.css">
+    <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="/css/navigation.css">
+    <script type="module" src="js/login.js"></script>
+</head>
+
+<body id="top">
+    <a class="skipLink" href="#main-content">Skip to main content</a>
+    <!-- Public shell; session hooks reveal authenticated controls when appropriate. -->
+    <header class="siteHeader globalHeader">
+        <a class="globalLogo" href="/">RMIT CONNECT</a>
+
+        <nav class="mainNav globalNav" aria-label="Main navigation">
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/discussions">Discussions</a></li>
+                <li><a href="/blogs">Blogs</a></li>
+                <li><a href="/reviews/browse">Reviews</a></li>
+                <li><a href="/wishlist">Wishlist</a></li>
+                <li><a href="/editprofile.html">Profile</a></li>
+                <li><a class="globalSessionLink" href="/login.html" aria-current="page">Log in</a></li>
+            </ul>
+        </nav>
+
+        <span class="currentUser globalCurrentUser" data-current-user hidden></span>
+
+        <button class="headerButton globalLogoutButton" type="button" data-logout hidden>
+            Log Out
+        </button>
+    </header>
+
+    <!-- Login is the session-creation entry point for protected pages. -->
+    <main id="main-content">
+        <section class="pageBanner">
+            <div class="pageBannerInner">
+                <div>
+                    <h1>Welcome Back</h1>
+                    <p>Log in to continue to your RMIT Connect account.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="accountSection" aria-labelledby="login-heading">
+            <div class="loginLayout">
+                <div class="formCard">
+                    <h2 id="login-heading">Log In</h2>
+                    <p class="cardIntro">
+                        Enter your username or RMIT email address and password.
+                    </p>
+
+                    <!-- login.js announces client and server validation outcomes here. -->
+                    <div id="loginMessage"
+                        class="notice"
+                        role="status"
+                        aria-live="polite"
+                        hidden>
+                    </div>
+
+                    <!-- novalidate lets the shared accessible error pattern own feedback. -->
+                    <form id="loginForm" class="accountForm" novalidate>
+                        <div class="formField">
+                            <label for="loginIdentity">Username or Email</label>
+                            <input id="loginIdentity"
+                                name="identity"
+                                type="text"
+                                placeholder="dat.pham or s4221230@rmit.edu.vn"
+                                autocomplete="username"
+                                maxlength="100"
+                                aria-describedby="identityError"
+                                required>
+
+                            <small id="identityError"
+                                class="fieldError"
+                                data-error-for="identity"
+                                hidden>
+                            </small>
+                        </div>
+
+                        <div class="formField">
+                            <label for="loginPassword">Password</label>
+                            <input id="loginPassword"
+                                name="password"
+                                type="password"
+                                placeholder="Enter your password"
+                                autocomplete="current-password"
+                                maxlength="200"
+                                aria-describedby="passwordError"
+                                required>
+
+                            <small id="passwordError"
+                                class="fieldError"
+                                data-error-for="password"
+                                hidden>
+                            </small>
+                        </div>
+
+                        <label class="checkboxField" for="rememberAccount">
+                            <input id="rememberAccount"
+                                name="rememberAccount"
+                                type="checkbox">
+                            Remember my username on this device (never my password)
+                        </label>
+
+                        <button id="loginSubmit"
+                                class="primaryButton fullButton"
+                                type="submit">
+                            Log In
+                        </button>
+                    </form>
+
+                    <p class="formPrompt">
+                        Password assistance is available through the
+                        <a href="/forgot-password">Forgot Password page</a>.
+                    </p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Shared project navigation and required acknowledgement. -->
+    <footer class="siteFooter">
+        <div class="footerInner">
+            <div class="footerBrand">
+                <strong>RMIT CONNECT</strong>
+                <p>A full-stack student community demo.</p>
+            </div>
+
+            <nav class="footerNav" aria-label="Footer navigation">
+                <a href="/">Home</a>
+                <a href="/sitemap">Site Map</a>
+                <a href="/login.html">Log In</a>
+                <a href="/editprofile.html">Edit Profile</a>
+                <a href="/admin.html">Administration</a>
+                <a href="#top">Back to Top</a>
+            </nav>
+
+            <div class="aiAcknowledgement">
+                <strong>AI Use Acknowledgement</strong>
+                <p>
+                    OpenAI Codex assisted with implementation guidance, debugging, documentation, and testing.
+                    Dat Pham developed, reviewed, understood, and verified the final implementation.
+                </p>
+            </div>
+        </div>
+    </footer>
+</body>
+
+
+
+</html>

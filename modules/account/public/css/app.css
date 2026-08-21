@@ -1,0 +1,334 @@
+/* Shared styles for interactive Assignment 2 features. */
+
+[hidden] {
+    display: none !important;
+}
+
+.skipLink {
+    position: absolute;
+    top: -80px;
+    left: 12px;
+    z-index: 100;
+    padding: 10px 14px;
+    border: 3px solid #000054;
+    border-radius: 6px;
+    background-color: #FFFFFF;
+    color: #000054;
+    font-weight: bold;
+}
+
+.skipLink:focus {
+    top: 12px;
+}
+
+.notice {
+    margin-bottom: 18px;
+    padding: 12px 14px;
+    border: 1px solid #B8C2CC;
+    border-left-width: 5px;
+    border-radius: 6px;
+    background-color: #F2F7FF;
+    color: #1F2937;
+    font-size: 14px;
+}
+
+.notice--success {
+    border-color: #2E7D4F;
+    background-color: #E7F7EC;
+    color: #174A2B;
+}
+
+.notice--error {
+    border-color: #B42318;
+    background-color: #FFF0F0;
+    color: #7A1612;
+}
+
+.notice--info {
+    border-color: #2563EB;
+}
+
+.fieldError {
+    color: #B42318 !important;
+    font-weight: bold;
+}
+
+[aria-invalid="true"] {
+    border-color: #B42318 !important;
+    box-shadow: 0 0 0 1px #B42318;
+}
+
+.currentUser {
+    max-width: 160px;
+    color: #FFFFFF;
+    font-size: 12px;
+    line-height: 1.3;
+}
+
+.headerButton {
+    min-width: 76px;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid #FFFFFF;
+    border-radius: 6px;
+    background-color: transparent;
+    color: #FFFFFF;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.headerButton:hover {
+    background-color: #FFFFFF;
+    color: #B80020;
+}
+
+.primaryButton:disabled,
+.headerButton:disabled {
+    opacity: 0.65;
+    cursor: wait;
+}
+
+.siteHeader button:focus-visible {
+    outline: 3px solid #FFFFFF;
+    outline-offset: 3px;
+}
+
+@media (max-width: 800px) {
+    .currentUser,
+    .headerButton {
+        margin-top: 12px;
+    }
+
+    .headerButton {
+        margin-left: 10px;
+    }
+}
+
+/* Dynamic catalogue additions. */
+
+.siteHeader {
+    gap: 18px;
+}
+
+.mainNav {
+    margin-left: auto;
+}
+
+.filterField small {
+    display: block;
+    margin-top: 5px;
+    color: #555555;
+    font-size: 11px;
+}
+
+.filterGrid.filterGrid--four {
+    grid-template-columns:
+        minmax(210px, 2fr)
+        repeat(3, minmax(135px, 1fr))
+        auto;
+}
+
+.resetLink {
+    min-height: 44px;
+    border: 0;
+    background-color: transparent;
+    color: #000054;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.resetLink:hover {
+    text-decoration: none;
+}
+
+.loadingState {
+    grid-column: 1 / -1;
+    margin: 0;
+    padding: 28px;
+    color: #555555;
+    text-align: center;
+}
+
+.emptyState {
+    grid-column: 1 / -1;
+    width: 100%;
+    padding: 34px 18px;
+    border: 2px dashed #C7C7D8;
+    border-radius: 8px;
+    background-color: #FAFAFC;
+    text-align: center;
+}
+
+.emptyState h3,
+.emptyState p {
+    margin: 0;
+}
+
+.emptyState p {
+    margin-top: 5px;
+    color: #555555;
+    font-size: 13px;
+}
+
+.catalogueItem .primaryButton,
+.catalogueItem .disabledButton {
+    min-height: 44px;
+}
+
+.catalogueItem button:disabled:not(
+    .disabledButton
+) {
+    opacity: 0.65;
+    cursor: wait;
+}
+
+@media (max-width: 1050px) {
+    .filterGrid.filterGrid--four {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .filterGrid.filterGrid--four
+    .filterActions {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 560px) {
+    .filterGrid.filterGrid--four {
+        grid-template-columns: 1fr;
+    }
+
+    .filterGrid.filterGrid--four
+    .filterActions {
+        grid-column: auto;
+    }
+}
+
+/* Dynamic Wishlist additions. */
+
+.pageNotice {
+    width: calc(100% - 48px);
+    max-width: 1152px;
+    margin: 20px auto 0;
+}
+
+.itemActions button:disabled {
+    opacity: 0.65;
+    cursor: wait;
+}
+
+.wishlistItem[aria-busy="true"] {
+    opacity: 0.7;
+}
+
+@media (max-width: 800px) {
+    .pageNotice {
+        width: calc(100% - 32px);
+    }
+}
+
+/* Dynamic Profile additions. */
+
+.draftStatus,
+.descriptionCount {
+    display: block;
+    margin: -6px 0 16px;
+    color: #555555;
+    font-size: 13px;
+}
+
+.avatarPreview--image {
+    background-position: center;
+    background-size: cover;
+}
+
+.passwordGroup {
+    min-width: 0;
+    display: grid;
+    gap: 14px;
+    margin: 2px 0 0;
+    padding: 18px;
+    border: 1px solid #D7D7E2;
+    border-radius: 8px;
+    background-color: #FAFAFC;
+}
+
+.passwordGroup legend {
+    padding: 0 6px;
+    font-weight: bold;
+}
+
+.passwordGroup > p {
+    margin: -4px 0 0;
+    color: #555555;
+    font-size: 12px;
+}
+
+.buttonLink {
+    border: 0;
+    font: inherit;
+    cursor: pointer;
+}
+
+/* Keep the keyboard focus ring visible against the dark page banner. */
+.pageBanner .buttonLink:focus-visible {
+    outline-color: #FFFFFF;
+}
+
+.accountForm input,
+.accountForm select,
+.accountForm textarea,
+.primaryButton,
+.secondaryButton {
+    min-height: 44px;
+}
+
+.accountForm .formField input[type="file"] {
+    min-height: 44px;
+}
+
+.formActions button:disabled {
+    opacity: 0.65;
+    cursor: wait;
+}
+
+@media (max-width: 560px) {
+    .formActions button {
+        width: 100%;
+    }
+
+    .passwordGroup {
+        padding: 14px;
+    }
+}
+
+/* Dynamic Administration additions. */
+
+.resultCount {
+    margin: 0 0 14px;
+    color: #555555;
+    font-size: 13px;
+}
+
+.adminSection[aria-busy="true"],
+.accountTable tr[aria-busy="true"] {
+    opacity: 0.7;
+}
+
+.accountTable button:disabled {
+    opacity: 0.65;
+    cursor: wait;
+}
+
+/* Keep interactive targets comfortable for touch and keyboard users. */
+.headerSearch input,
+.accountFilter input,
+.accountFilter select,
+.accountFilter button,
+.accountTable button,
+.bannerLink {
+    min-height: 44px;
+}

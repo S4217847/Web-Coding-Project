@@ -4,30 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Deactivate Account | RMIT Connect</title>
-    <link rel="stylesheet" href="common.css" />
-    <link rel="stylesheet" href="deactivate.css" />
+    <link rel="stylesheet" href="/css/common.css" />
+    <link rel="stylesheet" href="/css/deactivate.css" />
+    <link rel="stylesheet" href="/css/navigation.css" />
   </head>
 
-  <body>
-    <header>
-      <div class="logo">RMIT CONNECT</div>
-      <input
-        class="searchbar"
-        type="text"
-        placeholder="Search RMIT Connect..."
-      />
+  <body id="top">
+    <%- include("partials/global-navigation", {
+      activePage: "profile",
+      sessionAction: "logout"
+    }) %>
 
-      <nav>
-        <ul>
-          <li><a href="/sitemap.html">Home</a></li>
-          <li><a href="/blog/discussion.html">Discussions</a></li>
-          <li><a href="/blog/blog.html">My Blog</a></li>
-          <li><a href="/profile/profile.html">My Profile</a></li>
-        </ul>
-      </nav>
-    </header>
-
-    <div class="deactivate-page">
+    <main id="main-content" class="deactivate-page">
       <div class="deactivate-card">
         <h1>Deactivate Account</h1>
 
@@ -43,19 +31,23 @@
         <form
           id="deactivate-form"
           class="deactivate-form"
-          action="deactivated-success.html"
+          action="/deactivate-account"
+          method="post"
         >
           <label class="deactivate-checkbox">
             <input
               id="deactivate-id-confirm"
               name="deactivate-id-confirm"
               type="checkbox"
+               value="confirmed"
               required
             />
             I understand that my account will be deactivated.
           </label>
 
-          <div class="error" id="deactivate-error-text"></div>
+          <div class="error" id="deactivate-error-text">
+            <%= deactivateError %>
+          </div>
 
           <button class="deactivatebutton" type="submit">
             Deactivate Account
@@ -63,10 +55,10 @@
         </form>
 
         <p class="account-help">
-          <a href="/sitemap.html" class="common-link">Cancel</a>
+          <a href="/" class="common-link">Cancel</a>
         </p>
       </div>
-    </div>
-    <script src="deactivate.js"></script>
+    </main>
+    <script src="/js/deactivate.js"></script>
   </body>
 </html>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Browse Reviews | RMIT Connect</title>
+    <link href="/css/navigation.css" rel="stylesheet" />
+    <link href="/css/review.css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <%- include("partials/global-navigation", {
+      activePage: "reviews",
+      sessionAction: "logout"
+    }) %>
+
+    <main id="main-content">
+      <div class="pageBanner">
+        <div class="pageBannerInner">
+          <div>
+            <h1 class="pageTitle">Browse Reviews</h1>
+            <p class="pageSubtitle">
+              Search course experiences shared by the RMIT community.
+            </p>
+          </div>
+          <a class="newReviewBtn" href="/reviews">+ New Review</a>
+        </div>
+      </div>
+
+      <section class="section" aria-label="Review filters">
+        <div class="sectionCard">
+          <!-- Filtering happens immediately in the browser after reviews are loaded. -->
+          <form class="filterBar" role="search">
+            <div class="filterBarCell">
+              <label class="visuallyHidden" for="browseSearch">Search reviews</label>
+              <input
+                class="filterInput"
+                id="browseSearch"
+                name="query"
+                type="search"
+                placeholder="Course, title, description, or reviewer"
+              />
+            </div>
+            <div class="filterBarCell">
+              <label class="visuallyHidden" for="browseRating">Minimum rating</label>
+              <select class="filterSelect" id="browseRating" name="rating">
+                <option value="0">Any rating</option>
+                <option value="5">5 stars</option>
+                <option value="4">4+ stars</option>
+                <option value="3">3+ stars</option>
+                <option value="2">2+ stars</option>
+                <option value="1">1+ stars</option>
+              </select>
+            </div>
+            <div class="filterBarCell">
+              <label class="visuallyHidden" for="browseSort">Sort reviews</label>
+              <select class="filterSelect" id="browseSort" name="sort">
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="highest">Highest rated</option>
+              </select>
+            </div>
+            <div class="filterBarCell">
+              <button class="filterButton" type="submit">Apply</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="allReviewsHeading">
+        <div class="sectionCard">
+          <h2 class="sectionLabel" id="allReviewsHeading">All Reviews</h2>
+          <p class="listCount" id="listCount" aria-live="polite">Loading reviews...</p>
+          <p class="pageStatus" id="browseStatus" role="status" aria-live="polite"></p>
+          <ul class="reviewList" id="reviewListContainer">
+            <li class="emptyMessage">Loading reviews...</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <footer class="siteFooter">
+      <p>RMIT Connect — student community prototype</p>
+    </footer>
+    <script src="/js/review.js"></script>
+  </body>
+</html>

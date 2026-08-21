@@ -168,3 +168,47 @@
     border-radius: 10px;
     margin-left: 8px;
   }
+
+  @media (max-width: 800px) {
+    header {
+      display: block;
+      padding: 14px 16px;
+    }
+
+    .searchBar {
+      width: 100%;
+      margin: 12px 0px;
+    }
+
+    nav {
+      margin-left: 0px;
+    }
+
+    nav ul {
+      flex-wrap: wrap;
+      gap: 6px 16px;
+    }
+
+    .pageBanner {
+      padding: 24px 16px;
+    }
+
+    .siteMapWrapper {
+      padding: 12px;
+    }
+
+    .groupRow {
+      display: block;
+    }
+
+    .groupCell {
+      display: block;
+      width: 100%;
+      padding: 0px;
+      margin-bottom: 16px;
+    }
+
+    .groupCell:last-child {
+      margin-bottom: 0px;
+    }
+  }
