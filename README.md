@@ -11,12 +11,12 @@ not run the EJS templates or APIs.
 
 ## Team responsibilities
 
-| Student | Student ID | Individual module | Shared contributions |
-| --- | --- | --- | --- |
-| Kim SeungUk | S4028530 | Discussion Forum | Integration server, Forgot Password, Logout, Deactivation |
-| Hoàng Hiểu Minh | S4199268 | Blog | Reusable Blog API and shared-current-user adapter |
-| Nguyễn Đắc Gia Hưng | S4217847 | Ratings and Reviews | Assessment 1 Profile/Registration foundations |
-| Phạm Trường Đạt | S4221230 | Wishlist and Favourites | Login, Edit Profile, Administration, shared account API |
+| Student             | Student ID | Individual module       | Shared contributions                                                              |
+| ------------------- | ---------- | ----------------------- | --------------------------------------------------------------------------------- |
+| Kim SeungUk         | S4028530   | Discussion Forum        | Integration server, Forgot Password, Reset Password, Logout, Account Deactivation |
+| Hoàng Hiểu Minh     | S4199268   | Blog                    | Reusable Blog API and shared-current-user adapter                                 |
+| Nguyễn Đắc Gia Hưng | S4217847   | Ratings and Reviews     | Assessment 1 Profile/Registration foundations                                     |
+| Phạm Trường Đạt     | S4221230   | Wishlist and Favourites | Login, Edit Profile, Administration, shared account API                           |
 
 ## Requirements
 
@@ -52,11 +52,11 @@ Then visit `http://localhost:3001`.
 
 ## Demo accounts
 
-| Purpose | Username | Password | Role/status |
-| --- | --- | --- | --- |
-| Main demonstration | `dat.pham` | `ConnectDemo!26` | Administrator, active |
-| Ownership testing | `jay.nguyen` | `StudentDemo!26` | Member, active |
-| Locked-login testing | `kim.tran` | `LockedDemo!26` | Member, locked |
+| Purpose              | Username     | Password         | Role/status           |
+| -------------------- | ------------ | ---------------- | --------------------- |
+| Main demonstration   | `dat.pham`   | `ConnectDemo!26` | Administrator, active |
+| Ownership testing    | `jay.nguyen` | `StudentDemo!26` | Member, active        |
+| Locked-login testing | `kim.tran`   | `LockedDemo!26`  | Member, locked        |
 
 Passwords are seeded only for local demonstration. They are salted and hashed
 in server memory. The browser's “Remember username” option stores only the
@@ -66,24 +66,24 @@ identity; it never stores a password or session token in Web Storage.
 
 ### Pages
 
-| Page | Route |
-| --- | --- |
-| Home and dynamic sitemap | `/` and `/sitemap` |
-| Login | `/login.html` |
-| Edit Profile | `/editprofile.html` |
-| Administration | `/admin.html` |
-| Discussion Forum | `/discussions` |
-| Discussion detail | `/discussions/:id` |
-| Blog | `/blogs` |
-| Blog detail | `/blogs/:id` |
-| Create Review | `/reviews` |
-| Browse Reviews | `/reviews/browse` |
-| Review detail/edit | `/reviews/:id` and `/reviews/:id/edit` |
-| Wishlist and Favourites | `/wishlist` |
-| Browse Wishlist items | `/wishlist/add` |
-| Password assistance | `/forgot-password` and `/reset-password` |
-| Account deactivation | `/deactivate-account` |
-| Logout | `/logout` |
+| Page                     | Route                                    |
+| ------------------------ | ---------------------------------------- |
+| Home and dynamic sitemap | `/` and `/sitemap`                       |
+| Login                    | `/login.html`                            |
+| Edit Profile             | `/editprofile.html`                      |
+| Administration           | `/admin.html`                            |
+| Discussion Forum         | `/discussions`                           |
+| Discussion detail        | `/discussions/:id`                       |
+| Blog                     | `/blogs`                                 |
+| Blog detail              | `/blogs/:id`                             |
+| Create Review            | `/reviews`                               |
+| Browse Reviews           | `/reviews/browse`                        |
+| Review detail/edit       | `/reviews/:id` and `/reviews/:id/edit`   |
+| Wishlist and Favourites  | `/wishlist`                              |
+| Browse Wishlist items    | `/wishlist/add`                          |
+| Password assistance      | `/forgot-password` and `/reset-password` |
+| Account deactivation     | `/deactivate-account`                    |
+| Logout                   | `/logout`                                |
 
 The Review pages are dynamic EJS templates in `views/`, rather than duplicated
 static `.html` files. Compatibility redirects preserve the old Assessment 1
@@ -91,15 +91,15 @@ addresses such as `/review/review-detail.html?id=2`.
 
 ### Main APIs
 
-| Resource | Methods and routes |
-| --- | --- |
-| Session | `GET/POST/DELETE /api/session` |
-| Products | `GET /api/products` |
-| Wishlist | `GET/POST /api/wishlist`, `PATCH/DELETE /api/wishlist/:productId` |
-| Profile | `GET/PATCH /api/profile` |
-| Administration | `GET /api/admin/users`, `PATCH /api/admin/users/:userId/status` |
-| Blog | `GET/POST /api/blogs`, `GET/PUT/DELETE /api/blogs/:id`, `POST /api/blogs/:id/comments` |
-| Reviews | `GET/POST /api/reviews`, `GET/PUT/DELETE /api/reviews/:id` |
+| Resource       | Methods and routes                                                                     |
+| -------------- | -------------------------------------------------------------------------------------- |
+| Session        | `GET/POST/DELETE /api/session`                                                         |
+| Products       | `GET /api/products`                                                                    |
+| Wishlist       | `GET/POST /api/wishlist`, `PATCH/DELETE /api/wishlist/:productId`                      |
+| Profile        | `GET/PATCH /api/profile`                                                               |
+| Administration | `GET /api/admin/users`, `PATCH /api/admin/users/:userId/status`                        |
+| Blog           | `GET/POST /api/blogs`, `GET/PUT/DELETE /api/blogs/:id`, `POST /api/blogs/:id/comments` |
+| Reviews        | `GET/POST /api/reviews`, `GET/PUT/DELETE /api/reviews/:id`                             |
 
 Discussion and Reply mutations use normal HTML form routes under
 `/discussions`. The server derives every owner from the signed-in session; it
@@ -130,9 +130,8 @@ Purchases, Discussions, Replies, Blogs, Blog Comments, and Reviews in memory.
 Ownership fields link user-created records to the current User. Product and
 Wishlist identifiers link saved/cart/purchased state to the catalogue.
 
-The complete schema and relationship description is in
-[`modules/account/docs/database-schema.md`](modules/account/docs/database-schema.md).
-Additional account API and architecture notes are in `modules/account/docs/`.
+The current A2 schema diagram and sample-data description are included in the submitted report.
+The running prototype uses seed data in `forum-data.js`, `blog-data.js`, `review-data.js`, and `modules/account/src/data.js`.
 
 Because storage is intentionally in-memory, restarting Node restores the seed
 state. A production implementation would replace the arrays and MemoryStore
@@ -191,3 +190,62 @@ OpenAI Codex also assisted with the `integrated-draft` repair through
 implementation guidance, debugging, documentation, and testing. Each team
 member remains responsible for reviewing and understanding the work they submit
 and for accurately declaring their own AI use under the course requirements.
+
+============================================================================
+
+### SeungUk Kim (s4028530)
+
+**Individual Module: Discussion Forum**
+
+**Shared User Account contribution: Forgot Pasword, Reset Password, Logout, Account Deactivation.**
+
+**Discussion Forum features**
+
+- Create, view, edit, and soft delete discussions.
+- Create, edit, and soft delete replies.
+- Search, filter, and sort discussions in the browser.
+- Save a new discussion draft using localStorage.
+- Allow active logged-in users to edit or delete only their own discussions and replies.
+
+**Key routes**
+
+- `GET/POST /discussions`
+- `GET /discussions/:id`
+- `GET/POST /discussions/:id/edit`
+- `POST /discussions/:id/delete`
+- `POST /discussions/:id/replies`
+- `GET/POST /discussions/:id/replies/:replyId/edit`
+- `POST /discussions/:id/replies/:replyId/delete`
+- `GET/POST /forgot-password`
+- `GET/POST /reset-password`
+- `GET /logout`
+- `GET/POST /deactivate-account`
+- `GET /deactivated-success`
+
+**Main files**
+
+- `index.js` for Forum and shared account route handlers.
+- `forum-data.js`
+- `views/discussion.ejs`
+- `views/discussion-detail.ejs`
+- `views/discussion-edit.ejs`
+- `views/reply-edit.ejs`
+- `views/forgotpassword.ejs`
+- `views/resetpassword.ejs`
+- `views/logout.ejs`
+- `views/deactivate-id.ejs`
+- `views/deactivated-success.ejs`
+- `public/css/discussion.css`
+- `public/js/discussion.js`
+- `public/js/discussion-detail.js`
+- `public/js/edit-form.js`
+- `public/js/forgotpassword.js`
+- `public/js/resetpassword.js`
+- `public/js/deactivate.js`
+
+### AI assistance acknowledgement
+
+- **Review and code inspection:** Spelling and grammar review, code review, and comment suggestions.
+- **Debugging assistance:** Help with interpreting error messages and providing conceptual debugging guidance.
+- **Implementation support:** Suggestions for implementation ideas and code explanations.
+- **README and translation assistance:** Help with organising and writing parts of the README.
