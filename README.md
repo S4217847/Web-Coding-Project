@@ -284,3 +284,43 @@ and for accurately declaring their own AI use under the course requirements.
 - **Debugging assistance:** Help with interpreting error messages and providing conceptual debugging guidance.
 - **Implementation support:** Suggestions for implementation ideas and code explanations.
 - **README and translation assistance:** Help with organising and writing parts of the README.
+
+============================================================================
+
+### Hoang Hieu Minh (S4199268)
+
+**Individual Module: Blog**
+
+**Blog module features**
+- Create, view blog list and blog post
+- Edit and delete blogs (For author)
+- Comment on a blog
+- Search, filter, and sort posts on the blog list page
+- Save and restore a blog draft using Web Storage
+
+**Key routes**
+- GET /blogs
+- GET /blogs/:id
+- GET /api/current-user
+- GET /api/blogs
+- POST /api/blogs
+- GET /api/blogs/:id
+- PUT /api/blogs/:id
+- DELETE /api/blogs/:id
+- POST /api/blogs/:id/comments
+
+**Main files**
+- Blog/blog.html
+- Blog/blog_details.html
+- Blog/styles.css
+- Blog/blog.js
+- routes/blog-routes.js
+- routes/register-blog-api.js
+- test/blog-api.test.js
+- dev-server.js
+
+### AI assistance acknowledgement:
+- Review and code inspection: HTML, CSS, and JavaScript review, including spelling, grammar, code structure, and comment suggestions.
+- Debugging assistance: Help with interpreting errors, identifying routing and validation issues, and suggesting fixes.
+- Implementation support: Suggestions and explanations for Blog CRUD operations, comments, search, filtering, sorting, user ownership, and Web Storage drafts.
+- Testing assistance: Help with creating and reviewing API tests for validation, ownership, CRUD operations, comments, and missing records
