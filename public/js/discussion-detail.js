@@ -5,6 +5,7 @@ const discussionReplyContent = document.getElementById("reply-content");
 const replyErrorText = document.getElementById("reply-error-text");
 const replyTitleErrorText = document.getElementById("reply-title-error-text");
 const replyImageErrorText = document.getElementById("reply-image-error-text");
+const replyImageName = document.getElementById("reply-image-name");
 
 discussionReplyForm.noValidate = true;
 
@@ -30,7 +31,7 @@ function checkDiscussionReplyImage() {
   const replyImage = discussionReplyImage.value;
 
   if (replyImage === "") {
-    replyImageErrorText.textContent = "Please select a reply image.";
+    replyImageErrorText.textContent = "Please upload a reply image.";
     return false;
   }
 
@@ -58,7 +59,15 @@ function checkDiscussionReply() {
 
 discussionReplyContent.addEventListener("input", checkDiscussionReply);
 discussionReplyTitle.addEventListener("input", checkDiscussionReplyTitle);
-discussionReplyImage.addEventListener("input", checkDiscussionReplyImage);
+discussionReplyImage.addEventListener("change", function () {
+  if (discussionReplyImage.value === "") {
+    replyImageName.textContent = "Add image";
+  } else {
+    replyImageName.textContent = "Image selected";
+  }
+
+  checkDiscussionReplyImage();
+});
 
 discussionReplyForm.addEventListener("submit", function (event) {
   const discussionReplyTitleIsValid = checkDiscussionReplyTitle();

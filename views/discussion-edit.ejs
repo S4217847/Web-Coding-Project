@@ -21,7 +21,7 @@
             <li><a href="/discussions" aria-current="page">Discussion Forum</a></li>
             <li><a href="/blogs">Blogs</a></li>
             <li><a href="/reviews/browse">Reviews</a></li>
-            <li><a href="/wishlist">Favourites</a></li>
+            <li><a href="/wishlist">Favorites</a></li>
             <li><a href="/editprofile.html">Profile settings</a></li>
           </ul>
         </nav>
@@ -33,6 +33,7 @@
           class="postbox"
           method="post"
           action="/discussions/<%= discussion._id %>/edit"
+          enctype="multipart/form-data"
         >
           <h1>Edit discussion</h1>
 
@@ -48,27 +49,15 @@
 
           <div class="error" id="edit-title-error-text"></div>
 
-          <label for="edit-image">Post image</label>
-          <select id="edit-image" name="postImage" required>
-            <option
-              value="/images/peer-workshop.jpg"
-              <%= discussion.image === "/images/peer-workshop.jpg" ? "selected" : "" %>
-            >
-              Peer Workshop
-            </option>
-            <option
-              value="/images/RMIT_campus.png"
-              <%= discussion.image === "/images/RMIT_campus.png" ? "selected" : "" %>
-            >
-              RMIT Campus
-            </option>
-            <option
-              value="/images/saigonview.jpg"
-              <%= discussion.image === "/images/saigonview.jpg" ? "selected" : "" %>
-            >
-              Saigon View
-            </option>
-          </select>
+          <label for="edit-image">New post image</label>
+          <input
+            type="file"
+            id="edit-image"
+            name="postImage"
+            accept="image/jpeg, image/png"
+          />
+
+          <p>Leave this empty to keep the current image</p>
 
           <div class="error" id="edit-image-error-text"></div>
 

@@ -1,57 +1,32 @@
 /**
  * Password hashing and verification helpers.
  *
- * Each password receives an independent random salt and is stored only as a
- * scrypt-derived hash. Scrypt is deliberately memory-hard, which makes bulk
- * password guessing more expensive than a fast general-purpose hash would be.
+ * bcrypt stores the salt and hash together in one passwordHash string.
  */
-import crypto from "node:crypto";
+import bcrypt from "bcryptjs";
 
-const KEY_LENGTH = 64;
+const SALT_ROUNDS = 10;
 
-export function createPasswordRecord(password) {
+export function createPasswordHash(password) {
     const salt =
-        crypto.randomBytes(16).toString("hex");
+        bcrypt.genSaltSync(SALT_ROUNDS);
 
-    const hash =
-        crypto
-            .scryptSync(password, salt, KEY_LENGTH)
-            .toString("hex");
-
-    return { salt, hash };
+    return bcrypt.hashSync(password, salt);
 }
 
 export function verifyPassword(
     password,
-    passwordRecord
+    passwordHash
 ) {
     if (
-        !passwordRecord?.salt ||
-        !passwordRecord?.hash
+        typeof passwordHash !== "string" ||
+        passwordHash === ""
     ) {
         return false;
     }
 
-    const storedHash =
-        Buffer.from(passwordRecord.hash, "hex");
-
-    const suppliedHash =
-        crypto.scryptSync(
-            password,
-            passwordRecord.salt,
-            KEY_LENGTH
-        );
-
-    /*
-        timingSafeEqual avoids leaking which bytes matched through comparison
-        timing. Node requires equal buffer lengths, so the length guard is both
-        a correctness check and part of the safe comparison.
-    */
-    return (
-        storedHash.length === suppliedHash.length &&
-        crypto.timingSafeEqual(
-            storedHash,
-            suppliedHash
-        )
+    return bcrypt.compareSync(
+        password,
+        passwordHash
     );
 }

@@ -89,7 +89,7 @@ const replies = [
     _id: "reply-2",
     title: "Upcoming Events",
     content:
-      "You can check the Upcoming Events area for the next session. Bring your laptop if you want to practise.",
+      "You can check the Upcoming Events area for the next session. Bring your laptop if you want to practice.",
     image: "/images/RMIT_campus.png",
     authorId: "user-kim",
     discussionId: "discussion-1",

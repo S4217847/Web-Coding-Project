@@ -5,11 +5,21 @@ const discussionPostImage = document.getElementById("post-image");
 const titleErrorText = document.getElementById("title-error-text");
 const contentErrorText = document.getElementById("content-error-text");
 const imageErrorText = document.getElementById("image-error-text");
+const showPostFormButton = document.getElementById("show-post-form-button");
 discussionPostForm.noValidate = true;
+
+showPostFormButton.addEventListener("click", function () {
+  discussionPostForm.classList.toggle("postbox-hidden");
+
+  if (discussionPostForm.classList.contains("postbox-hidden")) {
+    showPostFormButton.setAttribute("aria-expanded", "false");
+  } else {
+    showPostFormButton.setAttribute("aria-expanded", "true");
+  }
+});
 
 const savedPostTitle = localStorage.getItem("discussionPostTitle");
 const savedPostContent = localStorage.getItem("discussionPostContent");
-const savedPostImage = localStorage.getItem("discussionPostImage");
 
 if (savedPostTitle !== null) {
   discussionPostTitle.value = savedPostTitle;
@@ -17,10 +27,6 @@ if (savedPostTitle !== null) {
 
 if (savedPostContent !== null) {
   discussionPostContent.value = savedPostContent;
-}
-
-if (savedPostImage !== null) {
-  discussionPostImage.value = savedPostImage;
 }
 
 function checkDiscussionTitle() {
@@ -60,7 +66,7 @@ function checkDiscussionContent() {
 
 function checkDiscussionImage() {
   if (discussionPostImage.value === "") {
-    imageErrorText.textContent = "Please select a post image.";
+    imageErrorText.textContent = "Please upload a post image.";
     return false;
   }
 
@@ -80,7 +86,6 @@ discussionPostContent.addEventListener("input", function () {
 
 discussionPostImage.addEventListener("change", function () {
   checkDiscussionImage();
-  localStorage.setItem("discussionPostImage", discussionPostImage.value);
 });
 
 discussionPostForm.addEventListener("submit", function (event) {
@@ -99,7 +104,6 @@ discussionPostForm.addEventListener("submit", function (event) {
 
   localStorage.removeItem("discussionPostTitle");
   localStorage.removeItem("discussionPostContent");
-  localStorage.removeItem("discussionPostImage");
 });
 
 const discussionFilterForm = document.getElementById("discussion-filter-form");
@@ -120,12 +124,12 @@ function filterDiscussions() {
 
     if (filterType === "title") {
       postText = discussionPosts[i]
-        .querySelector("h2")
-        .textContent.toLowerCase();
+        .getAttribute("data-title-search")
+        .toLowerCase();
     } else {
       postText = discussionPosts[i]
-        .querySelector(".post-content")
-        .textContent.toLowerCase();
+        .getAttribute("data-content-search")
+        .toLowerCase();
     }
 
     if (postText.includes(searchText)) {
@@ -151,10 +155,16 @@ function sortDiscussions() {
   }
 
   sortedPosts.sort(function (firstPost, secondPost) {
-    const firstTime = Number(firstPost.getAttribute("data-created-at"));
-    const secondTime = Number(secondPost.getAttribute("data-created-at"));
+    let firstTime = Number(
+      firstPost.getAttribute("data-latest-activity"),
+    );
+    let secondTime = Number(
+      secondPost.getAttribute("data-latest-activity"),
+    );
 
     if (discussionSortBy.value === "oldest") {
+      firstTime = Number(firstPost.getAttribute("data-created-at"));
+      secondTime = Number(secondPost.getAttribute("data-created-at"));
       return firstTime - secondTime;
     }
 
@@ -175,9 +185,5 @@ discussionFilterForm.addEventListener("submit", function (event) {
   event.preventDefault();
   updateDiscussionList();
 });
-
-discussionSearch.addEventListener("input", updateDiscussionList);
-discussionFilterBy.addEventListener("change", updateDiscussionList);
-discussionSortBy.addEventListener("change", updateDiscussionList);
 
 updateDiscussionList();

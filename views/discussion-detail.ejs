@@ -21,7 +21,7 @@
             <li><a href="/discussions" aria-current="page">Discussion Forum</a></li>
             <li><a href="/blogs">Blogs</a></li>
             <li><a href="/reviews/browse">Reviews</a></li>
-            <li><a href="/wishlist">Favourites</a></li>
+            <li><a href="/wishlist">Favorites</a></li>
             <li><a href="/editprofile.html">Profile settings</a></li>
           </ul>
         </nav>
@@ -79,6 +79,7 @@
 
             <% replies.forEach(function(reply, i) { %>
               <article class="reply-card">
+                <p class="reply-type-label">Reply</p>
                 <div class="reply-header">
                   <div class="user-info">
                     <img
@@ -125,7 +126,13 @@
             <% }); %>
           </section>
 
-          <form id="reply-form" class="reply-box" method="post" action = "/discussions/<%= discussion._id %>/replies">
+          <form
+            id="reply-form"
+            class="reply-box"
+            method="post"
+            action="/discussions/<%= discussion._id %>/replies"
+            enctype="multipart/form-data"
+          >
             <h2>Write a reply</h2>
 
             <label for="reply-title">Reply Title</label>
@@ -141,17 +148,6 @@
 
             <div class="error" id="reply-title-error-text"></div>
 
-            <label for="reply-image">Reply image</label>
-
-            <select id="reply-image" name="replyImage" required>
-              <option value="" selected>Choose an image</option>
-              <option value="peer-workshop.jpg">Peer Workshop</option>
-              <option value="RMIT_campus.png">RMIT Campus</option>
-              <option value="saigonview.jpg">Saigon View</option>
-            </select>
-
-            <div class="error" id="reply-image-error-text"></div>
-
             <label for="reply-content">Reply Content</label>
 
             <textarea
@@ -164,7 +160,25 @@
 
             <div class="error" id="reply-error-text"></div>
 
-            <div class="postfooter">
+            <div class="reply-box-footer">
+              <div class="reply-image-area">
+                <input
+                  class="reply-image-input"
+                  type="file"
+                  id="reply-image"
+                  name="replyImage"
+                  accept="image/jpeg, image/png"
+                  required
+                />
+
+                <label class="reply-image-button" for="reply-image">
+                  <img src="/images/icons/plus.png" alt="Add image" />
+                </label>
+
+                <span id="reply-image-name">Add image</span>
+                <div class="error" id="reply-image-error-text"></div>
+              </div>
+
               <button class="postbtn" type="submit">Reply</button>
             </div>
           </form>

@@ -1,7 +1,11 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const { after, before, test } = require("node:test");
+const mongoose = require("mongoose");
 
-const { discussions, replies } = require("../forum-data");
+const { Discussion } = require("../models/discussion");
+const { Reply } = require("../models/reply");
 const { startServer } = require("../index");
 
 let server;
@@ -42,16 +46,45 @@ function jsonRequest(method, body, options = {}) {
   };
 }
 
+function addForumTestImage(form, fieldName) {
+  const imageFile = fs.readFileSync(
+    path.join(__dirname, "..", "public", "images", "peer-workshop.jpg")
+  );
+
+  form.append(
+    fieldName,
+    new Blob([imageFile], { type: "image/jpeg" }),
+    "forum-test.jpg"
+  );
+}
+
+function removeForumTestImage(imagePath) {
+  if (!imagePath || !imagePath.startsWith("/uploads/")) return;
+
+  const filePath = path.join(
+    __dirname,
+    "..",
+    "public",
+    "uploads",
+    path.basename(imagePath)
+  );
+
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+}
+
 before(async () => {
   server = await startServer(0);
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
 
 after(async () => {
-  if (!server) return;
-  await new Promise((resolve, reject) => {
-    server.close((error) => (error ? reject(error) : resolve()));
-  });
+  if (server) {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+
+  await mongoose.disconnect();
 });
 
 test("shared pages, compatibility routes, and security headers are available", async () => {
@@ -274,60 +307,174 @@ test("Reviews derive identity and support validated course, image, and owned CRU
 
 test("Forum returns meaningful status codes and preserves owned CRUD", async () => {
   const dat = new BrowserSession();
+  const jay = new BrowserSession();
   await dat.login("dat.pham", "ConnectDemo!26");
+  await jay.login("jay.nguyen", "StudentDemo!26");
 
-  const invalid = await dat.request("/discussions", {
-    method: "POST",
-    body: new URLSearchParams({ postTitle: "", postContent: "", postImage: "" }),
-    redirect: "manual",
-  });
-  assert.equal(invalid.status, 400);
+  const testTime = Date.now();
+  const title = `Integration forum ${testTime}`;
+  const replyTitle = `Integration reply ${testTime}`;
+  let discussion = null;
+  let reply = null;
+  let discussionId = null;
+  let replyId = null;
 
-  const title = `Integration forum ${Date.now()}`;
-  const create = await dat.request("/discussions", {
-    method: "POST",
-    body: new URLSearchParams({
-      postTitle: title,
-      postContent: "This temporary discussion verifies the integrated Forum workflow.",
-      postImage: "/images/peer-workshop.jpg",
-    }),
-    redirect: "manual",
-  });
-  assert.equal(create.status, 302);
-  const discussion = discussions.find((item) => item.title === title);
-  assert.ok(discussion);
+  try {
+    const invalidForm = new FormData();
+    invalidForm.append("postTitle", "");
+    invalidForm.append("postContent", "");
 
-  const replyTitle = `Integration reply ${Date.now()}`;
-  const createReply = await dat.request(`/discussions/${discussion._id}/replies`, {
-    method: "POST",
-    body: new URLSearchParams({
-      replyTitle,
-      replyContent: "This temporary reply verifies creation and normalized image paths.",
-      replyImage: "peer-workshop.jpg",
-    }),
-    redirect: "manual",
-  });
-  assert.equal(createReply.status, 302);
-  const reply = replies.find((item) => item.title === replyTitle);
-  assert.equal(reply.image, "/images/peer-workshop.jpg");
+    const invalid = await dat.request("/discussions", {
+      method: "POST",
+      body: invalidForm,
+      redirect: "manual",
+    });
+    assert.equal(invalid.status, 400);
 
-  const forbidden = await dat.request("/discussions/discussion-3/edit");
-  assert.equal(forbidden.status, 403);
-  const missing = await dat.request("/discussions/not-real");
-  assert.equal(missing.status, 404);
+    const discussionForm = new FormData();
+    discussionForm.append("postTitle", title);
+    discussionForm.append(
+      "postContent",
+      "This temporary discussion tests the integrated Forum workflow."
+    );
+    addForumTestImage(discussionForm, "postImage");
 
-  const deleteReply = await dat.request(
-    `/discussions/${discussion._id}/replies/${reply._id}/delete`,
-    { method: "POST", redirect: "manual" }
-  );
-  assert.equal(deleteReply.status, 302);
+    const create = await dat.request("/discussions", {
+      method: "POST",
+      body: discussionForm,
+      redirect: "manual",
+    });
+    assert.equal(create.status, 302);
 
-  const remove = await dat.request(`/discussions/${discussion._id}/delete`, {
-    method: "POST",
-    redirect: "manual",
-  });
-  assert.equal(remove.status, 302);
-  assert.equal((await dat.request(`/discussions/${discussion._id}`)).status, 404);
+    discussion = await Discussion.findOne({ title: title });
+    if (discussion) discussionId = discussion._id;
+    assert.ok(discussion);
+    assert.match(discussion.image, /^\/uploads\//);
+
+    const discussionImage = discussion.image;
+    const updateDiscussionForm = new FormData();
+    updateDiscussionForm.append("postTitle", title + " updated");
+    updateDiscussionForm.append(
+      "postContent",
+      "This updated discussion tests MongoDB persistence and image retention."
+    );
+
+    const updateDiscussion = await dat.request(
+      `/discussions/${discussion._id}/edit`,
+      {
+        method: "POST",
+        body: updateDiscussionForm,
+        redirect: "manual",
+      }
+    );
+    assert.equal(updateDiscussion.status, 302);
+
+    discussion = await Discussion.findById(discussion._id);
+    assert.equal(discussion.title, title + " updated");
+    assert.equal(discussion.image, discussionImage);
+
+    const replyForm = new FormData();
+    replyForm.append("replyTitle", replyTitle);
+    replyForm.append(
+      "replyContent",
+      "This temporary reply tests MongoDB creation and image upload."
+    );
+    addForumTestImage(replyForm, "replyImage");
+
+    const createReply = await dat.request(
+      `/discussions/${discussion._id}/replies`,
+      {
+        method: "POST",
+        body: replyForm,
+        redirect: "manual",
+      }
+    );
+    assert.equal(createReply.status, 302);
+
+    reply = await Reply.findOne({
+      title: replyTitle,
+      discussionId: discussion._id,
+    });
+    if (reply) replyId = reply._id;
+    assert.ok(reply);
+    assert.match(reply.image, /^\/uploads\//);
+
+    const replyImage = reply.image;
+    const updateReplyForm = new FormData();
+    updateReplyForm.append("replyTitle", replyTitle + " updated");
+    updateReplyForm.append(
+      "replyContent",
+      "This updated reply tests MongoDB persistence and image retention."
+    );
+
+    const updateReply = await dat.request(
+      `/discussions/${discussion._id}/replies/${reply._id}/edit`,
+      {
+        method: "POST",
+        body: updateReplyForm,
+        redirect: "manual",
+      }
+    );
+    assert.equal(updateReply.status, 302);
+
+    reply = await Reply.findById(reply._id);
+    assert.equal(reply.title, replyTitle + " updated");
+    assert.equal(reply.image, replyImage);
+
+    const forbidden = await jay.request(`/discussions/${discussion._id}/edit`);
+    assert.equal(forbidden.status, 403);
+
+    const missing = await dat.request("/discussions/not-real");
+    assert.equal(missing.status, 404);
+
+    const deleteReply = await dat.request(
+      `/discussions/${discussion._id}/replies/${reply._id}/delete`,
+      { method: "POST", redirect: "manual" }
+    );
+    assert.equal(deleteReply.status, 302);
+
+    reply = await Reply.findById(reply._id);
+    assert.ok(reply.deletedAt);
+    assert.ok(reply.deletedBy);
+
+    const remove = await dat.request(`/discussions/${discussion._id}/delete`, {
+      method: "POST",
+      redirect: "manual",
+    });
+    assert.equal(remove.status, 302);
+
+    discussion = await Discussion.findById(discussion._id);
+    assert.ok(discussion.deletedAt);
+    assert.ok(discussion.deletedBy);
+    assert.equal(
+      (await dat.request(`/discussions/${discussion._id}`)).status,
+      404
+    );
+  } finally {
+    if (!reply && replyId) {
+      reply = await Reply.findById(replyId);
+    }
+
+    if (reply) {
+      removeForumTestImage(reply.image);
+    }
+
+    if (replyId) {
+      await Reply.deleteOne({ _id: replyId });
+    }
+
+    if (!discussion && discussionId) {
+      discussion = await Discussion.findById(discussionId);
+    }
+
+    if (discussion) {
+      removeForumTestImage(discussion.image);
+    }
+
+    if (discussionId) {
+      await Discussion.deleteOne({ _id: discussionId });
+    }
+  }
 });
 
 test("Wishlist duplicate prevention and state transitions work through shared login", async () => {

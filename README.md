@@ -1,9 +1,11 @@
-# RMIT Connect — Assessment 2 Dynamic Prototype
+# RMIT Connect — Assessment 3
 
-RMIT Connect is a student-community prototype developed for COSC3060 Web
-Programming Studio. Assessment 2 incrementally extends the team's static
-Assessment 1 pages with browser-side JavaScript, an Express/Node.js server,
-shared login sessions, dynamic in-memory data, validation, and CRUD workflows.
+RMIT Connect is an RMIT student-community web application developed for
+COSC3060 Web Programming Studio. The final application builds on the team's
+Assessment 1 HTML/CSS pages and Assessment 2 dynamic prototype with an
+Express/Node.js server, shared user authentication and sessions, server-side
+validation, CRUD workflows, image uploads, and persistent data stored in
+MongoDB Atlas.
 
 The active integration branch is `integrated-draft`. It should be tested through
 the Node server; opening HTML files directly or using VS Code Live Server will
@@ -23,21 +25,50 @@ not run the EJS templates or APIs.
 - Node.js 20 or newer
 - npm, included with Node.js
 - A modern browser such as Chrome, Edge, or Firefox
+- Access to the approved MongoDB Atlas database
+- A local `.env` file containing `MONGODB_URI` and `SESSION_SECRET`
 
-No database server or external API key is required. The prototype uses seeded
-in-memory data, as permitted for this assessment.
+A MongoDB Atlas connection is required for persistent application data. Store
+the MongoDB connection string and session secret only in the local `.env` file.
+Do not commit these values to GitHub or share them publicly.
 
 ## Installation
 
-From the extracted or cloned project root—the directory containing
-`package.json`—run:
+From the extracted or cloned project root containing `package.json`, install
+the project dependencies:
 
 ```powershell
 npm ci
+```
+
+Create a local `.env` file in the project root:
+
+```text
+MONGODB_URI=your_authorized_mongodb_connection_string
+SESSION_SECRET=your_local_session_secret
+```
+
+Ask for the authorized values through a private team channel. Do not commit the
+real values to GitHub.
+
+To add the controlled sample Users, Discussions, and Replies to a new empty
+database, run:
+
+```powershell
+node scripts/seed.js
+```
+
+Run the seed script only when preparing an empty database. It stops without
+adding data if any target collection already contains documents.
+
+Start the application:
+
+```powershell
 npm start
 ```
 
-Then open `http://localhost:3000`. Use `npm install` instead of `npm ci` only
+Confirm that `Connected to MongoDB` appears before the local website address,
+then open `http://localhost:3000`. Use `npm install` instead of `npm ci` only
 when intentionally updating the dependency lockfile. Stop the server with
 `Ctrl+C`.
 
@@ -52,15 +83,17 @@ Then visit `http://localhost:3001`.
 
 ## Demo accounts
 
-| Purpose              | Username     | Password         | Role/status           |
-| -------------------- | ------------ | ---------------- | --------------------- |
-| Main demonstration   | `dat.pham`   | `ConnectDemo!26` | Administrator, active |
-| Ownership testing    | `jay.nguyen` | `StudentDemo!26` | Member, active        |
-| Locked-login testing | `kim.tran`   | `LockedDemo!26`  | Member, locked        |
+| Purpose              | Username        | Password         | Role/status           |
+| -------------------- | --------------- | ---------------- | --------------------- |
+| Main demonstration   | `dat.pham`      | `ConnectDemo!26` | Administrator, active |
+| Ownership testing    | `jay.nguyen`    | `StudentDemo!26` | Member, active        |
+| Locked-login testing | `kim.seung-uk`  | `LockedDemo!26`  | Member, locked        |
 
-Passwords are seeded only for local demonstration. They are salted and hashed
-in server memory. The browser's “Remember username” option stores only the
-identity; it never stores a password or session token in Web Storage.
+These accounts are provided only for demonstration and testing. Their passwords
+are hashed with `bcryptjs` and stored as one `passwordHash` string. Plain-text
+passwords and password hashes are never returned by the API or stored in Web
+Storage. The browser's “Remember username” option stores only the login
+identity.
 
 ## Routes
 
@@ -107,9 +140,10 @@ does not accept a client-selected user ID as authority.
 
 ## Module behaviour
 
-- **Discussion Forum:** dynamic discussions and replies, ownership-controlled
-  editing and soft deletion, live form validation, search, sorting, and draft
-  restoration.
+- **Discussion Forum:** MongoDB-backed Discussions and Replies, author-only
+  editing and soft deletion, required JPEG and PNG image uploads, live form
+  validation, title and content filtering, newest and oldest sorting, and local
+  draft restoration.
 - **Blog:** dynamic posts and comments, owner-only editing/deletion, live
   validation, category filtering, full-text search, sorting, per-user drafts,
   and optional image data.
@@ -119,24 +153,30 @@ does not accept a client-selected user ID as authority.
 - **Wishlist and Favourites:** product retrieval, client-side
   search/filter/sort, duplicate prevention, adding, cart transitions,
   purchasing, deletion, and per-user summary counts.
-- **Shared account:** salted password verification, signed session cookies,
+- **Shared account:** `bcryptjs` password verification, signed session cookies,
   profile editing, password changes, account locking, logout, reset workflow,
   and administrator-only account management.
 
 ## Data model
 
-The prototype stores sample Users, Products, Wishlist Entries, Cart Entries,
-Purchases, Discussions, Replies, Blogs, Blog Comments, and Reviews in memory.
-Ownership fields link user-created records to the current User. Product and
-Wishlist identifiers link saved/cart/purchased state to the catalogue.
+The Discussion Forum stores Users, Discussions, and Replies in MongoDB Atlas.
+`Discussion.authorId`, `Reply.authorId`, and `Reply.discussionId` use MongoDB
+ObjectId values to represent authorship and relationships. Uploaded image files
+are stored in `public/uploads`, while MongoDB stores their public paths.
 
-The current A2 schema diagram and sample-data description are included in the submitted report.
-The running prototype uses seed data in `forum-data.js`, `blog-data.js`, `review-data.js`, and `modules/account/src/data.js`.
+Forum sample data is provided by `scripts/seed.js`. The script adds 3 Users,
+3 Discussions, and 5 Replies only when all three target collections are empty.
+Soft-deleted Discussions and Replies remain in MongoDB with `deletedAt` and
+`deletedBy` values but are excluded from public Forum pages.
 
-Because storage is intentionally in-memory, restarting Node restores the seed
-state. A production implementation would replace the arrays and MemoryStore
-with a persistent database and session store while retaining the same ownership
-and validation boundaries.
+The current Forum routes match the logged-in Account session to the MongoDB User
+through `studentId`. Creating, editing, or deleting a Discussion or Reply updates
+that User's `lastActiveAt` and `updatedAt` values. The dynamic Sitemap reads
+active Discussion records from MongoDB.
+
+Shared Account functions and some other team modules currently continue using
+their existing runtime data stores. Restarting Node does not remove MongoDB
+Discussion Forum data, but it resets in-memory sessions and module data.
 
 ## Testing
 
@@ -160,6 +200,12 @@ validation, ownership, images, and legacy Review redirects. The nested account
 suite checks authentication, Wishlist, Profile, and Administration in greater
 detail.
 
+Forum integration tests require the configured MongoDB connection, Atlas
+Network Access, and the seeded Dat and Jay User documents. The tests create
+temporary Discussions, Replies, and uploaded image files, then remove them
+after the checks finish. The latest verified result is 8 shared integration
+tests and 10 Account tests passed.
+
 Manual browser verification should include:
 
 1. Login as Dat and visit every module through the header.
@@ -179,6 +225,9 @@ Manual browser verification should include:
 - User-generated output is escaped or constructed through safe DOM APIs.
 - Blog and Review image payloads are limited to supported image types and a
   maximum decoded size of 4 MB.
+- New Discussion and Reply uploads accept JPEG and PNG files up to 5 MB.
+  Uploaded Forum files are stored in `public/uploads`, while MongoDB stores
+  only their public paths.
 
 ## AI acknowledgement
 
@@ -201,11 +250,18 @@ and for accurately declaring their own AI use under the course requirements.
 
 **Discussion Forum features**
 
-- Create, view, edit, and soft delete discussions.
-- Create, edit, and soft delete replies.
-- Search, filter, and sort discussions in the browser.
-- Save a new discussion draft using localStorage.
-- Allow active logged-in users to edit or delete only their own discussions and replies.
+- Create, view, edit, and soft delete Discussions in MongoDB.
+- Create, edit, and soft delete Replies in MongoDB.
+- Upload required JPEG and PNG images for new Discussions and Replies.
+- Keep the existing image when editing without selecting a new file.
+- Filter by the original Discussion title or by Discussion and active Reply content.
+- Sort by the newest active Discussion or Reply, or by the oldest original Discussion.
+- Save a new Discussion draft using `localStorage`.
+- Allow active logged-in authors to edit or delete only their own content.
+- Open the compact post form from the Start a discussion button.
+- Keep the Reply composer visible near the bottom of the Discussion detail page.
+- Open the hidden Reply image input through the plus icon.
+- Show `Post deleted successfully.` after a Discussion is deleted.
 
 **Key routes**
 
@@ -224,8 +280,14 @@ and for accurately declaring their own AI use under the course requirements.
 
 **Main files**
 
+- `database.js` for the MongoDB connection.
+- `upload.js` for JPEG and PNG upload validation.
+- `models/user.js`
+- `models/discussion.js`
+- `models/reply.js`
+- `scripts/seed.js`
 - `index.js` for Forum and shared account route handlers.
-- `forum-data.js`
+- `forum-data.js` for the temporary in-memory Account user adapter only.
 - `views/discussion.ejs`
 - `views/discussion-detail.ejs`
 - `views/discussion-edit.ejs`
@@ -242,6 +304,8 @@ and for accurately declaring their own AI use under the course requirements.
 - `public/js/forgotpassword.js`
 - `public/js/resetpassword.js`
 - `public/js/deactivate.js`
+- `public/images/icons/plus.png`
+- `public/uploads/.gitkeep`
 
 ### AI assistance acknowledgement
 

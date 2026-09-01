@@ -1,9 +1,7 @@
 const editForm = document.getElementById("edit-form");
 const editTitle = document.getElementById("edit-title");
-const editImage = document.getElementById("edit-image");
 const editContent = document.getElementById("edit-content");
 const editTitleErrorText = document.getElementById("edit-title-error-text");
-const editImageErrorText = document.getElementById("edit-image-error-text");
 const editContentErrorText = document.getElementById(
   "edit-content-error-text"
 );
@@ -28,16 +26,6 @@ function checkEditTitle() {
   return true;
 }
 
-function checkEditImage() {
-  if (editImage.value === "") {
-    editImageErrorText.textContent = "Please select an image.";
-    return false;
-  }
-
-  editImageErrorText.textContent = "";
-  return true;
-}
-
 function checkEditContent() {
   const content = editContent.value.trim();
 
@@ -57,17 +45,14 @@ function checkEditContent() {
 }
 
 editTitle.addEventListener("input", checkEditTitle);
-editImage.addEventListener("change", checkEditImage);
 editContent.addEventListener("input", checkEditContent);
 
 editForm.addEventListener("submit", function (event) {
   const editTitleIsValid = checkEditTitle();
-  const editImageIsValid = checkEditImage();
   const editContentIsValid = checkEditContent();
 
   if (
     editTitleIsValid === false ||
-    editImageIsValid === false ||
     editContentIsValid === false
   ) {
     event.preventDefault();

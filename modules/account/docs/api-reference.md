@@ -166,7 +166,7 @@ new summary. A missing or another user's relation returns
 ### `GET /profile`
 
 Requires an active session and returns `{ "profile": safeUser }`. The safe user
-presenter excludes the password record, hash, and salt.
+presenter excludes the `passwordHash` field.
 
 ### `PATCH /profile`
 
@@ -213,7 +213,7 @@ These routes require both an active session and `role: "admin"`.
 
 Returns users sorted by display name plus summary counts (`total`, `active`,
 `locked`, and `administrators`). User objects pass through the same safe
-presenter and contain no password records.
+presenter and do not contain the `passwordHash` field.
 
 A signed-in non-administrator receives `403 ADMIN_REQUIRED`.
 

@@ -1,20 +1,20 @@
 const express = require("express");
 const session = require("express-session");
+const multer = require("multer");
 const path = require("node:path");
-const {
-  users,
-  discussions,
-  replies,
-  getDiscussionId,
-  getReplyId,
-} = require("./forum-data");
+const { connectDatabase } = require("./database");
+const { User } = require("./models/user");
+const { Discussion } = require("./models/discussion");
+const { Reply } = require("./models/reply");
+const { upload } = require("./upload");
+const { users } = require("./forum-data");
 const { blogs } = require("./blog-data");
 const { registerBlogApi } = require("./routes/register-blog-api");
 const reviewData = require("./review-data");
 let reviews = reviewData.reviews;
 const getReviewId = reviewData.getReviewId;
 let loginStore = null;
-let createPasswordRecord = null;
+let createPasswordHash = null;
 const app = express();
 let accountAppMounted = false;
 // Uses the PORT environment variable when provided. Otherwise, it uses port 3000.
@@ -82,42 +82,22 @@ app.use(
       secure: isProduction,
       maxAge: 2 * 60 * 60 * 1000,
     },
-  })
+  }),
 );
 // Reads values sent from normal HTML forms.
 app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 // Makes files inside public available to the browser, such as CSS and JavaScript.
 app.use(express.static(path.join(__dirname, "public")));
 
-const forumImagePaths = new Set([
-  "/images/peer-workshop.jpg",
-  "/images/RMIT_campus.png",
-  "/images/saigonview.jpg",
-]);
-
-// Create and edit forms historically used different path shapes; store one form.
-function normaliseForumImage(value) {
-  if (typeof value !== "string" || value.trim() === "") return null;
-  const cleanValue = value.trim();
-  const imagePath = cleanValue.startsWith("/images/")
-    ? cleanValue
-    : `/images/${cleanValue.replace(/^\/+/, "")}`;
-  return forumImagePaths.has(imagePath) ? imagePath : null;
-}
-
 function showHome(request, response) {
   response.render("index", { pageTitle: "RMIT Connect" });
 }
 
-function showSitemap(request, response) {
-  const activeDiscussions = [];
+async function showSitemap(request, response) {
+  const activeDiscussions = await Discussion.find({
+    deletedAt: null,
+  });
   const activeBlogs = [];
-
-  for (let i = 0; i < discussions.length; i += 1) {
-    if (discussions[i].deletedAt === null) {
-      activeDiscussions.push(discussions[i]);
-    }
-  }
 
   for (let i = 0; i < blogs.length; i += 1) {
     if (blogs[i].deleted === false) {
@@ -146,38 +126,69 @@ async function showDiscussions(request, response) {
     return;
   }
 
-  const activeDiscussions = [];
+  const discussionMessage = request.session.discussionMessage || "";
+  request.session.discussionMessage = "";
 
-  for (let i = 0; i < discussions.length; i += 1) {
-    if (discussions[i].deletedAt === null) {
-      activeDiscussions.push(discussions[i]);
-    }
-  }
+  const activeDiscussions = await Discussion.find({
+    deletedAt: null,
+  });
+
+  const activeReplies = await Reply.find({
+    deletedAt: null,
+  });
+
+  const forumUsers = await User.find({});
 
   const replyCounts = [];
   const authors = [];
+  const titleSearchTexts = [];
+  const contentSearchTexts = [];
+  const latestActivityTimes = [];
 
   for (let i = 0; i < activeDiscussions.length; i += 1) {
     let replyCount = 0;
-    let author = null;
+    let titleSearchText = activeDiscussions[i].title;
+    let contentSearchText = activeDiscussions[i].content;
+    let latestActivityTime = activeDiscussions[i].createdAt.getTime();
+    let author = {
+      username: "Unknown user",
+      profileImage: "/images/user_icon.png",
+      course: "",
+    };
 
-    for (let j = 0; j < replies.length; j += 1) {
+    for (let j = 0; j < activeReplies.length; j += 1) {
       if (
-        replies[j].discussionId === activeDiscussions[i]._id &&
-        replies[j].deletedAt === null
+        String(activeReplies[j].discussionId) ===
+        String(activeDiscussions[i]._id)
       ) {
         replyCount += 1;
+        contentSearchText += " " + activeReplies[j].content;
+
+        if (activeReplies[j].createdAt.getTime() > latestActivityTime) {
+          latestActivityTime = activeReplies[j].createdAt.getTime();
+        }
       }
     }
 
-    for (let j = 0; j < users.length; j += 1) {
-      if (users[j]._id === activeDiscussions[i].authorId) {
-        author = users[j];
+    for (let j = 0; j < forumUsers.length; j += 1) {
+      if (
+        String(forumUsers[j]._id) ===
+        String(activeDiscussions[i].authorId)
+      ) {
+        author = {
+          username: forumUsers[j].name,
+          profileImage:
+            forumUsers[j].avatarUrl || "/images/user_icon.png",
+          course: forumUsers[j].course,
+        };
       }
     }
 
     replyCounts.push(replyCount);
     authors.push(author);
+    titleSearchTexts.push(titleSearchText);
+    contentSearchTexts.push(contentSearchText);
+    latestActivityTimes.push(latestActivityTime);
   }
 
   response.render("discussion", {
@@ -185,6 +196,10 @@ async function showDiscussions(request, response) {
     discussions: activeDiscussions,
     replyCounts: replyCounts,
     authors: authors,
+    titleSearchTexts: titleSearchTexts,
+    contentSearchTexts: contentSearchTexts,
+    latestActivityTimes: latestActivityTimes,
+    discussionMessage: discussionMessage,
   });
 }
 
@@ -196,48 +211,83 @@ async function showDiscussionDetail(request, response) {
     return;
   }
 
+  const forumUser = await getForumDatabaseUser(currentUser);
+
+  if (!forumUser) {
+    response.status(403).send("Forum user not found.");
+    return;
+  }
+
+  const activeDiscussions = await Discussion.find({
+    deletedAt: null,
+  });
+
   let discussion = null;
 
-  for (let i = 0; i < discussions.length; i += 1) {
-    if (discussions[i]._id === request.params.id) {
-      discussion = discussions[i];
+  for (let i = 0; i < activeDiscussions.length; i += 1) {
+    if (String(activeDiscussions[i]._id) === request.params.id) {
+      discussion = activeDiscussions[i];
     }
   }
 
-  if (!discussion || discussion.deletedAt !== null) {
+  if (!discussion) {
     response.status(404).send("Discussion not found.");
     return;
   }
 
-  let author = null;
+  const forumUsers = await User.find({});
+  let author = {
+    username: "Unknown user",
+    profileImage: "/images/user_icon.png",
+    course: "",
+  };
 
-  for (let i = 0; i < users.length; i += 1) {
-    if (users[i]._id === discussion.authorId) {
-      author = users[i];
+  for (let i = 0; i < forumUsers.length; i += 1) {
+    if (String(forumUsers[i]._id) === String(discussion.authorId)) {
+      author = {
+        username: forumUsers[i].name,
+        profileImage: forumUsers[i].avatarUrl || "/images/user_icon.png",
+        course: forumUsers[i].course,
+      };
     }
   }
 
-  const isAuthor = discussion.authorId === currentUser._id;
+  const isAuthor = String(discussion.authorId) === String(forumUser._id);
+  const activeReplies = await Reply.find({
+    deletedAt: null,
+  });
   const discussionReplies = [];
   const replyAuthors = [];
   const isMyReply = [];
 
-  for (let i = 0; i < replies.length; i += 1) {
+  for (let i = 0; i < activeReplies.length; i += 1) {
     if (
-      replies[i].discussionId === discussion._id &&
-      replies[i].deletedAt === null
+      String(activeReplies[i].discussionId) === String(discussion._id)
     ) {
-      let replyAuthor = null;
+      let replyAuthor = {
+        username: "Unknown user",
+        profileImage: "/images/user_icon.png",
+        course: "",
+      };
 
-      for (let j = 0; j < users.length; j += 1) {
-        if (users[j]._id === replies[i].authorId) {
-          replyAuthor = users[j];
+      for (let j = 0; j < forumUsers.length; j += 1) {
+        if (
+          String(forumUsers[j]._id) === String(activeReplies[i].authorId)
+        ) {
+          replyAuthor = {
+            username: forumUsers[j].name,
+            profileImage:
+              forumUsers[j].avatarUrl || "/images/user_icon.png",
+            course: forumUsers[j].course,
+          };
         }
       }
 
-      discussionReplies.push(replies[i]);
+      discussionReplies.push(activeReplies[i]);
       replyAuthors.push(replyAuthor);
-      isMyReply.push(replies[i].authorId === currentUser._id);
+      isMyReply.push(
+        String(activeReplies[i].authorId) === String(forumUser._id),
+      );
     }
   }
 
@@ -254,19 +304,6 @@ async function showDiscussionDetail(request, response) {
 
 // Show the edit page only to the author.
 async function showEditDiscussion(request, response) {
-  let discussion = null;
-
-  for (let i = 0; i < discussions.length; i += 1) {
-    if (discussions[i]._id === request.params.id) {
-      discussion = discussions[i];
-    }
-  }
-
-  if (!discussion || discussion.deletedAt !== null) {
-    response.status(404).send("Discussion not found.");
-    return;
-  }
-
   const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
@@ -274,7 +311,31 @@ async function showEditDiscussion(request, response) {
     return;
   }
 
-  if (discussion.authorId !== currentUser._id) {
+  const forumUser = await getForumDatabaseUser(currentUser);
+
+  if (!forumUser) {
+    response.status(403).send("Forum user not found.");
+    return;
+  }
+
+  const activeDiscussions = await Discussion.find({
+    deletedAt: null,
+  });
+
+  let discussion = null;
+
+  for (let i = 0; i < activeDiscussions.length; i += 1) {
+    if (String(activeDiscussions[i]._id) === request.params.id) {
+      discussion = activeDiscussions[i];
+    }
+  }
+
+  if (!discussion) {
+    response.status(404).send("Discussion not found.");
+    return;
+  }
+
+  if (String(discussion.authorId) !== String(forumUser._id)) {
     response.status(403).send("You can only edit your own post.");
     return;
   }
@@ -330,6 +391,20 @@ async function getCurrentUser(request) {
   return makeCurrentUser(loginUser);
 }
 
+// Finds the MongoDB User used by the Discussion Forum.
+async function getForumDatabaseUser(currentUser) {
+  const matchingUsers = await User.find({
+    studentId: currentUser.studentId,
+    status: "active",
+  });
+
+  if (matchingUsers.length === 0) {
+    return null;
+  }
+
+  return matchingUsers[0];
+}
+
 async function getBlogCurrentUser(request) {
   const currentUser = await getCurrentUser(request);
 
@@ -348,20 +423,26 @@ async function getBlogCurrentUser(request) {
 async function createDiscussion(request, response) {
   const postTitle = (request.body.postTitle || "").trim();
   const postContent = (request.body.postContent || "").trim();
-  const postImage = normaliseForumImage(request.body.postImage);
+  const postImage = request.file
+    ? "/uploads/" + request.file.filename
+    : null;
 
   if (postTitle === "" || postTitle.length > 100) {
-    response.status(400).send("Please enter a title with 100 characters or less.");
+    response
+      .status(400)
+      .send("Please enter a title with 100 characters or less.");
     return;
   }
 
   if (postContent === "" || postContent.length > 1000) {
-    response.status(400).send("Please enter content with 1000 characters or less.");
+    response
+      .status(400)
+      .send("Please enter content with 1000 characters or less.");
     return;
   }
 
   if (!postImage) {
-    response.status(400).send("Please select a post image.");
+    response.status(400).send("Please upload a post image.");
     return;
   }
 
@@ -369,41 +450,44 @@ async function createDiscussion(request, response) {
 
   if (!currentUser) {
     redirectForumLogin(response);
+    return;
+  }
+
+  const forumUser = await getForumDatabaseUser(currentUser);
+
+  if (!forumUser) {
+    response.status(403).send("Forum user not found.");
     return;
   }
 
   const now = new Date();
 
-  const discussion = {
-    _id: getDiscussionId(),
+  const discussion = new Discussion({
     title: postTitle,
     content: postContent,
     image: postImage,
-    authorId: currentUser._id,
+    authorId: forumUser._id,
     createdAt: now,
+    updatedAt: now,
     deletedAt: null,
     deletedBy: null,
-  };
+  });
 
-  discussions.push(discussion);
+  await discussion.save();
+
+  await User.updateOne(
+    { _id: forumUser._id },
+    {
+      lastActiveAt: now,
+      updatedAt: now,
+    },
+  );
+
   response.redirect("/discussions");
 }
 
 // Update the selected post.
 async function updateDiscussion(request, response) {
-  let discussion = null;
-
-  for (let i = 0; i < discussions.length; i += 1) {
-    if (discussions[i]._id === request.params.id) {
-      discussion = discussions[i];
-    }
-  }
-
-  if (!discussion || discussion.deletedAt !== null) {
-    response.status(404).send("Discussion not found.");
-    return;
-  }
-
   const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
@@ -411,52 +495,87 @@ async function updateDiscussion(request, response) {
     return;
   }
 
-  if (discussion.authorId !== currentUser._id) {
+  const forumUser = await getForumDatabaseUser(currentUser);
+
+  if (!forumUser) {
+    response.status(403).send("Forum user not found.");
+    return;
+  }
+
+  const activeDiscussions = await Discussion.find({
+    deletedAt: null,
+  });
+
+  let discussion = null;
+
+  for (let i = 0; i < activeDiscussions.length; i += 1) {
+    if (String(activeDiscussions[i]._id) === request.params.id) {
+      discussion = activeDiscussions[i];
+    }
+  }
+
+  if (!discussion) {
+    response.status(404).send("Discussion not found.");
+    return;
+  }
+
+  if (String(discussion.authorId) !== String(forumUser._id)) {
     response.status(403).send("You can only edit your own discussion.");
     return;
   }
 
   const postTitle = (request.body.postTitle || "").trim();
   const postContent = (request.body.postContent || "").trim();
-  const postImage = normaliseForumImage(request.body.postImage);
+  let postImage = discussion.image;
+
+  if (request.file) {
+    postImage = "/uploads/" + request.file.filename;
+  }
 
   if (postTitle === "" || postTitle.length > 100) {
-    response.status(400).send("Please enter a title with 100 characters or less.");
+    response
+      .status(400)
+      .send("Please enter a title with 100 characters or less.");
     return;
   }
 
   if (postContent === "" || postContent.length > 1000) {
-    response.status(400).send("Please enter content with 1000 characters or less.");
+    response
+      .status(400)
+      .send("Please enter content with 1000 characters or less.");
     return;
   }
 
   if (!postImage) {
-    response.status(400).send("Please select a post image.");
+    response.status(400).send("Please upload a post image.");
     return;
   }
 
-  discussion.title = postTitle;
-  discussion.content = postContent;
-  discussion.image = postImage;
+  const now = new Date();
+
+  await Discussion.updateOne(
+    { _id: discussion._id },
+    {
+      title: postTitle,
+      content: postContent,
+      image: postImage,
+      updatedAt: now,
+    },
+  );
+
+  await User.updateOne(
+    { _id: forumUser._id },
+    {
+      lastActiveAt: now,
+      updatedAt: now,
+    },
+  );
 
   response.redirect("/discussions/" + discussion._id);
 }
 
-// Soft delete the selected discussion post.
+// Soft delete the selected discussion post
 async function deleteDiscussion(request, response) {
-  let discussion = null;
-
-  for (let i = 0; i < discussions.length; i += 1) {
-    if (discussions[i]._id === request.params.id) {
-      discussion = discussions[i];
-    }
-  }
-
-  if (!discussion || discussion.deletedAt !== null) {
-    response.status(404).send("Discussion not found.");
-    return;
-  }
-
   const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
@@ -464,36 +583,60 @@ async function deleteDiscussion(request, response) {
     return;
   }
 
-  if (discussion.authorId !== currentUser._id) {
+  const forumUser = await getForumDatabaseUser(currentUser);
+
+  if (!forumUser) {
+    response.status(403).send("Forum user not found.");
+    return;
+  }
+
+  const activeDiscussions = await Discussion.find({
+    deletedAt: null,
+  });
+
+  let discussion = null;
+
+  for (let i = 0; i < activeDiscussions.length; i += 1) {
+    if (String(activeDiscussions[i]._id) === request.params.id) {
+      discussion = activeDiscussions[i];
+    }
+  }
+
+  if (!discussion) {
+    response.status(404).send("Discussion not found.");
+    return;
+  }
+
+  if (String(discussion.authorId) !== String(forumUser._id)) {
     response.status(403).send("You can only delete your own discussion.");
     return;
   }
 
-  discussion.deletedAt = new Date();
-  discussion.deletedBy = currentUser._id;
+  const now = new Date();
 
+  await Discussion.updateOne(
+    { _id: discussion._id },
+    {
+      deletedAt: now,
+      deletedBy: forumUser._id,
+      updatedAt: now,
+    },
+  );
+
+  await User.updateOne(
+    { _id: forumUser._id },
+    {
+      lastActiveAt: now,
+      updatedAt: now,
+    },
+  );
+
+  request.session.discussionMessage = "Post deleted successfully.";
   response.redirect("/discussions");
 }
 
 // Show the edit page for a reply written by the current user.
 async function showEditReply(request, response) {
-  let reply = null;
-
-  for (let i = 0; i < replies.length; i += 1) {
-    if (replies[i]._id === request.params.replyId) {
-      reply = replies[i];
-    }
-  }
-
-  if (
-    !reply ||
-    reply.deletedAt !== null ||
-    reply.discussionId !== request.params.id
-  ) {
-    response.status(404).send("Reply not found.");
-    return;
-  }
-
   const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
@@ -501,20 +644,51 @@ async function showEditReply(request, response) {
     return;
   }
 
-  if (reply.authorId !== currentUser._id) {
+  const forumUser = await getForumDatabaseUser(currentUser);
+
+  if (!forumUser) {
+    response.status(403).send("Forum user not found.");
+    return;
+  }
+
+  const activeReplies = await Reply.find({
+    deletedAt: null,
+  });
+
+  let reply = null;
+
+  for (let i = 0; i < activeReplies.length; i += 1) {
+    if (
+      String(activeReplies[i]._id) === request.params.replyId &&
+      String(activeReplies[i].discussionId) === request.params.id
+    ) {
+      reply = activeReplies[i];
+    }
+  }
+
+  if (!reply) {
+    response.status(404).send("Reply not found.");
+    return;
+  }
+
+  if (String(reply.authorId) !== String(forumUser._id)) {
     response.status(403).send("You can only edit your own reply.");
     return;
   }
 
+  const activeDiscussions = await Discussion.find({
+    deletedAt: null,
+  });
+
   let discussion = null;
 
-  for (let i = 0; i < discussions.length; i += 1) {
-    if (discussions[i]._id === request.params.id) {
-      discussion = discussions[i];
+  for (let i = 0; i < activeDiscussions.length; i += 1) {
+    if (String(activeDiscussions[i]._id) === request.params.id) {
+      discussion = activeDiscussions[i];
     }
   }
 
-  if (!discussion || discussion.deletedAt !== null) {
+  if (!discussion) {
     response.status(404).send("Discussion not found.");
     return;
   }
@@ -530,20 +704,26 @@ async function showEditReply(request, response) {
 async function createReply(request, response) {
   const replyTitle = (request.body.replyTitle || "").trim();
   const replyContent = (request.body.replyContent || "").trim();
-  const replyImage = normaliseForumImage(request.body.replyImage);
+  const replyImage = request.file
+    ? "/uploads/" + request.file.filename
+    : null;
 
   if (replyTitle === "" || replyTitle.length > 100) {
-    response.status(400).send("Please enter a reply title with 100 characters or less.");
+    response
+      .status(400)
+      .send("Please enter a reply title with 100 characters or less.");
     return;
   }
 
   if (replyContent === "" || replyContent.length > 1000) {
-    response.status(400).send("Please enter reply content with 1000 characters or less.");
+    response
+      .status(400)
+      .send("Please enter reply content with 1000 characters or less.");
     return;
   }
 
   if (!replyImage) {
-    response.status(400).send("Please select a reply image.");
+    response.status(400).send("Please upload a reply image.");
     return;
   }
 
@@ -554,70 +734,74 @@ async function createReply(request, response) {
     return;
   }
 
+  const forumUser = await getForumDatabaseUser(currentUser);
+
+  if (!forumUser) {
+    response.status(403).send("Forum user not found.");
+    return;
+  }
+
+  const activeDiscussions = await Discussion.find({
+    deletedAt: null,
+  });
+
   let discussion = null;
 
-  for (let i = 0; i < discussions.length; i += 1) {
-    if (discussions[i]._id === request.params.id) {
-      discussion = discussions[i];
+  for (let i = 0; i < activeDiscussions.length; i += 1) {
+    if (String(activeDiscussions[i]._id) === request.params.id) {
+      discussion = activeDiscussions[i];
     }
   }
 
-  if (!discussion || discussion.deletedAt !== null) {
+  if (!discussion) {
     response.status(404).send("Discussion not found.");
     return;
   }
 
-  const reply = {
-    _id: getReplyId(),
+  const now = new Date();
+
+  const reply = new Reply({
     title: replyTitle,
     content: replyContent,
     image: replyImage,
-    authorId: currentUser._id,
-    discussionId: request.params.id,
-    createdAt: new Date(),
+    authorId: forumUser._id,
+    discussionId: discussion._id,
+    createdAt: now,
+    updatedAt: now,
     deletedAt: null,
     deletedBy: null,
-  };
+  });
 
-  replies.push(reply);
-  response.redirect("/discussions/" + request.params.id);
+  await reply.save();
+
+  // Save the user's last activity time
+  await User.updateOne(
+    { _id: forumUser._id },
+    {
+      lastActiveAt: now,
+      updatedAt: now,
+    },
+  );
+
+  response.redirect("/discussions/" + discussion._id);
 }
 
 // Save changes to a reply written by the current user.
 async function updateReply(request, response) {
   const replyTitle = (request.body.replyTitle || "").trim();
   const replyContent = (request.body.replyContent || "").trim();
-  const replyImage = normaliseForumImage(request.body.replyImage);
 
   if (replyTitle === "" || replyTitle.length > 100) {
-    response.status(400).send("Please enter a reply title with 100 characters or less.");
+    response
+      .status(400)
+      .send("Please enter a reply title with 100 characters or less.");
     return;
   }
 
   if (replyContent === "" || replyContent.length > 1000) {
-    response.status(400).send("Please enter reply content with 1000 characters or less.");
-    return;
-  }
-
-  if (!replyImage) {
-    response.status(400).send("Please select a reply image.");
-    return;
-  }
-
-  let reply = null;
-
-  for (let i = 0; i < replies.length; i += 1) {
-    if (replies[i]._id === request.params.replyId) {
-      reply = replies[i];
-    }
-  }
-
-  if (
-    !reply ||
-    reply.deletedAt !== null ||
-    reply.discussionId !== request.params.id
-  ) {
-    response.status(404).send("Reply not found.");
+    response
+      .status(400)
+      .send("Please enter reply content with 1000 characters or less.");
     return;
   }
 
@@ -628,37 +812,75 @@ async function updateReply(request, response) {
     return;
   }
 
-  if (reply.authorId !== currentUser._id) {
+  const forumUser = await getForumDatabaseUser(currentUser);
+
+  if (!forumUser) {
+    response.status(403).send("Forum user not found.");
+    return;
+  }
+
+  const activeReplies = await Reply.find({
+    deletedAt: null,
+  });
+
+  let reply = null;
+
+  for (let i = 0; i < activeReplies.length; i += 1) {
+    if (
+      String(activeReplies[i]._id) === request.params.replyId &&
+      String(activeReplies[i].discussionId) === request.params.id
+    ) {
+      reply = activeReplies[i];
+    }
+  }
+
+  if (!reply) {
+    response.status(404).send("Reply not found.");
+    return;
+  }
+
+  if (String(reply.authorId) !== String(forumUser._id)) {
     response.status(403).send("You can only edit your own reply.");
     return;
   }
 
-  reply.title = replyTitle;
-  reply.content = replyContent;
-  reply.image = replyImage;
+  let replyImage = reply.image;
+
+  if (request.file) {
+    replyImage = "/uploads/" + request.file.filename;
+  }
+
+  if (!replyImage) {
+    response.status(400).send("Please upload a reply image.");
+    return;
+  }
+
+  const now = new Date();
+
+  await Reply.updateOne(
+    { _id: reply._id },
+    {
+      title: replyTitle,
+      content: replyContent,
+      image: replyImage,
+      updatedAt: now,
+    },
+  );
+
+  // Save the user's last activity time
+  await User.updateOne(
+    { _id: forumUser._id },
+    {
+      lastActiveAt: now,
+      updatedAt: now,
+    },
+  );
 
   response.redirect("/discussions/" + request.params.id);
 }
 
 // Soft delete a reply written by the current user.
 async function deleteReply(request, response) {
-  let reply = null;
-
-  for (let i = 0; i < replies.length; i += 1) {
-    if (replies[i]._id === request.params.replyId) {
-      reply = replies[i];
-    }
-  }
-
-  if (
-    !reply ||
-    reply.deletedAt !== null ||
-    reply.discussionId !== request.params.id
-  ) {
-    response.status(404).send("Reply not found.");
-    return;
-  }
-
   const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
@@ -666,13 +888,57 @@ async function deleteReply(request, response) {
     return;
   }
 
-  if (reply.authorId !== currentUser._id) {
+  const forumUser = await getForumDatabaseUser(currentUser);
+
+  if (!forumUser) {
+    response.status(403).send("Forum user not found.");
+    return;
+  }
+
+  const activeReplies = await Reply.find({
+    deletedAt: null,
+  });
+
+  let reply = null;
+
+  for (let i = 0; i < activeReplies.length; i += 1) {
+    if (
+      String(activeReplies[i]._id) === request.params.replyId &&
+      String(activeReplies[i].discussionId) === request.params.id
+    ) {
+      reply = activeReplies[i];
+    }
+  }
+
+  if (!reply) {
+    response.status(404).send("Reply not found.");
+    return;
+  }
+
+  if (String(reply.authorId) !== String(forumUser._id)) {
     response.status(403).send("You can only delete your own reply.");
     return;
   }
 
-  reply.deletedAt = new Date();
-  reply.deletedBy = currentUser._id;
+  const now = new Date();
+
+  await Reply.updateOne(
+    { _id: reply._id },
+    {
+      deletedAt: now,
+      deletedBy: forumUser._id,
+      updatedAt: now,
+    },
+  );
+
+  // Save the user's last activity time
+  await User.updateOne(
+    { _id: forumUser._id },
+    {
+      lastActiveAt: now,
+      updatedAt: now,
+    },
+  );
 
   response.redirect("/discussions/" + request.params.id);
 }
@@ -690,7 +956,8 @@ const reviewImagePattern =
   /^data:image\/(png|jpeg|gif|webp);base64,([a-z0-9+/]+={0,2})$/i;
 
 function isValidReviewImage(imageUrl) {
-  if (imageUrl === undefined || imageUrl === null || imageUrl === "") return true;
+  if (imageUrl === undefined || imageUrl === null || imageUrl === "")
+    return true;
   if (imageUrl === "/images/review-placeholder.jpg") return true;
   if (typeof imageUrl !== "string") return false;
 
@@ -709,14 +976,17 @@ function getReviewErrors(data) {
   }
 
   const courseCode =
-    typeof data.courseCode === "string" ? data.courseCode.trim().toUpperCase() : "";
+    typeof data.courseCode === "string"
+      ? data.courseCode.trim().toUpperCase()
+      : "";
   const title = typeof data.title === "string" ? data.title.trim() : "";
   const description =
     typeof data.description === "string" ? data.description.trim() : "";
   const rating = Number(data.rating);
 
   if (!/^[A-Z]{4}\d{4}$/.test(courseCode)) {
-    errors.courseCode = "Course code must use four letters followed by four digits.";
+    errors.courseCode =
+      "Course code must use four letters followed by four digits.";
   }
 
   if (title.length < 5 || title.length > 100) {
@@ -1039,7 +1309,7 @@ function resetPassword(request, response) {
     return;
   }
 
-  loginUser.password = createPasswordRecord(newPassword);
+  loginUser.passwordHash = createPasswordHash(newPassword);
   request.session.resetUserId = null;
 
   response.render("resetpassword", {
@@ -1141,10 +1411,22 @@ app.get("/discussions", showDiscussions);
 app.get("/discussions/:id/edit", showEditDiscussion);
 app.get("/discussions/:id/replies/:replyId/edit", showEditReply);
 app.get("/discussions/:id", showDiscussionDetail);
-app.post("/discussions", createDiscussion);
-app.post("/discussions/:id/edit", updateDiscussion);
-app.post("/discussions/:id/replies", createReply);
-app.post("/discussions/:id/replies/:replyId/edit", updateReply);
+app.post("/discussions", upload.single("postImage"), createDiscussion);
+app.post(
+  "/discussions/:id/edit",
+  upload.single("postImage"),
+  updateDiscussion,
+);
+app.post(
+  "/discussions/:id/replies",
+  upload.single("replyImage"),
+  createReply,
+);
+app.post(
+  "/discussions/:id/replies/:replyId/edit",
+  upload.single("replyImage"),
+  updateReply,
+);
 app.post("/discussions/:id/replies/:replyId/delete", deleteReply);
 app.post("/discussions/:id/delete", deleteDiscussion);
 app.get("/blogs", showBlogs);
@@ -1167,21 +1449,27 @@ app.get(
   ["/review-browse.html", "/review/review-browse.html"],
   (_request, response) => {
     response.redirect(301, "/reviews/browse");
-  }
+  },
 );
 app.get(
   ["/review-detail.html", "/review/review-detail.html"],
   (request, response) => {
     const id = String(request.query.id || "").trim();
-    response.redirect(301, /^\d+$/.test(id) ? `/reviews/${id}` : "/reviews/browse");
-  }
+    response.redirect(
+      301,
+      /^\d+$/.test(id) ? `/reviews/${id}` : "/reviews/browse",
+    );
+  },
 );
 app.get(
   ["/review-edit.html", "/review/review-edit.html"],
   (request, response) => {
     const id = String(request.query.id || "").trim();
-    response.redirect(301, /^\d+$/.test(id) ? `/reviews/${id}/edit` : "/reviews/browse");
-  }
+    response.redirect(
+      301,
+      /^\d+$/.test(id) ? `/reviews/${id}/edit` : "/reviews/browse",
+    );
+  },
 );
 app.get("/wishlist", showWishlist);
 app.get("/wishlist/add", showWishlistAdd);
@@ -1208,6 +1496,14 @@ app.get("/deactivated-success", showDeactivatedSuccess);
 function handleRootError(error, request, response, _next) {
   const isApiRequest = request.path.startsWith("/api/");
 
+  if (
+    error instanceof multer.MulterError ||
+    error.message === "Only JPEG and PNG images are allowed."
+  ) {
+    response.status(400).type("text").send(error.message);
+    return;
+  }
+
   if (error?.type === "entity.too.large" || error?.status === 413) {
     const message = "Request body is larger than the 6 MB limit.";
     return isApiRequest
@@ -1233,18 +1529,12 @@ function handleRootError(error, request, response, _next) {
 async function prepareApp() {
   if (accountAppMounted) return app;
 
-  const { dataStore } = await import(
-    "./modules/account/src/data.js"
-  );
-  const passwordModule = await import(
-    "./modules/account/src/passwords.js"
-  );
-  const { createApp } = await import(
-    "./modules/account/src/app.js"
-  );
+  const { dataStore } = await import("./modules/account/src/data.js");
+  const passwordModule = await import("./modules/account/src/passwords.js");
+  const { createApp } = await import("./modules/account/src/app.js");
 
   loginStore = dataStore;
-  createPasswordRecord = passwordModule.createPasswordRecord;
+  createPasswordHash = passwordModule.createPasswordHash;
   app.use(createApp({ sessionSecret }));
   app.use(handleRootError);
   accountAppMounted = true;
@@ -1254,6 +1544,7 @@ async function prepareApp() {
 
 // Starts the local Express server after all routes are prepared.
 async function startServer(listenPort = port) {
+  await connectDatabase();
   await prepareApp();
 
   return new Promise((resolve, reject) => {
@@ -1276,11 +1567,14 @@ async function startServer(listenPort = port) {
 
       const address = server.address();
       if (!address) {
-        rejectOnce(new Error("The HTTP server did not acquire a listening address."));
+        rejectOnce(
+          new Error("The HTTP server did not acquire a listening address."),
+        );
         return;
       }
 
-      const activePort = typeof address === "object" ? address.port : listenPort;
+      const activePort =
+        typeof address === "object" ? address.port : listenPort;
       settled = true;
       console.log(`RMIT Connect is running on http://localhost:${activePort}`);
       resolve(server);
@@ -1293,7 +1587,9 @@ async function startServer(listenPort = port) {
 if (require.main === module) {
   startServer().catch((error) => {
     if (error.code === "EADDRINUSE") {
-      console.error(`Port ${port} is already in use. Stop that server or choose another PORT.`);
+      console.error(
+        `Port ${port} is already in use. Stop that server or choose another PORT.`,
+      );
     } else {
       console.error(error);
     }

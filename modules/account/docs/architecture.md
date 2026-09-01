@@ -75,7 +75,7 @@ Page modules usually follow the same lifecycle:
 | `src/app.js` | Builds Express, security/session/JSON/static middleware, authorization middleware, presenters, API routes, controlled 404s, and the final error handler. |
 | `src/data.js` | Defines products and seeded users/relations, owns the in-memory arrays, and provides `resetData()` for repeatable tests. |
 | `src/validation.js` | Cleans and validates login/profile input independently of browser validation. The profile allow-list blocks protected-field mass assignment. |
-| `src/passwords.js` | Creates salted scrypt password records and verifies supplied passwords with a timing-safe comparison. |
+| `src/passwords.js` | Creates bcrypt `passwordHash` strings and verifies supplied passwords with `bcryptjs`. |
 
 Two small response helpers keep the contract consistent:
 
@@ -96,7 +96,7 @@ Two small response helpers keep the contract consistent:
 
 Presenter functions build public product, Wishlist, purchase, and user objects.
 Routes must return presenters rather than raw user records because raw records
-contain password hashes and salts.
+contain a `passwordHash` value that must never be exposed.
 
 ## Session and ownership flow
 

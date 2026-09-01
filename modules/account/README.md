@@ -63,11 +63,11 @@ local classroom demonstration.
 | --- | --- | --- | --- |
 | Dat (administrator) | `dat.pham` or `s4221230@rmit.edu.vn` | `ConnectDemo!26` | Wishlist, profile, and administration |
 | Jay (student) | `jay.nguyen` or `s4217847@rmit.edu.vn` | `StudentDemo!26` | Wishlist and profile; administration denied |
-| Kim (locked student) | `kim.tran` or `s4028530@rmit.edu.vn` | `LockedDemo!26` | Login denied while locked |
+| Kim (locked student) | `kim.seung-uk` or `s4028530@rmit.edu.vn` | `LockedDemo!26` | Login denied while locked |
 
 These are seeded demonstration credentials, not real accounts. Seed passwords
-are immediately converted to salted scrypt hashes. Passwords, hashes, and salts
-are never returned by the API.
+are hashed with `bcryptjs` and stored as one `passwordHash` string. Plain-text
+passwords and password hashes are never returned by the API.
 
 ## Main behavior
 
@@ -155,8 +155,8 @@ A practical checklist is in
 - Server validation remains authoritative even when client validation succeeds.
 - Profile updates use an explicit field allow-list to prevent role/status mass
   assignment.
-- Password comparison uses `crypto.timingSafeEqual`; stored password records use
-  a random salt and scrypt.
+- Password hashing and verification use `bcryptjs`. Each User stores one
+  `passwordHash` string containing the bcrypt salt and hash.
 - API responses are `no-store`, Express identification is disabled, and security
   headers restrict framing, content types, referrers, permissions, and content
   sources.

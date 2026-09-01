@@ -320,7 +320,7 @@ test(
         );
 
         const locked = await client.login(
-            "kim.tran",
+            "kim.seung-uk",
             "LockedDemo!26"
         );
 
@@ -1074,8 +1074,11 @@ test(
         assert.ok(
             dataStore.users.every(
                 (user) =>
-                    user.password.hash &&
-                    user.password.salt
+                    typeof user.passwordHash ===
+                        "string" &&
+                    user.passwordHash.startsWith(
+                        "$2"
+                    )
             )
         );
     }

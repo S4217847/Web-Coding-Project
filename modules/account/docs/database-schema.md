@@ -1,24 +1,23 @@
-# Proposed MongoDB Atlas schema
+# MongoDB Atlas schema and implementation status
 
-The final group application must store backend data in MongoDB Atlas. The
-current Assessment 2 branch is deliberately an in-memory prototype, so this
-document separates what exists now from the persistence model planned for the
-complete team application.
+The final group application uses MongoDB Atlas for persistent backend data.
+This document separates the collections implemented for Assessment 3 from
+module data that still uses runtime stores and collections that remain planned.
 
 ## Scope and implementation status
 
-| Area | Current Assessment 2 branch | Planned MongoDB Atlas model |
+| Area | Current implementation | MongoDB Atlas status or future direction |
 | --- | --- | --- |
-| Accounts, login, profile, and administration | Implemented with resettable in-memory users and sessions | `users`, `sessions`, `passwordResetTokens`, and `adminActions` |
-| Catalogue, wishlist, cart hand-off, and purchase history | Implemented with in-memory products and user-owned relations | `products`, `wishlistEntries`, `cartItems`, `purchases`, `purchaseItems`, and `productActivityEvents` |
-| Discussion forum | Implemented with in-memory discussions, replies, ownership, and soft deletion | `forumThreads` and `forumPosts` |
-| Blog and comments | Implemented with in-memory posts, comments, ownership, and soft deletion | `blogPosts` and `blogComments` |
-| Course reviews and ratings | Implemented with in-memory reviews linked to the signed-in user and course code | `reviews` linked to users, products/courses, and purchase history where applicable |
-| Sitemap | Generated from active in-memory records and registered routes; not persisted | Generated from registered/static routes and public database records |
+| Accounts, login, profile, and administration | Account users and sessions remain in memory. Passwords use one bcrypt `passwordHash` string. | The shared `users` collection exists, but Account routes have not been migrated. `sessions`, `passwordResetTokens`, and `adminActions` remain planned. |
+| Catalogue, wishlist, cart hand-off, and purchase history | Products and user-owned relations remain in memory. | `products`, `wishlistEntries`, `cartItems`, `purchases`, `purchaseItems`, and `productActivityEvents` remain planned. |
+| Discussion Forum | Implemented with MongoDB `users`, `discussions`, and `replies`, ObjectId references, image paths, ownership checks, and soft deletion. | Implemented and tested. |
+| Blog and comments | Posts and comments currently remain in memory. | `blogPosts` and `blogComments` remain planned. |
+| Course reviews and ratings | Reviews currently remain in memory and are linked to the signed-in user and course code. | A `reviews` collection linked to Users and courses remains planned. |
+| Sitemap | Generated from registered routes, active MongoDB Discussions, and the current Blog and Review data. | Implemented as a derived view. It does not require its own collection. |
 
-The collections below form the persistence contract for the now-integrated
-in-memory modules. Some production-oriented fields are intentionally
-future-facing and would be introduced when the prototype migrates to MongoDB.
+The implemented Mongoose models and current collections are documented
+separately from the future-facing collection designs below. Planned collections
+must be confirmed with the relevant module owner before implementation.
 
 ## Full-team relationship diagram
 
@@ -39,10 +38,9 @@ erDiagram
     USER ||--o{ PRODUCT_ACTIVITY_EVENT : causes
     PRODUCT ||--o{ PRODUCT_ACTIVITY_EVENT : records
 
-    USER ||--o{ FORUM_THREAD : creates
-    FORUM_THREAD ||--|{ FORUM_POST : contains
-    USER ||--o{ FORUM_POST : authors
-    FORUM_POST o|--o{ FORUM_POST : parent_of
+    USER ||--o{ DISCUSSION : authors
+    USER ||--o{ REPLY : authors
+    DISCUSSION ||--o{ REPLY : receives
 
     USER ||--o{ BLOG_POST : authors
     BLOG_POST ||--o{ BLOG_COMMENT : receives
@@ -55,14 +53,17 @@ erDiagram
         ObjectId _id PK
         string username UK
         string studentId UK
+        string name
         string email UK
         string passwordHash
-        string passwordSalt
-        string name
         string description
         string avatarUrl
+        string course
         string role
         string status
+        date lastActiveAt
+        date lockedAt
+        date deactivatedAt
         date createdAt
         date updatedAt
     }
@@ -130,28 +131,29 @@ erDiagram
         date occurredAt
     }
 
-    FORUM_THREAD {
+    DISCUSSION {
         ObjectId _id PK
-        ObjectId authorUserId FK
-        string slug UK
-        string subject
-        date firstPostAt
-        date lastPostAt
-        date createdAt
-        date updatedAt
-    }
-
-    FORUM_POST {
-        ObjectId _id PK
-        ObjectId threadId FK
-        ObjectId parentPostId FK
-        ObjectId authorUserId FK
         string title
         string content
-        string imageUrl
+        string image
+        ObjectId authorId FK
         date createdAt
         date updatedAt
         date deletedAt
+        ObjectId deletedBy FK
+    }
+
+    REPLY {
+        ObjectId _id PK
+        string title
+        string content
+        string image
+        ObjectId authorId FK
+        ObjectId discussionId FK
+        date createdAt
+        date updatedAt
+        date deletedAt
+        ObjectId deletedBy FK
     }
 
     BLOG_POST {
@@ -225,16 +227,21 @@ record, ownership rule, and account status.
 
 #### `users`
 
-- Store `username` and `email` in normalized lowercase form so unique indexes
-  enforce case-insensitive uniqueness. Preserve `name` separately for display.
+- The current schema defines unique `username`, `studentId`, and `email` fields.
+  Seeded usernames and emails use normalized lowercase values.
+- `name` is stored separately for display, and `course` is shown on Forum pages.
 - `role` is `admin` or `member`.
-- `status` is `active`, `locked`, or `deactivated`. Optional audit fields include
-  `lockedAt`, `lockedByUserId`, and `deactivatedAt`.
-- The profile stores `name`, `description`, `email`, and an `avatarUrl`. Image
-  files belong in the project's image storage; MongoDB stores their URLs and
-  optional metadata rather than large Data URLs.
-- Password hashes and salts are never returned by an API. Plaintext passwords
-  are never stored.
+- `status` is `active`, `locked`, or `deactivated`. The current status fields
+  include `lockedAt` and `deactivatedAt`.
+- `lastActiveAt` records the User's latest Forum create, edit, or delete action.
+- The profile stores `name`, `description`, `email`, `avatarUrl`, and `course`.
+  MongoDB stores the avatar path rather than the image file.
+- Passwords are hashed with `bcryptjs` and stored as one `passwordHash` string.
+  Plain-text passwords and `passwordHash` values are never returned by an API.
+- `createdAt` and `updatedAt` are stored in the User document. Current update
+  routes set `updatedAt` explicitly.
+- Account routes currently remain in memory and match the Forum's MongoDB User
+  through `studentId`.
 
 #### `sessions`
 
@@ -318,29 +325,34 @@ record, ownership rule, and account status.
 - Public statistics are aggregated by product and type; user identifiers are
   never exposed in the public result.
 
-### Discussion forum collections
+### Discussion Forum collections
 
-#### `forumThreads`
+#### `discussions`
 
-- Stores the thread subject, stable slug, creator, visibility, and timestamps.
-- `firstPostAt` and `lastPostAt` are maintained from visible posts so threads can
-  be sorted efficiently by oldest or most recent post as required.
-- The initial post is stored in `forumPosts`, so it has the same title, content,
-  image, author, timestamp, edit, and deletion rules as every reply.
+- Each Discussion stores `title`, `content`, a required `image` path,
+  `authorId`, and timestamps.
+- `authorId` references the shared `users` collection.
+- Uploaded JPEG and PNG files are stored in `public/uploads`. The document
+  stores only the public image path.
+- Editing updates `updatedAt`. Soft deletion sets `deletedAt` and `deletedBy`
+  without removing the document from MongoDB.
+- Public Forum and Sitemap queries exclude Discussions where `deletedAt` is set.
 
-#### `forumPosts`
+#### `replies`
 
-- Every post references its thread and author. `parentPostId` is `null` for an
-  initial/top-level post and references another post for a threaded reply.
-- Main data is `title`, `content`, `imageUrl`, `imageAlt`, author, and timestamp.
-  `updatedAt` records edits.
-- Deletion is soft: set `deletedAt`, `deletedByUserId`, and optionally
-  `deletionReason`; retain the record for auditing and render a neutral tombstone
-  when replies still exist.
-- Update/delete queries must include both `_id` and the authenticated
-  `authorUserId`. Administrative moderation is a separate authorized path.
-- Searching combines the thread-subject text index with matching post IDs;
-  filtering must omit soft-deleted post content from public results.
+- Each Reply stores `title`, `content`, a required `image` path, `authorId`,
+  `discussionId`, and timestamps.
+- `authorId` references the shared `users` collection, and `discussionId`
+  references the parent Discussion.
+- Editing updates `updatedAt`. Soft deletion sets `deletedAt` and `deletedBy`
+  without removing the document from MongoDB.
+- Replies are not nested. The current schema does not have `parentPostId` or
+  Reply-to-Reply relationships.
+- Edit and delete routes verify that the authenticated User matches `authorId`.
+- The Title filter checks the original Discussion title. The Content filter
+  checks Discussion content and active Reply content.
+- Newest sorting compares the original Discussion time with its active Reply
+  times. Oldest sorting uses the original Discussion time.
 
 ### Blog collections
 
@@ -385,10 +397,16 @@ record, ownership rule, and account status.
   decision, not an assignment requirement. Add a partial unique index only if
   the team adopts that rule.
 
-## Required indexes
+## Implemented and planned indexes
 
-The examples below use collection names from this document. Each collection may
-have only one MongoDB text index, so related searchable fields are combined.
+The unique `username`, `studentId`, and `email` indexes are created from the
+current Mongoose User schema. The current `discussions` and `replies`
+collections use MongoDB's default `_id` indexes. Other index commands in this
+section are planned designs until the relevant module owner implements and
+verifies them in MongoDB Atlas.
+
+Each collection may have only one MongoDB text index, so related searchable
+fields must be combined when a text index is added.
 
 ```javascript
 db.users.createIndex({ username: 1 }, { unique: true });
@@ -425,14 +443,13 @@ db.productActivityEvents.createIndex({ operationKey: 1 }, { unique: true });
 db.productActivityEvents.createIndex({ productId: 1, type: 1, occurredAt: -1 });
 db.productActivityEvents.createIndex({ userId: 1, productId: 1, occurredAt: -1 });
 
-db.forumThreads.createIndex({ slug: 1 }, { unique: true });
-db.forumThreads.createIndex({ subject: "text" });
-db.forumThreads.createIndex({ lastPostAt: -1 });
-db.forumThreads.createIndex({ firstPostAt: 1 });
-db.forumPosts.createIndex({ threadId: 1, createdAt: 1 });
-db.forumPosts.createIndex({ parentPostId: 1, createdAt: 1 });
-db.forumPosts.createIndex({ authorUserId: 1, updatedAt: -1 });
-db.forumPosts.createIndex({ title: "text", content: "text" });
+// Planned Forum indexes. These are not implemented yet.
+db.discussions.createIndex({ deletedAt: 1, createdAt: -1 });
+db.discussions.createIndex({ authorId: 1, updatedAt: -1 });
+db.discussions.createIndex({ title: "text", content: "text" });
+db.replies.createIndex({ discussionId: 1, deletedAt: 1, createdAt: 1 });
+db.replies.createIndex({ authorId: 1, updatedAt: -1 });
+db.replies.createIndex({ title: "text", content: "text" });
 
 db.blogPosts.createIndex({ slug: 1 }, { unique: true });
 db.blogPosts.createIndex({ authorUserId: 1, publishedAt: -1 });
@@ -467,26 +484,28 @@ response or server-side validation.
 
 ## Representative document shapes
 
-The values are illustrative. Real hashes, salts, reset tokens, session IDs, and
-payment secrets must not appear in source control.
+The values are illustrative. Real password hashes, reset tokens, session IDs,
+and payment secrets must not appear in source control.
 
 ```javascript
-// users - implemented in memory now, persisted here later
+// users - implemented MongoDB collection; Account routes still use runtime data
 {
     _id: ObjectId("66aa00000000000000000001"),
     username: "dat.pham",
     studentId: "S4221230",
-    email: "s4221230@rmit.edu.vn",
-    passwordHash: "<scrypt-hash>",
-    passwordSalt: "<random-salt>",
     name: "Dat Pham",
-    description: "RMIT Connect administrator.",
-    avatarUrl: "/uploads/profiles/dat-pham.jpg",
+    email: "s4221230@rmit.edu.vn",
+    passwordHash: "<bcrypt-password-hash>",
+    description: "RMIT Connect administrator and student community organiser.",
+    avatarUrl: "/images/user_icon.png",
+    course: "Bachelor of Business",
     role: "admin",
     status: "active",
-    lastActiveAt: ISODate("2026-08-15T08:30:00Z"),
-    createdAt: ISODate("2026-07-01T08:00:00Z"),
-    updatedAt: ISODate("2026-08-15T08:30:00Z")
+    lastActiveAt: ISODate("2026-08-19T04:05:00Z"),
+    lockedAt: null,
+    deactivatedAt: null,
+    createdAt: ISODate("2026-08-02T02:00:00Z"),
+    updatedAt: ISODate("2026-08-02T02:00:00Z")
 }
 
 // products - fixed catalogue data plus a rebuildable statistics projection
@@ -561,29 +580,31 @@ payment secrets must not appear in source control.
     pricePaidVnd: 95000
 }
 
-// forumThreads and forumPosts - posts hold both initial content and replies
+// discussions - implemented MongoDB collection
 {
     _id: ObjectId("670000000000000000000001"),
-    authorUserId: ObjectId("66aa00000000000000000001"),
-    slug: "welcome-to-peer-coding",
-    subject: "Welcome to peer coding",
-    visibility: "public",
-    firstPostAt: ISODate("2026-08-16T08:00:00Z"),
-    lastPostAt: ISODate("2026-08-16T09:15:00Z"),
-    createdAt: ISODate("2026-08-16T08:00:00Z"),
-    updatedAt: ISODate("2026-08-16T09:15:00Z")
+    title: "Where is a quiet place to study on campus?",
+    content: "Is there a quiet study area with charging points?",
+    image: "/images/RMIT_campus.png",
+    authorId: ObjectId("66aa00000000000000000001"),
+    createdAt: ISODate("2026-08-18T09:15:00Z"),
+    updatedAt: ISODate("2026-08-18T09:15:00Z"),
+    deletedAt: null,
+    deletedBy: null
 }
+
+// replies - implemented MongoDB collection
 {
     _id: ObjectId("670000000000000000000002"),
-    threadId: ObjectId("670000000000000000000001"),
-    parentPostId: null,
-    authorUserId: ObjectId("66aa00000000000000000001"),
-    title: "First workshop topic",
-    content: "Which accessibility topic should we practise first?",
-    imageUrl: "/uploads/forum/accessibility-notes.jpg",
-    imageAlt: "Handwritten accessibility workshop notes",
-    createdAt: ISODate("2026-08-16T08:00:00Z"),
-    updatedAt: ISODate("2026-08-16T08:00:00Z")
+    title: "Library study area",
+    content: "The library has quiet study areas and charging points.",
+    image: "/images/RMIT_campus.png",
+    authorId: ObjectId("66aa00000000000000000001"),
+    discussionId: ObjectId("670000000000000000000001"),
+    createdAt: ISODate("2026-08-18T09:28:00Z"),
+    updatedAt: ISODate("2026-08-18T09:28:00Z"),
+    deletedAt: null,
+    deletedBy: null
 }
 
 // blogPosts and blogComments - preview fields support list view
@@ -648,12 +669,14 @@ payment secrets must not appear in source control.
    item, add a `moved_to_cart` event, and update/rebuild cached statistics.
 5. For checkout, atomically create the purchase and item snapshots, remove or
    update cart rows, add `purchased` events, and return the completed order.
-6. For a new forum thread, atomically create its thread record and initial post.
-   Reply creation and soft deletion update the thread's first/last visible-post
-   timestamps in the same transaction.
-7. Blog, forum, and review mutations include the authenticated author's ID in
-   the write predicate. A successful lookup followed by an unscoped update is
-   not sufficient ownership protection.
+6. Creating a Discussion inserts one document into `discussions`. Creating a
+   Reply inserts one document into `replies` with its `discussionId`. Soft
+   deletion updates `deletedAt` and `deletedBy`. The related User activity update
+   is currently a separate operation, not a MongoDB transaction.
+7. Current Forum routes derive the User from the authenticated session and
+   compare `authorId` before an edit or delete. A future repository update may
+   include both `_id` and `authorId` in the write predicate. Blog and Review
+   authorization must follow each module owner's confirmed implementation.
 8. Use `operationKey` or an equivalent idempotency token for retried transitions,
    then commit. Abort the transaction if any operation fails.
 9. Re-read and return the authenticated user's current state after commit rather
@@ -664,51 +687,49 @@ All active sessions for the target are removed or denied as part of that change.
 
 ## Sitemap persistence decision
 
-The sitemap does **not** need its own MongoDB collection. It is a derived view,
-not authoritative business data:
+The Sitemap does not need its own MongoDB collection because it is generated
+from existing routes and content.
 
-- Discover static/public HTML pages from the server's route registry or build
-  manifest rather than maintaining a second hard-coded list.
-- Query public forum threads/posts, public blog posts, catalogue products, and
-  any other public detail routes from their source collections.
-- Combine those results into a hierarchical, clickable HTML response on each
-  request, or cache it briefly and invalidate the cache after public content
-  changes.
-- Exclude drafts, soft-deleted content, account-only pages, and administration
-  routes for users who cannot access them.
+- Static navigation and account links are defined in `views/sitemap.ejs`.
+- `showSitemap()` queries MongoDB for Discussions where `deletedAt` is `null`.
+- The current active Blog data and Review data are passed from their existing
+  runtime stores.
+- Each active Discussion is displayed with its title and a link using its
+  MongoDB `_id`.
+- The Sitemap EJS view builds the clickable HTML response for each request.
 
-Persisting a sitemap document would create a stale duplicate. If a generated
-XML/HTML file is cached for deployment, it remains a rebuildable artifact rather
-than a source-of-truth collection.
+Persisting a separate Sitemap document would duplicate existing route and
+content data and could become outdated.
 
-## Assessment 2 to persistent mapping
+## Assessment 2 to Assessment 3 persistence mapping
 
-| Current in-memory structure | MongoDB destination | Migration note |
+| Assessment 2 or runtime structure | Assessment 3 destination or status | Migration note |
 | --- | --- | --- |
-| `users` array | `users` | Split password fields as needed; normalize username/email; retain role/status |
-| Product template/`products` array | `products` | Convert string IDs to slugs/ObjectIds; treat seeded stats as a cache only |
-| `wishlist` array | `wishlistEntries` | Preserve unique user-product ownership and timestamps |
-| `cart` array | `cartItems` | Add bounded quantity, validated selected options, and a configuration key |
-| `purchases` array | `purchases` plus `purchaseItems` | Expand the current one-product history into immutable order snapshots |
-| Express `MemoryStore` | `sessions` | Use a durable compatible session store with TTL expiry |
-| No current event history | `productActivityEvents` | Required for accurate all-time add/cart/purchase statistics |
-| Teammate module data after merge | Forum/blog/review collections above | Adapt route services to this shared ownership/reference contract |
+| Account users in `modules/account/src/data.js` | Shared `users` collection implemented for Forum use | Both stores use bcrypt `passwordHash`. Account routes still require migration and currently match the MongoDB User through `studentId`. |
+| Discussion and Reply arrays in `forum-data.js` | `discussions` and `replies` | Migration completed with ObjectId references, image paths, timestamps, and soft deletion. `forum-data.js` remains only for the temporary Account user adapter. |
+| Product template/`products` array | Planned `products` | Convert string IDs to slugs/ObjectIds and treat seeded statistics as a cache only. |
+| `wishlist` array | Planned `wishlistEntries` | Preserve unique User-Product ownership and timestamps. |
+| `cart` array | Planned `cartItems` | Add bounded quantity, validated selected options, and a configuration key. |
+| `purchases` array | Planned `purchases` and `purchaseItems` | Expand the current one-product history into immutable order snapshots. |
+| Express `MemoryStore` | Planned `sessions` | Use a durable compatible session store with TTL expiry. |
+| No current event history | Planned `productActivityEvents` | Required for accurate all-time add, cart, and purchase statistics. |
+| Blog runtime data | Planned `blogPosts` and `blogComments` | Confirm the final fields and migration with the Blog module owner. |
+| Review runtime data | Planned `reviews` | Confirm the final fields and migration with the Review module owner. |
+| Dynamic Sitemap inputs | No collection required | Read active Discussions from MongoDB and combine them with current route and module data. |
 
-Browser/API contracts can remain stable while repository functions replace
-direct array access. This keeps client modules independent of the storage
-technology and lets the team migrate one service at a time.
+The existing Forum page and form routes were retained while Discussion and
+Reply persistence moved from arrays to Mongoose models. Other modules can use
+the same staged approach after their owners confirm the final fields and
+relationships.
 
-## Assumptions requiring team confirmation
+## Remaining assumptions requiring team confirmation
 
-- Product images and uploaded content are stored as files or object-storage
-  objects; MongoDB stores URLs and metadata, matching the assignment rule.
-- Blog comments are persisted because the required detail view displays them,
-  even though separate comment CRUD is not explicitly graded.
-- Forum deletions are soft because the brief explicitly requires deleted posts
-  to remain in the database for auditing.
-- Reviews use purchase history (or a separately documented usage entitlement)
-  to prove that the reviewer purchased or used the product.
-- One active review per user-product pair is optional. The team must decide and
+- The final storage method for Product, Blog, and Review images requires
+  confirmation from the relevant module owners. The Forum currently stores
+  uploaded files in `public/uploads` and saves their public paths in MongoDB.
+- Blog comments are planned for persistence because the detail view displays
+  them, but the Blog module owner must confirm the final fields and CRUD scope.
+- Reviews may use purchase history or another documented entitlement to verify
+  product use. The Review module owner must confirm the final rule.
+- One active Review per User-Product pair is optional. The team must decide and
   document that policy before adding a unique index.
-- Sitemap links are derived from route metadata and public records, so no
-  dedicated sitemap collection is created.

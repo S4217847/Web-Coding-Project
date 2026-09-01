@@ -21,18 +21,33 @@
             <li><a href="/discussions" aria-current="page">Discussion Forum</a></li>
             <li><a href="/blogs">Blogs</a></li>
             <li><a href="/reviews/browse">Reviews</a></li>
-            <li><a href="/wishlist">Favourites</a></li>
+            <li><a href="/wishlist">Favorites</a></li>
             <li><a href="/editprofile.html">Profile settings</a></li>
           </ul>
         </nav>
       </div>
 
       <div class="middle">
+        <div class="discussion-heading">
+          <h1>Discussion Forum</h1>
+          <button
+            id="show-post-form-button"
+            class="show-post-form-button"
+            type="button"
+            aria-controls="post-form"
+            aria-expanded="false"
+          >
+            <img src="/images/icons/plus.png" alt="" />
+            <span>Start a discussion</span>
+          </button>
+        </div>
+
         <form
           id="post-form"
-          class="postbox"
+          class="postbox postbox-hidden"
           method="post"
           action="/discussions"
+          enctype="multipart/form-data"
         >
           <label for="post-title">Post title</label>
 
@@ -49,12 +64,13 @@
 
           <label for="post-image">Post image</label>
 
-          <select id="post-image" name="postImage" required>
-            <option value="" selected>Choose an image</option>
-            <option value="/images/peer-workshop.jpg">Peer Workshop</option>
-            <option value="/images/RMIT_campus.png">RMIT Campus</option>
-            <option value="/images/saigonview.jpg">Saigon View</option>
-          </select>
+          <input
+            type="file"
+            id="post-image"
+            name="postImage"
+            accept="image/jpeg, image/png"
+            required
+          />
 
           <div class="error" id="image-error-text"></div>
 
@@ -76,7 +92,9 @@
         </form>
 
         <section class="discussion-list">
-          <h1>Discussion Forum</h1>
+          <% if (discussionMessage) { %>
+            <p class="discussion-delete-message"><%= discussionMessage %></p>
+          <% } %>
 
           <form
             id="discussion-filter-form"
@@ -121,7 +139,13 @@
           </p>
 
           <% discussions.forEach(function(discussion, i) { %>
-            <article class="discussion-post" data-created-at="<%= discussion.createdAt.getTime() %>">
+            <article
+              class="discussion-post"
+              data-title-search="<%= titleSearchTexts[i] %>"
+              data-content-search="<%= contentSearchTexts[i] %>"
+              data-created-at="<%= discussion.createdAt.getTime() %>"
+              data-latest-activity="<%= latestActivityTimes[i] %>"
+            >
               <div class="discussion-post-header">
                 <div class="user-info">
                   <img
