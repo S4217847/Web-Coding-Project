@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Account Deactivated | RMIT Connect</title>
+    <link rel="stylesheet" href="/css/common.css" />
+    <link rel="stylesheet" href="/css/deactivate.css" />
+    <link rel="stylesheet" href="/css/navigation.css" />
+  </head>
+
+  <body id="top">
+    <%- include("partials/global-navigation", {
+      activePage: "account",
+      sessionAction: "login"
+    }) %>
+
+    <main id="main-content" class="common-account-result-page">
+      <div class="common-account-result-card">
+        <h1>Account Deactivated</h1>
+
+        <p class="common-account-result-text">
+          Your RMIT Connect account has been deactivated.
+        </p>
+
+        <p class="common-account-result-message">
+          You cannot log in or access your account while it is deactivated.
+        </p>
+
+        <p class="account-help">
+          <a href="/" class="common-link">Back to Home</a>
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

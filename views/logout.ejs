@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Logged Out | RMIT Connect</title>
+    <link rel="stylesheet" href="/css/common.css" />
+    <link rel="stylesheet" href="/css/logout.css" />
+    <link rel="stylesheet" href="/css/navigation.css" />
+  </head>
+
+  <body id="top">
+    <%- include("partials/global-navigation", {
+      activePage: "account",
+      sessionAction: "login"
+    }) %>
+
+    <main id="main-content" class="common-account-result-page">
+      <div class="common-account-result-card">
+        <h1>You have been logged out.</h1>
+
+        <p class="common-account-result-text">
+          Thank you for using RMIT Connect. You can log in again whenever you
+          are ready.
+        </p>
+
+        <div class="logout-link">
+          <p>
+            <a href="/login.html" class="common-link">Log in again</a>
+          </p>
+
+          <p>
+            <a href="/" class="common-link">Back to Home</a>
+          </p>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

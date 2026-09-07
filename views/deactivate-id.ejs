@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deactivate Account | RMIT Connect</title>
+    <link rel="stylesheet" href="/css/common.css" />
+    <link rel="stylesheet" href="/css/deactivate.css" />
+    <link rel="stylesheet" href="/css/navigation.css" />
+  </head>
+
+  <body id="top">
+    <%- include("partials/global-navigation", {
+      activePage: "profile",
+      sessionAction: "logout"
+    }) %>
+
+    <main id="main-content" class="deactivate-page">
+      <div class="deactivate-card">
+        <h1>Deactivate Account</h1>
+
+        <p class="deactivate-text">
+          You are about to deactivate your RMIT Connect account.
+        </p>
+
+        <p class="deactivate-warning">
+          You will not be able to log in or access your account while it is
+          deactivated.
+        </p>
+
+        <form
+          id="deactivate-form"
+          class="deactivate-form"
+          action="/deactivate-account"
+          method="post"
+        >
+          <label class="deactivate-checkbox">
+            <input
+              id="deactivate-id-confirm"
+              name="deactivate-id-confirm"
+              type="checkbox"
+               value="confirmed"
+              required
+            />
+            I understand that my account will be deactivated.
+          </label>
+
+          <div class="error" id="deactivate-error-text">
+            <%= deactivateError %>
+          </div>
+
+          <button class="deactivatebutton" type="submit">
+            Deactivate Account
+          </button>
+        </form>
+
+        <p class="account-help">
+          <a href="/" class="common-link">Cancel</a>
+        </p>
+      </div>
+    </main>
+    <script src="/js/deactivate.js"></script>
+  </body>
+</html>

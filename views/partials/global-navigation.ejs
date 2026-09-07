@@ -1,0 +1,35 @@
+<a class="skipLink" href="#main-content">Skip to main content</a>
+
+<header class="globalHeader">
+  <a class="globalLogo" href="/">RMIT CONNECT</a>
+
+  <nav class="globalNav" aria-label="Main navigation">
+    <ul>
+      <li>
+        <a href="/" <% if (activePage === "home") { %>aria-current="page"<% } %>>Home</a>
+      </li>
+      <li>
+        <a href="/discussions" <% if (activePage === "discussions") { %>aria-current="page"<% } %>>Discussions</a>
+      </li>
+      <li>
+        <a href="/blogs" <% if (activePage === "blogs") { %>aria-current="page"<% } %>>Blogs</a>
+      </li>
+      <li>
+        <a href="/reviews/browse" <% if (activePage === "reviews") { %>aria-current="page"<% } %>>Reviews</a>
+      </li>
+      <li>
+        <a href="/wishlist" <% if (activePage === "wishlist") { %>aria-current="page"<% } %>>Wishlist</a>
+      </li>
+      <li>
+        <a href="/editprofile.html" <% if (activePage === "profile") { %>aria-current="page"<% } %>>Profile</a>
+      </li>
+      <li>
+        <% if (sessionAction === "logout") { %>
+          <a class="globalSessionLink" href="/logout">Log out</a>
+        <% } else { %>
+          <a class="globalSessionLink" href="/login.html">Log in</a>
+        <% } %>
+      </li>
+    </ul>
+  </nav>
+</header>

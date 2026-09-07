@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= pageTitle %> | RMIT Connect</title>
+    <link rel="stylesheet" href="/css/common.css" />
+    <link rel="stylesheet" href="/css/discussion.css" />
+    <link rel="stylesheet" href="/css/navigation.css" />
+  </head>
+  <body id="top">
+    <%- include("partials/global-navigation", {
+      activePage: "discussions",
+      sessionAction: "logout"
+    }) %>
+
+    <main id="main-content" class="page">
+      <div class="leftbar">
+        <nav class="menu-card" aria-label="Explore RMIT Connect">
+          <ul>
+            <li><a href="/discussions" aria-current="page">Discussion Forum</a></li>
+            <li><a href="/blogs">Blogs</a></li>
+            <li><a href="/reviews/browse">Reviews</a></li>
+            <li><a href="/wishlist">Favourites</a></li>
+            <li><a href="/editprofile.html">Profile settings</a></li>
+          </ul>
+        </nav>
+      </div>
+
+      <div class="middle">
+        <section class="discussion-detail">
+          <a class="back-link" href="/discussions">Back to discussions</a>
+          <h1>Discussion Forum</h1>
+
+          <article class="discussion-post">
+            <div class="discussion-post-header">
+              <div class="user-info">
+                <img
+                  class="user-avatar"
+                  src="<%= author.profileImage %>"
+                  alt="Profile image of <%= author.username %>"
+                />
+                <div>
+                  <p class="post-author"><%= author.username %></p>
+                  <p class="post-course"><%= author.course %></p>
+                </div>
+              </div>
+              <p class="post-time"><%= discussion.createdAt %></p>
+            </div>
+            <h2><%= discussion.title %></h2>
+            <img
+              class="post-image"
+              src="<%= discussion.image %>"
+              alt="<%= discussion.title %>"
+            />
+            <p class="post-content"><%= discussion.content %></p>
+            <div class="discussion-post-footer">
+              <span><%= replies.length %> replies</span>
+              <% if (isAuthor) { %>
+                <form
+                  method="get"
+                  action="/discussions/<%= discussion._id %>/edit"
+                >
+                  <button class="postbtn" type="submit">Edit discussion</button>
+                </form>
+
+                <form
+                  method="post"
+                  action="/discussions/<%= discussion._id %>/delete"
+                >
+                  <button class="postbtn" type="submit">Delete discussion</button>
+                </form>
+              <% } %>
+            </div>
+          </article>
+
+          <section class="reply-list">
+            <h2>Replies</h2>
+
+            <% replies.forEach(function(reply, i) { %>
+              <article class="reply-card">
+                <div class="reply-header">
+                  <div class="user-info">
+                    <img
+                      class="user-avatar"
+                      src="<%= replyAuthors[i].profileImage %>"
+                      alt="Profile image of <%= replyAuthors[i].username %>"
+                    />
+                    <div>
+                      <p class="post-author"><%= replyAuthors[i].username %></p>
+                      <p class="post-course"><%= replyAuthors[i].course %></p>
+                    </div>
+                  </div>
+                  <p class="post-time"><%= reply.createdAt %></p>
+                </div>
+
+                <h3 class="reply-title"><%= reply.title %></h3>
+
+                <img
+                  class="reply-image"
+                  src="<%= reply.image %>"
+                  alt="<%= reply.title %>"
+                />
+
+                <p class="reply-content"><%= reply.content %></p>
+
+                <% if (isMyReply[i]) { %>
+                  <div class="postfooter">
+                    <form
+                      method="get"
+                      action="/discussions/<%= discussion._id %>/replies/<%= reply._id %>/edit"
+                    >
+                      <button class="postbtn" type="submit">Edit reply</button>
+                    </form>
+
+                    <form
+                      method="post"
+                      action="/discussions/<%= discussion._id %>/replies/<%= reply._id %>/delete"
+                    >
+                      <button class="postbtn" type="submit">Delete reply</button>
+                    </form>
+                  </div>
+                <% } %>
+              </article>
+            <% }); %>
+          </section>
+
+          <form id="reply-form" class="reply-box" method="post" action = "/discussions/<%= discussion._id %>/replies">
+            <h2>Write a reply</h2>
+
+            <label for="reply-title">Reply Title</label>
+
+            <input
+              id="reply-title"
+              name="replyTitle"
+              type="text"
+              placeholder="Enter the reply title"
+              maxlength="100"
+              required
+            />
+
+            <div class="error" id="reply-title-error-text"></div>
+
+            <label for="reply-image">Reply image</label>
+
+            <select id="reply-image" name="replyImage" required>
+              <option value="" selected>Choose an image</option>
+              <option value="peer-workshop.jpg">Peer Workshop</option>
+              <option value="RMIT_campus.png">RMIT Campus</option>
+              <option value="saigonview.jpg">Saigon View</option>
+            </select>
+
+            <div class="error" id="reply-image-error-text"></div>
+
+            <label for="reply-content">Reply Content</label>
+
+            <textarea
+              id="reply-content"
+              name="replyContent"
+              placeholder="Write a reply..."
+              maxlength="1000"
+              required
+            ></textarea>
+
+            <div class="error" id="reply-error-text"></div>
+
+            <div class="postfooter">
+              <button class="postbtn" type="submit">Reply</button>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      <div class="rightbar">
+        <div class="itembar">
+          <div class="itemtitle">Upcoming Events</div>
+          <div class="eventitem">
+            <span class="eventdate">Jul #</span> - Coding Contest
+          </div>
+          <div class="eventitem">
+            <span class="eventdate">Jul #</span> - Something Contest
+          </div>
+          <div class="eventitem">
+            <span class="eventdate">Jul #</span> - Contest Contest
+          </div>
+        </div>
+
+        <div class="itembar">
+          <div class="itemtitle">Friends Online</div>
+          <div class="frienditem">
+            <div class="friendavatar"></div>
+            <div class="friendname">Kim</div>
+          </div>
+          <div class="frienditem">
+            <div class="friendavatar"></div>
+            <div class="friendname">Dat</div>
+          </div>
+          <div class="frienditem">
+            <div class="friendavatar"></div>
+            <div class="friendname">Jay Nguyen</div>
+          </div>
+        </div>
+      </div>
+    </main>
+    <script src="/js/discussion-detail.js"></script>
+  </body>
+</html>

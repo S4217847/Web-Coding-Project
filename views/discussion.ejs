@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= pageTitle %> | RMIT Connect</title>
+    <link rel="stylesheet" href="/css/common.css" />
+    <link rel="stylesheet" href="/css/discussion.css" />
+    <link rel="stylesheet" href="/css/navigation.css" />
+  </head>
+  <body id="top">
+    <%- include("partials/global-navigation", {
+      activePage: "discussions",
+      sessionAction: "logout"
+    }) %>
+
+    <main id="main-content" class="page">
+      <div class="leftbar">
+        <nav class="menu-card" aria-label="Explore RMIT Connect">
+          <ul>
+            <li><a href="/discussions" aria-current="page">Discussion Forum</a></li>
+            <li><a href="/blogs">Blogs</a></li>
+            <li><a href="/reviews/browse">Reviews</a></li>
+            <li><a href="/wishlist">Favourites</a></li>
+            <li><a href="/editprofile.html">Profile settings</a></li>
+          </ul>
+        </nav>
+      </div>
+
+      <div class="middle">
+        <form
+          id="post-form"
+          class="postbox"
+          method="post"
+          action="/discussions"
+        >
+          <label for="post-title">Post title</label>
+
+          <input
+            id="post-title"
+            name="postTitle"
+            type="text"
+            placeholder="Enter a discussion title"
+            maxlength="100"
+            required
+          />
+
+          <div class="error" id="title-error-text"></div>
+
+          <label for="post-image">Post image</label>
+
+          <select id="post-image" name="postImage" required>
+            <option value="" selected>Choose an image</option>
+            <option value="/images/peer-workshop.jpg">Peer Workshop</option>
+            <option value="/images/RMIT_campus.png">RMIT Campus</option>
+            <option value="/images/saigonview.jpg">Saigon View</option>
+          </select>
+
+          <div class="error" id="image-error-text"></div>
+
+          <label for="post-content">Post content</label>
+
+          <textarea
+            id="post-content"
+            name="postContent"
+            placeholder="Start a discussion with RMIT Connect..."
+            maxlength="1000"
+            required
+          ></textarea>
+
+          <div class="error" id="content-error-text"></div>
+
+          <div class="postfooter">
+            <button class="postbtn" type="submit">Post</button>
+          </div>
+        </form>
+
+        <section class="discussion-list">
+          <h1>Discussion Forum</h1>
+
+          <form
+            id="discussion-filter-form"
+            class="discussion-filter"
+            method="get"
+            action="/discussions"
+          >
+            <div class="discussion-search">
+              <label for="search-discussion">Search discussions</label>
+
+              <input
+                id="search-discussion"
+                name="search"
+                type="text"
+                placeholder="Enter the keyword"
+              />
+            </div>
+
+            <div class="discussion-option">
+              <label for="filterby">Filter by</label>
+
+              <select id="filterby" name="filterby">
+                <option value="title">Title</option>
+                <option value="content">Content</option>
+              </select>
+            </div>
+
+            <div class="discussion-option">
+              <label for="sortby">Sort by</label>
+
+              <select id="sortby" name="sortby">
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+              </select>
+            </div>
+
+            <button class="searchbutton" type="submit">Search</button>
+          </form>
+
+          <p class="no-discussions" id="no-discussions" hidden>
+            No discussions found.
+          </p>
+
+          <% discussions.forEach(function(discussion, i) { %>
+            <article class="discussion-post" data-created-at="<%= discussion.createdAt.getTime() %>">
+              <div class="discussion-post-header">
+                <div class="user-info">
+                  <img
+                    class="user-avatar"
+                    src="<%= authors[i].profileImage %>"
+                    alt="Profile image of <%= authors[i].username %>"
+                  />
+                  <div>
+                    <p class="post-author"><%= authors[i].username %></p>
+                    <p class="post-course"><%= authors[i].course %></p>
+                  </div>
+                </div>
+
+                <p class="post-time"><%= discussion.createdAt %></p>
+              </div>
+
+              <h2><%= discussion.title %></h2>
+
+              <img
+                class="post-image"
+                src="<%= discussion.image %>"
+                alt="<%= discussion.title %>"
+              />
+
+              <p class="post-content"><%= discussion.content %></p>
+
+              <div class="discussion-post-footer">
+                <span><%= replyCounts[i] %> replies</span>
+                <a href="/discussions/<%= discussion._id %>">View discussion</a>
+              </div>
+            </article>
+          <% }); %>
+        </section>
+      </div>
+
+      <div class="rightbar">
+        <div class="itembar">
+          <div class="itemtitle">Upcoming Events</div>
+          <div class="eventitem">
+            <span class="eventdate">Jul #</span> - Coding Contest
+          </div>
+          <div class="eventitem">
+            <span class="eventdate">Jul #</span> - Something Contest
+          </div>
+          <div class="eventitem">
+            <span class="eventdate">Jul #</span> - Contest Contest
+          </div>
+        </div>
+
+        <div class="itembar">
+          <div class="itemtitle">Friends Online</div>
+          <div class="frienditem">
+            <div class="friendavatar"></div>
+            <div class="friendname">Kim</div>
+          </div>
+          <div class="frienditem">
+            <div class="friendavatar"></div>
+            <div class="friendname">Dat</div>
+          </div>
+          <div class="frienditem">
+            <div class="friendavatar"></div>
+            <div class="friendname">Jay Nguyen</div>
+          </div>
+        </div>
+      </div>
+    </main>
+    <script src="/js/discussion.js"></script>
+  </body>
+</html>

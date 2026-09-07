@@ -1,0 +1,16 @@
+/* ------------------ Logout ------------------ */
+
+.logout-link {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+}
+
+/* ------------------ Responsive ------------------ */
+
+@media (max-width: 800px) {
+  .logout-link {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

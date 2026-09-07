@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blog Post | RMIT Connect</title>
+    <link rel="stylesheet" href="/css/navigation.css" />
+    <link rel="stylesheet" href="/css/blog.css" />
+  </head>
+
+  <body>
+    <%- include("partials/global-navigation", {
+      activePage: "blogs",
+      sessionAction: "logout"
+    }) %>
+
+    <main class="page" id="main-content">
+      <aside class="leftbar" aria-label="Explore RMIT Connect">
+        <nav class="menu-card" aria-label="Explore">
+          <ul>
+            <li><a href="/blogs" aria-current="page">All blogs</a></li>
+            <li><a href="/discussions">Discussions</a></li>
+            <li><a href="/reviews/browse">Reviews</a></li>
+            <li><a href="/wishlist">Wishlist</a></li>
+            <li><a href="/sitemap">Sitemap</a></li>
+          </ul>
+        </nav>
+      </aside>
+
+      <section class="middle" aria-labelledby="blog-post-title">
+        <form
+          id="blog-search-form"
+          class="searchbar"
+          action="/blogs"
+          method="get"
+          role="search"
+        >
+          <label class="text-label" for="blog-search">Search blogs</label>
+          <input
+            id="blog-search"
+            class="search-input"
+            name="q"
+            type="search"
+            placeholder="Search blogs..."
+          />
+          <label class="text-label" for="search-category">Search field</label>
+          <select
+            id="search-category"
+            class="search-categories"
+            name="field"
+            aria-label="Search field"
+          >
+            <option value="all">All fields</option>
+            <option value="name">Author</option>
+            <option value="id">Student ID</option>
+            <option value="title">Title</option>
+            <option value="content">Content</option>
+            <option value="category">Category</option>
+            <option value="tags">Tags</option>
+          </select>
+          <button class="search-submit" type="submit">Search</button>
+        </form>
+
+        <div class="contentbox">
+          <article class="main-content blog">
+            <a href="/blogs" class="back-btn">&larr; Back to Blogs</a>
+            <p class="list-status" id="blog-detail-status" aria-live="polite">Loading blog...</p>
+
+            <div id="blog-detail" hidden>
+              <div class="detail-actions" id="detail-actions" hidden>
+                <button class="detail-edit-btn" id="detail-edit" type="button">Edit</button>
+                <button class="detail-delete-btn" id="detail-delete" type="button">Delete</button>
+              </div>
+
+              <h1 class="blog-title" id="blog-post-title">Blog title</h1>
+              <div class="blog-info">
+                <div class="writer-details">
+                  <span class="author" id="blog-author"></span>
+                  <span aria-hidden="true">|</span>
+                  <time class="date" id="blog-date"></time>
+                </div>
+                <div class="blog-tags" id="blog-detail-tags" aria-label="Blog tags"></div>
+              </div>
+
+              <p><strong>Category:</strong> <span id="blog-detail-category"></span></p>
+              <div class="article-content">
+                <p id="blog-detail-content"></p>
+                <img class="article-bottom-image" id="blog-detail-image" src="" alt="" />
+              </div>
+            </div>
+
+            <section class="comments" aria-labelledby="comments-title">
+              <h2 id="comments-title">Comments</h2>
+
+              <form
+                class="comment-form"
+                id="comment-form"
+                action=""
+                method="post"
+                novalidate
+              >
+                <label for="comment-text">Leave a comment</label>
+                <textarea
+                  id="comment-text"
+                  name="comment"
+                  rows="4"
+                  placeholder="Write your comment here..."
+                  minlength="2"
+                  maxlength="500"
+                  aria-describedby="comment-error"
+                  required
+                ></textarea>
+                <div class="comment-actions">
+                  <small class="field-error" id="comment-error" aria-live="polite"></small>
+                  <button type="submit">Post comment</button>
+                </div>
+                <p class="form-status" id="comment-status" aria-live="polite"></p>
+              </form>
+
+              <div class="comment-list" id="comment-list" aria-live="polite"></div>
+            </section>
+          </article>
+        </div>
+      </section>
+
+      <aside class="rightbar" aria-label="Blog help">
+        <section class="itembar">
+          <h2 class="itemtitle">Explore</h2>
+          <ul class="quick-links">
+            <li><a href="/discussions">Join a discussion</a></li>
+            <li><a href="/reviews/browse">Browse reviews</a></li>
+            <li><a href="/wishlist/add">Browse items</a></li>
+          </ul>
+        </section>
+
+        <section class="itembar">
+          <h2 class="itemtitle">Community reminder</h2>
+          <p class="tip-text">Keep comments constructive and relevant to the post.</p>
+        </section>
+      </aside>
+    </main>
+
+    <script src="/js/blog.js" defer></script>
+  </body>
+</html>

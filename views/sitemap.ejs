@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= pageTitle %> | RMIT Connect</title>
+    <link rel="stylesheet" href="/css/sitemap.css" />
+    <link rel="stylesheet" href="/css/navigation.css" />
+  </head>
+
+  <body id="top">
+    <%- include("partials/global-navigation", {
+      activePage: "sitemap",
+      sessionAction: "login"
+    }) %>
+
+    <section class="pageBanner">
+      <div class="pageBannerInner">
+        <h1 class="pageTitle">Site Map</h1>
+        <p class="pageSubtitle">
+          A full overview of the current pages, discussion threads, blog posts and reviews on RMIT Connect.
+        </p>
+      </div>
+    </section>
+
+    <main id="main-content" class="siteMapWrapper">
+      <section class="mapSection">
+        <h2 class="mapSectionTitle">Main Navigation</h2>
+
+        <div class="groupRow">
+          <div class="groupCell">
+            <div class="linkList">
+              <a href="/">Home</a>
+              <a href="/login.html">Login</a>
+              <a href="/editprofile.html">Edit Profile</a>
+            </div>
+          </div>
+
+          <div class="groupCell">
+            <div class="linkList">
+              <a href="/discussions">Discussion Forum</a>
+              <a href="/blogs">Blog</a>
+              <a href="/reviews/browse">Reviews</a>
+            </div>
+          </div>
+
+          <div class="groupCell">
+            <div class="linkList">
+              <a href="/wishlist">Wishlist and Favourites</a>
+              <a href="/wishlist/add">Browse Items</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mapSection">
+        <h2 class="mapSectionTitle">Discussion Threads and Blog Posts</h2>
+
+        <div class="groupRow">
+          <div class="groupCell">
+            <h3 class="groupHeading">Discussion Threads</h3>
+            <div class="linkList">
+              <a href="/discussions">All Discussion Threads</a>
+              <% for (let i = 0; i < discussions.length; i += 1) { %>
+              <a href="/discussions/<%= discussions[i]._id %>"><%= discussions[i].title %></a>
+              <% } %>
+            </div>
+          </div>
+
+          <div class="groupCell">
+            <h3 class="groupHeading">Blog Posts</h3>
+            <div class="linkList">
+              <a href="/blogs">All Blog Posts</a>
+              <% for (let i = 0; i < blogs.length; i += 1) { %>
+              <a href="/blogs/<%= blogs[i].id %>"><%= blogs[i].title %></a>
+              <% } %>
+            </div>
+          </div>
+
+          <div class="groupCell">
+            <h3 class="groupHeading">Reviews</h3>
+            <div class="linkList">
+              <a href="/reviews/browse">All Reviews</a>
+              <% for (let i = 0; i < reviews.length; i += 1) { %>
+              <a href="/reviews/<%= reviews[i].id %>"><%= reviews[i].title %></a>
+              <% } %>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mapSection">
+        <h2 class="mapSectionTitle">Account Actions</h2>
+
+        <div class="groupRow">
+          <div class="groupCell">
+            <h3 class="groupHeading">Password</h3>
+            <div class="linkList">
+              <a href="/forgot-password">Forgot Password</a>
+            </div>
+          </div>
+
+          <div class="groupCell">
+            <h3 class="groupHeading">Account</h3>
+            <div class="linkList">
+              <a href="/editprofile.html">Edit Profile</a>
+              <a href="/admin.html">Administration</a>
+              <a href="/deactivate-account">Deactivate Account</a>
+            </div>
+          </div>
+
+          <div class="groupCell">
+            <h3 class="groupHeading">Session</h3>
+            <div class="linkList">
+              <a href="/logout">Log out</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

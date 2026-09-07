@@ -1,0 +1,21 @@
+{
+  "name": "rmit-connect",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "RMIT Connect full-stack assessment project",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node tests/api.test.js",
+    "check": "node tests/static-check.js && node tests/api.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "express-session": "^1.18.1"
+  }
+}
