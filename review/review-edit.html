@@ -23,29 +23,20 @@
     </header>
 
     <main>
-
-        <div class="pageBanner">
-            <div class="pageBannerInner">
-                <div class="pageBannerText">
-                    <h1 class="pageTitle">Reviews</h1>
-                </div>
-                <div class="pageBannerButtonCell">
-                    <a class="newReviewBtn" href="/review/review-browse.html">Browse All Reviews</a>
-                </div>
-            </div>
-        </div>
-
         <section class="section">
             <div class="sectionCard">
-                <h2 class="sectionLabel">Make a Review</h2>
-                <form class="reviewForm" data-mode="create" novalidate>
+
+                <a href="/review/review-browse.html" class="backLink">Back to review</a>
+
+                <h1 class="sectionLabel">Edit Review</h1>
+
+                <form class="reviewForm" data-mode="edit" novalidate>
 
                     <label for="reviewTitle">Title</label>
-                    <input id="reviewTitle" name="title" type="text" maxlength="100" required placeholder="Lorem ipsum dolor sit amet">
+                    <input id="reviewTitle" name="title" type="text" maxlength="100" required>
 
                     <label for="reviewDescription">Description</label>
-                    <textarea id="reviewDescription" name="description" maxlength="1000" required
-                        placeholder="Lorem ipsum dolor sit amet, consectetur adipiscing elit."></textarea>
+                    <textarea id="reviewDescription" name="description" maxlength="1000" required></textarea>
 
                     <label for="reviewRating">Star Rating</label>
                     <select id="reviewRating" name="rating" required>
@@ -58,32 +49,23 @@
                     </select>
 
                     <label for="reviewerName">Reviewer Name</label>
-                    <input id="reviewerName" name="reviewerName" type="text" maxlength="50" required placeholder="Your name">
+                    <input id="reviewerName" name="reviewerName" type="text" maxlength="50" required>
 
                     <label for="reviewImage">Image</label>
                     <div class="imageUploadBox">
-                        <label for="reviewImage">Drag and drop an image here, or click to upload</label>
+                        <label for="reviewImage">Current image attached. Choose a new file to replace it.</label>
                         <input id="reviewImage" name="image" type="file" accept="image/*">
                     </div>
 
                     <div class="formActions">
                         <div class="formActionsCell">
-                            <button class="btnPrimary" type="submit" disabled>Save Review</button>
+                            <button class="btnPrimary" type="submit">Save Changes</button>
                         </div>
                         <div class="formActionsCell">
-                            <button class="btnSecondary" type="reset">Cancel</button>
+                            <a class="btnSecondary" href="/review/review-browse.html">Cancel</a>
                         </div>
                     </div>
                 </form>
-            </div>
-        </section>
-
-        <section class="section">
-            <div class="sectionCard">
-                <h2 class="sectionLabel">Your Reviews</h2>
-
-                <ul class="reviewList" id="myReviewListContainer">
-                </ul>
             </div>
         </section>
 
