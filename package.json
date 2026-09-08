@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
+    "test:repository": "node --test modules/account/tests/mongo-repository-auth.test.js",
     "test": "node --test tests/integration.test.js && npm --prefix modules/account test",
     "check": "node tests/static-check.js && npm test"
   },
@@ -18,7 +19,7 @@
   "license": "ISC",
   "type": "commonjs",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19.0"
   },
   "bugs": {
     "url": "https://github.com/S4217847/Web-Coding-Project/issues"
@@ -26,11 +27,16 @@
   "homepage": "https://github.com/S4217847/Web-Coding-Project#readme",
   "dependencies": {
     "bcryptjs": "^3.0.3",
+    "connect-mongo": "^6.0.0",
     "dotenv": "^17.4.2",
     "ejs": "^6.0.1",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
     "express-session": "^1.19.0",
     "mongoose": "^9.9.4",
     "multer": "^2.3.0"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^11.2.0"
   }
 }
