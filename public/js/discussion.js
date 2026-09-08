@@ -18,8 +18,19 @@ showPostFormButton.addEventListener("click", function () {
   }
 });
 
-const savedPostTitle = localStorage.getItem("discussionPostTitle");
-const savedPostContent = localStorage.getItem("discussionPostContent");
+// Keep each account's unfinished post separate in this browser.
+const discussionUserId = discussionPostForm.getAttribute("data-user-id");
+const discussionTitleKey = "discussionPostTitle:" + discussionUserId;
+const discussionContentKey = "discussionPostContent:" + discussionUserId;
+
+// Clear the draft only after the server has saved the discussion.
+if (discussionPostForm.getAttribute("data-clear-draft") === "true") {
+  localStorage.removeItem(discussionTitleKey);
+  localStorage.removeItem(discussionContentKey);
+}
+
+const savedPostTitle = localStorage.getItem(discussionTitleKey);
+const savedPostContent = localStorage.getItem(discussionContentKey);
 
 if (savedPostTitle !== null) {
   discussionPostTitle.value = savedPostTitle;
@@ -76,12 +87,12 @@ function checkDiscussionImage() {
 
 discussionPostTitle.addEventListener("input", function () {
   checkDiscussionTitle();
-  localStorage.setItem("discussionPostTitle", discussionPostTitle.value);
+  localStorage.setItem(discussionTitleKey, discussionPostTitle.value);
 });
 
 discussionPostContent.addEventListener("input", function () {
   checkDiscussionContent();
-  localStorage.setItem("discussionPostContent", discussionPostContent.value);
+  localStorage.setItem(discussionContentKey, discussionPostContent.value);
 });
 
 discussionPostImage.addEventListener("change", function () {
@@ -101,9 +112,6 @@ discussionPostForm.addEventListener("submit", function (event) {
     event.preventDefault();
     return;
   }
-
-  localStorage.removeItem("discussionPostTitle");
-  localStorage.removeItem("discussionPostContent");
 });
 
 const discussionFilterForm = document.getElementById("discussion-filter-form");

@@ -65,7 +65,7 @@ export async function initialiseShell(
                     method: "DELETE"
                 });
 
-                window.location.assign("login.html");
+                window.location.assign("/login.html");
             } catch (error) {
                 button.disabled = false;
 
@@ -109,12 +109,8 @@ export async function initialiseShell(
     }
 
     if (requireLogin && !user) {
-        const currentPage =
-            location.pathname.split("/").pop() ||
-            "wishlist-add.html";
-
         const currentDestination =
-            `${currentPage}${
+            `${location.pathname}${
                 location.search
             }${
                 location.hash
@@ -126,7 +122,7 @@ export async function initialiseShell(
             );
 
         window.location.replace(
-            `login.html?returnTo=${returnTo}`
+            `/login.html?returnTo=${returnTo}`
         );
 
         return null;

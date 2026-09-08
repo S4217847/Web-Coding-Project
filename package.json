@@ -5,10 +5,11 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "start:local": "node scripts/start-local.js",
     "dev": "node --watch index.js",
-    "test": "node --test tests/integration.test.js && npm run test:recovery && npm run test:deactivation && npm --prefix modules/account test",
-    "test:recovery": "node --require dotenv/config --test tests/recovery-password-review.test.js",
-    "test:deactivation": "node --require dotenv/config --test tests/deactivation-review.test.js",
+    "test:repository": "node --test modules/account/tests/mongo-repository-auth.test.js",
+    "test:db": "node --test modules/account/tests/mongo-api.test.js",
+    "test": "node --test tests/integration.test.js tests/forum-draft.test.js && npm --prefix modules/account test && npm run test:db && npm run test:repository",
     "check": "node tests/static-check.js && npm test"
   },
   "repository": {
@@ -20,7 +21,7 @@
   "license": "ISC",
   "type": "commonjs",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19.0"
   },
   "bugs": {
     "url": "https://github.com/S4217847/Web-Coding-Project/issues"
@@ -28,11 +29,16 @@
   "homepage": "https://github.com/S4217847/Web-Coding-Project#readme",
   "dependencies": {
     "bcryptjs": "^3.0.3",
+    "connect-mongo": "^6.0.0",
     "dotenv": "^17.4.2",
     "ejs": "^6.0.1",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
     "express-session": "^1.19.0",
     "mongoose": "^9.9.4",
     "multer": "^2.3.0"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^11.2.0"
   }
 }

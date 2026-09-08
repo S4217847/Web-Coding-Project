@@ -29,6 +29,10 @@ import {
     validateProfilePatch
 } from "./validation.js";
 
+import {
+    createMongoAccountRouter
+} from "./mongo-routes.js";
+
 const currentDirectory =
     path.dirname(
         fileURLToPath(import.meta.url)
@@ -85,11 +89,7 @@ function publicUser(user) {
             user.avatarDataUrl ?? "",
         role: user.role,
         status: user.status,
-        lastActiveAt: user.lastActiveAt,
-        recoveryConfigured:
-            Boolean(
-                user.recoveryConfigured
-            )
+        lastActiveAt: user.lastActiveAt
     };
 }
 
@@ -115,156 +115,6 @@ function adminSummary(users) {
                     user.role === "admin"
             ).length
     };
-}
-
-async function accountStateForUser(
-    user,
-    accountStatusStore
-) {
-    if (!accountStatusStore) {
-        return user;
-    }
-
-    return accountStatusStore.findByStudentId(
-        user.studentId
-    );
-}
-
-function synchroniseUserStatus(
-    user,
-    accountState
-) {
-    if (accountState) {
-        user.status = accountState.status;
-
-        if (
-            typeof accountState.email ===
-            "string"
-        ) {
-            user.email = accountState.email;
-        }
-
-        if (
-            typeof accountState.passwordHash ===
-            "string"
-        ) {
-            user.passwordHash =
-                accountState.passwordHash;
-        }
-
-        user.passwordChangedAt =
-            accountState.passwordChangedAt ??
-            null;
-
-        user.recoveryConfigured =
-            Boolean(
-                accountState
-                    .recoveryConfigured
-            );
-    }
-}
-
-async function loginAccountForIdentifier(
-    identifier,
-    store,
-    accountStatusStore
-) {
-    if (
-        accountStatusStore &&
-        typeof accountStatusStore
-            .findByIdentifier === "function"
-    ) {
-        const accountState =
-            await accountStatusStore
-                .findByIdentifier(identifier);
-
-        const user = accountState
-            ? store.users.find(
-                (candidate) =>
-                    candidate.studentId ===
-                    accountState.studentId
-            )
-            : null;
-
-        return { user, accountState };
-    }
-
-    const user = store.users.find(
-        (candidate) =>
-            candidate.username
-                .toLowerCase() === identifier ||
-            candidate.email
-                .toLowerCase() === identifier
-    );
-
-    return {
-        user,
-        accountState: user
-            ? await accountStateForUser(
-                user,
-                accountStatusStore
-            )
-            : null
-    };
-}
-
-function isSessionNewerThanAccountBlocks(
-    request,
-    accountState
-) {
-    const blockTimes = [
-        accountState.lockedAt,
-        accountState.deactivatedAt,
-        accountState.passwordChangedAt
-    ]
-        .filter((value) => value)
-        .map((value) =>
-            new Date(value).getTime()
-        )
-        .filter((value) =>
-            Number.isFinite(value)
-        );
-
-    if (blockTimes.length === 0) {
-        return true;
-    }
-
-    const authenticatedAt = new Date(
-        request.session.authenticatedAt
-    ).getTime();
-
-    return (
-        Number.isFinite(authenticatedAt) &&
-        authenticatedAt > Math.max(...blockTimes)
-    );
-}
-
-async function publicUsersWithCurrentStatus(
-    users,
-    accountStatusStore
-) {
-    const publicUsers = [];
-
-    for (const user of users) {
-        const accountState =
-            await accountStateForUser(
-                user,
-                accountStatusStore
-            );
-
-        if (!accountState && accountStatusStore) {
-            user.status = "locked";
-        } else {
-            synchroniseUserStatus(
-                user,
-                accountState
-            );
-        }
-
-        publicUsers.push(publicUser(user));
-    }
-
-    return publicUsers;
 }
 
 // ---------- Wishlist domain helpers ----------
@@ -410,17 +260,14 @@ function presentPurchase(
     };
 }
 
-function createAuthMiddleware(
-    store,
-    accountStatusStore
-) {
+function createAuthMiddleware(store) {
     /*
         requireUser resolves the small session userId into the current, trusted
         server record on every protected request. Deleted users and newly locked
         accounts therefore lose access immediately. requireAdmin is a second,
         role-specific gate and must run after requireUser has set currentUser.
     */
-    async function requireUser(
+    function requireUser(
         request,
         response,
         next
@@ -451,31 +298,7 @@ function createAuthMiddleware(
             );
         }
 
-        const accountState =
-            await accountStateForUser(
-                user,
-                accountStatusStore
-            );
-
-        if (!accountState) {
-            request.session.destroy(() => {});
-
-            return sendError(
-                response,
-                401,
-                "SESSION_INVALID",
-                "This session is no longer valid."
-            );
-        }
-
-        synchroniseUserStatus(
-            user,
-            accountState
-        );
-        request.currentAccountState =
-            accountState;
-
-        if (accountState.status !== "active") {
+        if (user.status === "locked") {
             request.session.destroy(() => {});
 
             return sendError(
@@ -483,22 +306,6 @@ function createAuthMiddleware(
                 423,
                 "ACCOUNT_LOCKED",
                 "This account is locked. Contact an administrator."
-            );
-        }
-
-        if (
-            !isSessionNewerThanAccountBlocks(
-                request,
-                accountState
-            )
-        ) {
-            request.session.destroy(() => {});
-
-            return sendError(
-                response,
-                401,
-                "SESSION_INVALID",
-                "This session is no longer valid."
             );
         }
 
@@ -573,8 +380,12 @@ export function createApp(options = {}) {
     const store =
         options.store ?? dataStore;
 
-    const accountStatusStore =
-        options.accountStatusStore ?? null;
+    /*
+        Production injects the Mongo repository. The resettable A2 store remains
+        available only as a lightweight unit-test adapter.
+    */
+    const repository =
+        options.repository ?? null;
 
     const publicDirectory =
         options.publicDirectory ??
@@ -603,10 +414,7 @@ export function createApp(options = {}) {
     const {
         requireUser,
         requireAdmin
-    } = createAuthMiddleware(
-        store,
-        accountStatusStore
-    );
+    } = createAuthMiddleware(store);
 
     app.disable("x-powered-by");
 
@@ -643,19 +451,35 @@ export function createApp(options = {}) {
         production proxy. A persistent session store should replace MemoryStore
         when this demonstration application is deployed across processes.
     */
-    app.use(session({
-        name: "rmit.connect.sid",
-        secret: sessionSecret,
-        resave: false,
-        saveUninitialized: false,
-        cookie: {
-            httpOnly: true,
-            sameSite: "lax",
-            secure: isProduction,
-            maxAge:
-                2 * 60 * 60 * 1000
-        }
-    }));
+    /*
+        The standalone module owns its session middleware. When this app is
+        mounted inside the team server, the parent has already supplied the
+        shared session (and its production MongoStore), so installing another
+        store here would split authentication between modules.
+    */
+    if (!options.useExistingSession) {
+        app.use(session({
+            name: "rmit.connect.sid",
+            secret: sessionSecret,
+            resave: false,
+            saveUninitialized: false,
+            cookie: {
+                httpOnly: true,
+                sameSite: "lax",
+                secure: isProduction,
+                maxAge:
+                    2 * 60 * 60 * 1000
+            }
+        }));
+    }
+
+    if (repository) {
+        app.use(createMongoAccountRouter({
+            repository,
+            publicDirectory,
+            isProduction
+        }));
+    }
 
     // ---------- Health and session routes ----------
 
@@ -672,38 +496,17 @@ export function createApp(options = {}) {
     // READ: describe the current browser session without requiring authentication.
     app.get(
         "/api/session",
-        async (request, response) => {
+        (request, response) => {
             const user = store.users.find(
                 (candidate) =>
                     candidate.id ===
                     request.session.userId
             );
 
-            const accountState = user
-                ? await accountStateForUser(
-                    user,
-                    accountStatusStore
-                )
-                : null;
-
-            synchroniseUserStatus(
-                user,
-                accountState
-            );
-
             if (
                 !user ||
-                !accountState ||
-                accountState.status !== "active" ||
-                !isSessionNewerThanAccountBlocks(
-                    request,
-                    accountState
-                )
+                user.status === "locked"
             ) {
-                if (request.session.userId) {
-                    request.session.destroy(() => {});
-                }
-
                 return sendData(response, {
                     authenticated: false,
                     user: null
@@ -720,7 +523,7 @@ export function createApp(options = {}) {
     // CREATE: authenticate credentials and establish a new session.
     app.post(
         "/api/session",
-        async (request, response, next) => {
+        (request, response, next) => {
             if (!isPlainObject(request.body)) {
                 return sendError(
                     response,
@@ -755,21 +558,21 @@ export function createApp(options = {}) {
             const normalisedIdentifier =
                 identifier.toLowerCase();
 
-            const {
-                user,
-                accountState
-            } = await loginAccountForIdentifier(
-                normalisedIdentifier,
-                store,
-                accountStatusStore
+            const user = store.users.find(
+                (candidate) =>
+                    candidate.username
+                        .toLowerCase() ===
+                    normalisedIdentifier ||
+                    candidate.email
+                        .toLowerCase() ===
+                    normalisedIdentifier
             );
 
             if (
                 !user ||
-                !accountState ||
                 !verifyPassword(
                     password,
-                    accountState.passwordHash
+                    user.passwordHash
                 )
             ) {
                 return sendError(
@@ -780,12 +583,7 @@ export function createApp(options = {}) {
                 );
             }
 
-            synchroniseUserStatus(
-                user,
-                accountState
-            );
-
-            if (accountState.status !== "active") {
+            if (user.status === "locked") {
                 return sendError(
                     response,
                     423,
@@ -812,9 +610,6 @@ export function createApp(options = {}) {
 
                     request.session.userId =
                         user.id;
-
-                    request.session.authenticatedAt =
-                        new Date().toISOString();
 
                     return request.session.save(
                         (saveError) => {
@@ -1400,7 +1195,7 @@ export function createApp(options = {}) {
     app.patch(
         "/api/profile",
         requireUser,
-        async (request, response) => {
+        (request, response) => {
             if (!isPlainObject(request.body)) {
                 return sendError(
                     response,
@@ -1441,39 +1236,15 @@ export function createApp(options = {}) {
                     "email"
                 )
             ) {
-                let emailOwner = null;
-
-                if (
-                    accountStatusStore &&
-                    typeof accountStatusStore
-                        .findByIdentifier ===
-                        "function"
-                ) {
-                    const accountState =
-                        await accountStatusStore
-                            .findByIdentifier(
-                                values.email
-                            );
-
-                    if (
-                        accountState &&
-                        accountState.studentId !==
-                            request.currentUser
-                                .studentId
-                    ) {
-                        emailOwner = accountState;
-                    }
-                } else {
-                    emailOwner =
-                        store.users.find(
-                            (candidate) =>
-                                candidate.id !==
-                                    request.currentUser.id &&
-                                candidate.email
-                                    .toLowerCase() ===
-                                values.email
-                        );
-                }
+                const emailOwner =
+                    store.users.find(
+                        (candidate) =>
+                            candidate.id !==
+                                request.currentUser.id &&
+                            candidate.email
+                                .toLowerCase() ===
+                            values.email
+                    );
 
                 if (emailOwner) {
                     return sendError(
@@ -1494,15 +1265,9 @@ export function createApp(options = {}) {
                 password has been verified against its stored hash.
             */
             if (
-                (
-                    Object.hasOwn(
-                        values,
-                        "newPassword"
-                    ) ||
-                    Object.hasOwn(
-                        values,
-                        "recoveryPassword"
-                    )
+                Object.hasOwn(
+                    values,
+                    "newPassword"
                 ) &&
                 !verifyPassword(
                     values.currentPassword,
@@ -1517,62 +1282,6 @@ export function createApp(options = {}) {
                     {
                         currentPassword:
                             "Enter the password currently used for this account."
-                    }
-                );
-            }
-
-            if (
-                Object.hasOwn(
-                    values,
-                    "recoveryPassword"
-                ) &&
-                (
-                    values.recoveryPassword ===
-                        values.currentPassword ||
-                    values.recoveryPassword ===
-                        values.newPassword
-                )
-            ) {
-                return sendError(
-                    response,
-                    422,
-                    "RECOVERY_PASSWORD_REUSED",
-                    "Use a recovery password that is different from the login password.",
-                    {
-                        recoveryPassword:
-                            "Choose a different secret from your current or new login password."
-                    }
-                );
-            }
-
-            if (
-                Object.hasOwn(
-                    values,
-                    "newPassword"
-                ) &&
-                !Object.hasOwn(
-                    values,
-                    "recoveryPassword"
-                ) &&
-                typeof request
-                    .currentAccountState
-                    ?.recoveryPasswordHash ===
-                    "string" &&
-                verifyPassword(
-                    values.newPassword,
-                    request
-                        .currentAccountState
-                        .recoveryPasswordHash
-                )
-            ) {
-                return sendError(
-                    response,
-                    422,
-                    "LOGIN_PASSWORD_REUSES_RECOVERY",
-                    "Use a login password that is different from the recovery password.",
-                    {
-                        newPassword:
-                            "Choose a different login password from your recovery password."
                     }
                 );
             }
@@ -1595,81 +1304,6 @@ export function createApp(options = {}) {
                         values.newPassword
                     )
                     : null;
-
-            const nextRecoveryPasswordHash =
-                Object.hasOwn(
-                    values,
-                    "recoveryPassword"
-                )
-                    ? createPasswordHash(
-                        values.recoveryPassword
-                    )
-                    : null;
-
-            const changedAt = new Date();
-            const accountUpdate = {};
-
-            if (
-                Object.hasOwn(
-                    values,
-                    "email"
-                )
-            ) {
-                accountUpdate.email =
-                    values.email;
-            }
-
-            if (nextPasswordHash) {
-                accountUpdate.passwordHash =
-                    nextPasswordHash;
-                accountUpdate.passwordChangedAt =
-                    changedAt;
-            }
-
-            if (nextRecoveryPasswordHash) {
-                accountUpdate.recoveryPasswordHash =
-                    nextRecoveryPasswordHash;
-                accountUpdate.recoveryPasswordSetAt =
-                    changedAt;
-                accountUpdate.recoveryFailedAttempts = 0;
-                accountUpdate.recoveryAttemptWindowStartedAt =
-                    null;
-                accountUpdate.recoveryBlockedUntil =
-                    null;
-            }
-
-            if (
-                accountStatusStore &&
-                typeof accountStatusStore
-                    .updateProfile === "function"
-            ) {
-                const accountState =
-                    await accountStatusStore
-                        .updateProfile(
-                            request.currentUser
-                                .studentId,
-                            accountUpdate,
-                            request.currentUser
-                                .passwordHash,
-                            request
-                                .currentAccountState
-                                ?.recoveryPasswordHash
-                        );
-
-                if (!accountState) {
-                    return sendError(
-                        response,
-                        401,
-                        "SESSION_INVALID",
-                        "This session is no longer valid."
-                    );
-                }
-
-                synchroniseUserStatus(
-                    request.currentUser,
-                    accountState
-                );
-            }
 
             const editableFields = [
                 "name",
@@ -1694,15 +1328,6 @@ export function createApp(options = {}) {
             if (nextPasswordHash) {
                 request.currentUser.passwordHash =
                     nextPasswordHash;
-                request.currentUser.passwordChangedAt =
-                    changedAt;
-            }
-
-            if (nextRecoveryPasswordHash) {
-                request.currentUser.recoveryPasswordHash =
-                    nextRecoveryPasswordHash;
-                request.currentUser.recoveryConfigured =
-                    true;
             }
 
             return sendData(response, {
@@ -1726,14 +1351,10 @@ export function createApp(options = {}) {
         "/api/admin/users",
         requireUser,
         requireAdmin,
-        async (_request, response) => {
+        (_request, response) => {
             const users =
-                (
-                    await publicUsersWithCurrentStatus(
-                        store.users,
-                        accountStatusStore
-                    )
-                )
+                store.users
+                    .map(publicUser)
                     .sort(
                         (left, right) =>
                             left.name.localeCompare(
@@ -1754,7 +1375,7 @@ export function createApp(options = {}) {
         "/api/admin/users/:userId/status",
         requireUser,
         requireAdmin,
-        async (request, response) => {
+        (request, response) => {
             if (!isPlainObject(request.body)) {
                 return sendError(
                     response,
@@ -1821,33 +1442,11 @@ export function createApp(options = {}) {
                 );
             }
 
-            // Persist first so a failed database update cannot report success.
-            const accountState = accountStatusStore
-                ? await accountStatusStore.updateStatus(
-                    user.studentId,
-                    status
-                )
-                : { status: status };
-
-            if (!accountState) {
-                return sendError(
-                    response,
-                    404,
-                    "USER_NOT_FOUND",
-                    "The requested user does not exist."
-                );
-            }
-
-            synchroniseUserStatus(
-                user,
-                accountState
-            );
+            // No account state changes until validation and authorisation succeed.
+            user.status = status;
 
             const publicUsers =
-                await publicUsersWithCurrentStatus(
-                    store.users,
-                    accountStatusStore
-                );
+                store.users.map(publicUser);
 
             return sendData(response, {
                 user: publicUser(user),

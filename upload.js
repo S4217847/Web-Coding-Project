@@ -1,5 +1,6 @@
 const multer = require("multer");
 const path = require("node:path");
+const fs = require("node:fs/promises");
 
 const storage = multer.diskStorage({
   destination: function (_request, _file, callback) {
@@ -31,4 +32,36 @@ const upload = multer({
   fileFilter: checkImageFile,
 });
 
-module.exports = { upload };
+// Check the file's starting bytes, not just the type sent by the browser.
+async function validateForumImage(request, response, next) {
+  if (!request.file) {
+    next();
+    return;
+  }
+
+  const imageBytes = await fs.readFile(request.file.path);
+  const pngSignature = Buffer.from([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+  ]);
+  const isPng =
+    imageBytes.length >= pngSignature.length &&
+    imageBytes.subarray(0, pngSignature.length).equals(pngSignature);
+  const isJpeg =
+    imageBytes.length >= 3 &&
+    imageBytes[0] === 0xff &&
+    imageBytes[1] === 0xd8 &&
+    imageBytes[2] === 0xff;
+
+  if (
+    (request.file.mimetype === "image/png" && isPng) ||
+    (request.file.mimetype === "image/jpeg" && isJpeg)
+  ) {
+    next();
+    return;
+  }
+
+  await fs.unlink(request.file.path);
+  next(new Error("Only JPEG and PNG images are allowed."));
+}
+
+module.exports = { upload, validateForumImage };

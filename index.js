@@ -1,33 +1,69 @@
 const express = require("express");
 const session = require("express-session");
+const { MongoStore } = require("connect-mongo");
 const multer = require("multer");
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const crypto = require("node:crypto");
+const bcrypt = require("bcryptjs");
+const { rateLimit } = require("express-rate-limit");
 const { connectDatabase } = require("./database");
 const { User } = require("./models/user");
 const { Discussion } = require("./models/discussion");
 const { Reply } = require("./models/reply");
-const { upload } = require("./upload");
+const { upload, validateForumImage } = require("./upload");
 const { users } = require("./forum-data");
 const { blogs } = require("./blog-data");
 const { registerBlogApi } = require("./routes/register-blog-api");
 const reviewData = require("./review-data");
 let reviews = reviewData.reviews;
 const getReviewId = reviewData.getReviewId;
-let loginStore = null;
-let createPasswordHash = null;
-let verifyPassword = null;
+let accountRepository = null;
 const app = express();
 let accountAppMounted = false;
-const PASSWORD_RESET_ACCESS_MS = 10 * 60 * 1000;
-const RECOVERY_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
-const MAX_RECOVERY_ATTEMPTS = 5;
-const ASCII_SECRET_PATTERN = /^[\x21-\x7e]+$/;
 // Uses the PORT environment variable when provided. Otherwise, it uses port 3000.
 const port = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === "production";
 const sessionSecret =
   process.env.SESSION_SECRET || "local-demo-change-this-secret";
+const accountApiPath =
+  /^\/api\/(?:users|session|products|wishlist|profile|admin)(?:\/|$)/i;
+const passwordHelpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  handler(request, response) {
+    if (request.path === "/forgot-password") {
+      response.status(429).render("forgotpassword", {
+        pageTitle: "Forgot Password",
+        emailError: "Too many requests. Please wait before trying again.",
+        resetMessage: "",
+        resetLink: "",
+      });
+      return;
+    }
+
+    response.status(429).render("resetpassword", {
+      pageTitle: "Reset Password",
+      resetComplete: false,
+      newPasswordError: "Too many requests. Please wait before trying again.",
+      confirmPasswordError: "",
+    });
+  },
+});
+
+/* Production sessions use Atlas too; local tests keep Express's MemoryStore. */
+const sessionStore =
+  isProduction && process.env.MONGODB_URI
+    ? MongoStore.create({
+        mongoUrl: process.env.MONGODB_URI,
+        dbName: process.env.MONGODB_DB_NAME || "rmit_connect",
+        collectionName: "sessions",
+        touchAfter: 15 * 60,
+        crypto: { secret: sessionSecret },
+      })
+    : undefined;
 
 if (isProduction && !process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET is required when NODE_ENV is production.");
@@ -70,6 +106,26 @@ app.use("/api", (_request, response, next) => {
   next();
 });
 
+/* Password-recovery pages can contain a short-lived local demonstration URL. */
+app.use(
+  ["/forgot-password", "/reset-password"],
+  (_request, response, next) => {
+    response.set("Cache-Control", "no-store");
+    next();
+  },
+);
+
+/*
+ * Account/Profile images are limited to 1 MiB, so their JSON transport does
+ * not need the larger Blog/Review allowance. Parsing these routes first also
+ * enforces the limit for chunked requests without a Content-Length header.
+ */
+const accountJsonParser = express.json({ limit: "1.5mb", strict: true });
+app.use((request, response, next) => {
+  if (!accountApiPath.test(request.path)) return next();
+  return accountJsonParser(request, response, next);
+});
+
 /*
  * Base64 expands a 4 MB image to roughly 5.4 MB. A 6 MB JSON limit therefore
  * supports the documented Blog and Review image ceiling without accepting
@@ -82,6 +138,7 @@ app.use(
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
+    ...(sessionStore ? { store: sessionStore } : {}),
     cookie: {
       httpOnly: true,
       sameSite: "lax",
@@ -231,6 +288,8 @@ async function showDiscussions(request, response) {
 
   const discussionMessage = request.session.discussionMessage || "";
   request.session.discussionMessage = "";
+  const clearDiscussionDraft = request.session.clearDiscussionDraft === true;
+  request.session.clearDiscussionDraft = false;
 
   const activeDiscussions = await Discussion.find({
     deletedAt: null,
@@ -307,6 +366,8 @@ async function showDiscussions(request, response) {
 
   response.render("discussion", {
     pageTitle: "Discussion Forum",
+    currentUserId: String(forumUser._id),
+    clearDiscussionDraft: clearDiscussionDraft,
     discussions: activeDiscussions,
     replyCounts: replyCounts,
     authors: authors,
@@ -445,224 +506,82 @@ async function showEditDiscussion(request, response) {
 }
 
 function makeCurrentUser(loginUser) {
-  const currentUser = {
+  return {
     _id: loginUser.id,
     username: loginUser.name,
     studentId: loginUser.studentId,
     email: loginUser.email,
     description: loginUser.description,
     profileImage: loginUser.avatarUrl || "/images/user_icon.png",
-    course: "RMIT student",
+    course: loginUser.course || "RMIT student",
     accountStatus: loginUser.status,
   };
-
-  for (let i = 0; i < users.length; i += 1) {
-    if (users[i]._id === currentUser._id) {
-      currentUser.course = users[i].course;
-      users[i] = currentUser;
-      return currentUser;
-    }
-  }
-
-  users.push(currentUser);
-  return currentUser;
 }
 
-function accountStateFromDatabaseUser(databaseUser) {
-  if (!databaseUser) {
-    return null;
-  }
-
-  return {
-    username: databaseUser.username,
-    studentId: databaseUser.studentId,
-    email: databaseUser.email,
-    passwordHash: databaseUser.passwordHash,
-    status: databaseUser.status,
-    lockedAt: databaseUser.lockedAt,
-    deactivatedAt: databaseUser.deactivatedAt,
-    passwordChangedAt: databaseUser.passwordChangedAt,
-    recoveryPasswordHash: databaseUser.recoveryPasswordHash,
-    recoveryConfigured: Boolean(
-      databaseUser.recoveryPasswordHash,
-    ),
-  };
-}
-
-async function findDatabaseAccountState(studentId) {
-  const databaseUser = await User.findOne({ studentId: studentId });
-  return accountStateFromDatabaseUser(databaseUser);
-}
-
-async function findDatabaseAccountByIdentifier(identifier) {
-  const databaseUser = await User.findOne({
-    $or: [{ username: identifier }, { email: identifier }],
-  });
-
-  return accountStateFromDatabaseUser(databaseUser);
-}
-
-async function updateDatabaseProfile(
-  studentId,
-  accountUpdate,
-  expectedPasswordHash,
-  expectedRecoveryPasswordHash,
-) {
-  const accountFilter = {
-    studentId: studentId,
-    status: "active",
-    passwordHash: expectedPasswordHash,
-  };
-
-  if (expectedRecoveryPasswordHash !== undefined) {
-    accountFilter.recoveryPasswordHash =
-      expectedRecoveryPasswordHash || null;
-  }
-
-  const databaseUser = await User.findOneAndUpdate(
-    accountFilter,
-    {
-      $set: {
-        ...accountUpdate,
-        updatedAt: new Date(),
-      },
-    },
-    {
-      new: true,
-      runValidators: true,
-    },
-  );
-
-  return accountStateFromDatabaseUser(databaseUser);
-}
-
-async function updateDatabaseAccountStatus(studentId, status) {
-  const now = new Date();
-  const update = {
-    status: status,
-    updatedAt: now,
-  };
-
-  if (status === "locked") {
-    update.lockedAt = now;
-  }
-
-  /*
-   * lockedAt and deactivatedAt remain as historical invalidation times after
-   * an administrator unlocks an account. A new login is newer than these
-   * values, while a session created before the lock stays invalid.
-   */
-  const databaseUser = await User.findOneAndUpdate(
-    { studentId: studentId },
-    { $set: update },
-  );
-
-  if (!databaseUser) {
-    return null;
-  }
-
-  return findDatabaseAccountState(studentId);
-}
-
-async function deactivateDatabaseAccount(studentId) {
-  const now = new Date();
-
-  const databaseUser = await User.findOneAndUpdate(
-    {
-      studentId: studentId,
-      status: "active",
-    },
-    {
-      $set: {
-        status: "locked",
-        lockedAt: now,
-        deactivatedAt: now,
-        updatedAt: now,
-      },
-    },
-  );
-
-  if (!databaseUser) {
-    return null;
-  }
-
-  return findDatabaseAccountState(studentId);
-}
-
-function isSessionNewerThanAccountBlocks(request, accountState) {
-  const blockTimes = [
-    accountState.lockedAt,
-    accountState.deactivatedAt,
-    accountState.passwordChangedAt,
-  ]
-    .filter((value) => value)
-    .map((value) => new Date(value).getTime())
-    .filter((value) => Number.isFinite(value));
-
-  if (blockTimes.length === 0) {
-    return true;
-  }
-
-  const authenticatedAt = new Date(
-    request.session.authenticatedAt,
-  ).getTime();
-
-  return (
-    Number.isFinite(authenticatedAt) &&
-    authenticatedAt > Math.max(...blockTimes)
-  );
-}
-
-// Gets the user stored in the shared Login session.
+// Resolves the shared Login session through the single MongoDB User source.
 async function getCurrentUser(request) {
-  if (!request.session || !request.session.userId || !loginStore) {
+  if (!request.session || !request.session.userId || !accountRepository) {
     return null;
   }
 
-  let loginUser = null;
-
-  for (let i = 0; i < loginStore.users.length; i += 1) {
-    if (loginStore.users[i].id === request.session.userId) {
-      loginUser = loginStore.users[i];
-    }
-  }
-
-  if (!loginUser) {
-    return null;
-  }
-
-  const accountState = await findDatabaseAccountState(loginUser.studentId);
+  const loginUser = await accountRepository.findUserById(
+    request.session.userId,
+  );
 
   if (
-    !accountState ||
-    accountState.status !== "active" ||
-    !isSessionNewerThanAccountBlocks(request, accountState)
+    !loginUser ||
+    loginUser.status !== "active" ||
+    request.session.authVersion !== (loginUser.authVersion ?? 0)
   ) {
-    request.session.destroy(() => {});
+    await new Promise((resolve) => {
+      request.session.destroy(() => resolve());
+    });
     return null;
   }
-
-  loginUser.status = accountState.status;
-  loginUser.email = accountState.email;
-  loginUser.passwordHash = accountState.passwordHash;
-  loginUser.passwordChangedAt = accountState.passwordChangedAt;
-  loginUser.recoveryConfigured = accountState.recoveryConfigured;
 
   return makeCurrentUser(loginUser);
 }
 
 // Finds the MongoDB User used by the Discussion Forum.
 async function getForumDatabaseUser(currentUser) {
-  const matchingUsers = await User.find({
-    studentId: currentUser.studentId,
+  return User.findOne({
+    _id: currentUser._id,
     status: "active",
   });
+}
 
-  if (matchingUsers.length === 0) {
-    return null;
+// Match the old Blog and Review sample authors to the shared MongoDB users.
+async function connectLegacySampleAuthors() {
+  const studentIds = users.map((user) => user.studentId);
+  const databaseUsers = await User.find({ studentId: { $in: studentIds } });
+
+  for (let i = 0; i < users.length; i += 1) {
+    let databaseUser = null;
+
+    for (let j = 0; j < databaseUsers.length; j += 1) {
+      if (databaseUsers[j].studentId === users[i].studentId) {
+        databaseUser = databaseUsers[j];
+      }
+    }
+
+    if (!databaseUser) {
+      continue;
+    }
+
+    const databaseId = String(databaseUser._id);
+
+    for (let j = 0; j < blogs.length; j += 1) {
+      if (blogs[j].authorId === users[i]._id) {
+        blogs[j].authorId = databaseId;
+      }
+    }
+
+    for (let j = 0; j < reviews.length; j += 1) {
+      if (reviews[j].userId === users[i]._id) {
+        reviews[j].userId = databaseId;
+      }
+    }
   }
-
-  return matchingUsers[0];
 }
 
 async function getBlogCurrentUser(request) {
@@ -713,6 +632,8 @@ async function createDiscussion(request, response) {
   const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
+    await removeUploadedForumImage(request.file);
+
     redirectForumLogin(response);
     return;
   }
@@ -720,6 +641,8 @@ async function createDiscussion(request, response) {
   const forumUser = await getForumDatabaseUser(currentUser);
 
   if (!forumUser) {
+    await removeUploadedForumImage(request.file);
+
     response.status(403).send("Forum user not found.");
     return;
   }
@@ -747,6 +670,7 @@ async function createDiscussion(request, response) {
     },
   );
 
+  request.session.clearDiscussionDraft = true;
   response.redirect("/discussions");
 }
 
@@ -755,6 +679,8 @@ async function updateDiscussion(request, response) {
   const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
+    await removeUploadedForumImage(request.file);
+
     redirectForumLogin(response);
     return;
   }
@@ -762,6 +688,8 @@ async function updateDiscussion(request, response) {
   const forumUser = await getForumDatabaseUser(currentUser);
 
   if (!forumUser) {
+    await removeUploadedForumImage(request.file);
+
     response.status(403).send("Forum user not found.");
     return;
   }
@@ -769,11 +697,15 @@ async function updateDiscussion(request, response) {
   const discussion = await findActiveDiscussion(request.params.id);
 
   if (!discussion) {
+    await removeUploadedForumImage(request.file);
+
     response.status(404).send("Discussion not found.");
     return;
   }
 
   if (String(discussion.authorId) !== String(forumUser._id)) {
+    await removeUploadedForumImage(request.file);
+
     response.status(403).send("You can only edit your own discussion.");
     return;
   }
@@ -826,6 +758,8 @@ async function updateDiscussion(request, response) {
   );
 
   if (discussionUpdate.matchedCount === 0) {
+    await removeUploadedForumImage(request.file);
+
     response.status(404).send("Discussion not found.");
     return;
   }
@@ -980,6 +914,8 @@ async function createReply(request, response) {
   const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
+    await removeUploadedForumImage(request.file);
+
     redirectForumLogin(response);
     return;
   }
@@ -987,6 +923,8 @@ async function createReply(request, response) {
   const forumUser = await getForumDatabaseUser(currentUser);
 
   if (!forumUser) {
+    await removeUploadedForumImage(request.file);
+
     response.status(403).send("Forum user not found.");
     return;
   }
@@ -994,6 +932,8 @@ async function createReply(request, response) {
   const discussion = await findActiveDiscussion(request.params.id);
 
   if (!discussion) {
+    await removeUploadedForumImage(request.file);
+
     response.status(404).send("Discussion not found.");
     return;
   }
@@ -1052,6 +992,8 @@ async function updateReply(request, response) {
   const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
+    await removeUploadedForumImage(request.file);
+
     redirectForumLogin(response);
     return;
   }
@@ -1059,6 +1001,8 @@ async function updateReply(request, response) {
   const forumUser = await getForumDatabaseUser(currentUser);
 
   if (!forumUser) {
+    await removeUploadedForumImage(request.file);
+
     response.status(403).send("Forum user not found.");
     return;
   }
@@ -1066,6 +1010,8 @@ async function updateReply(request, response) {
   const discussion = await findActiveDiscussion(request.params.id);
 
   if (!discussion) {
+    await removeUploadedForumImage(request.file);
+
     response.status(404).send("Discussion not found.");
     return;
   }
@@ -1076,11 +1022,15 @@ async function updateReply(request, response) {
   );
 
   if (!reply) {
+    await removeUploadedForumImage(request.file);
+
     response.status(404).send("Reply not found.");
     return;
   }
 
   if (String(reply.authorId) !== String(forumUser._id)) {
+    await removeUploadedForumImage(request.file);
+
     response.status(403).send("You can only edit your own reply.");
     return;
   }
@@ -1114,6 +1064,8 @@ async function updateReply(request, response) {
   );
 
   if (replyUpdate.matchedCount === 0) {
+    await removeUploadedForumImage(request.file);
+
     response.status(404).send("Reply not found.");
     return;
   }
@@ -1431,239 +1383,28 @@ function showWishlistAdd(request, response) {
   response.render("wishlist-add", { pageTitle: "Browes Items" });
 }
 
-function newPasswordValidationError(password) {
-  if (password.length < 8 || password.length > 64) {
-    return "Password must contain 8 to 64 characters.";
-  }
-
-  if (!ASCII_SECRET_PATTERN.test(password)) {
-    return "Password must use ASCII letters, numbers, or symbols without spaces.";
-  }
-
-  if (
-    !/[a-z]/.test(password) ||
-    !/[A-Z]/.test(password) ||
-    !/\d/.test(password)
-  ) {
-    return "Password must include uppercase and lowercase letters and a number.";
-  }
-
-  return "";
-}
-
-function recoveryPasswordValidationError(password) {
-  if (password.length < 12 || password.length > 64) {
-    return "Recovery password must contain 12 to 64 characters.";
-  }
-
-  if (!ASCII_SECRET_PATTERN.test(password)) {
-    return "Recovery password must use ASCII letters, numbers, or symbols without spaces.";
-  }
-
-  if (
-    !/[a-z]/.test(password) ||
-    !/[A-Z]/.test(password) ||
-    !/\d/.test(password)
-  ) {
-    return "Recovery password must include uppercase and lowercase letters and a number.";
-  }
-
-  return "";
-}
-
-function renderForgotPassword(response, options = {}) {
-  return response.status(options.status || 200).render("forgotpassword", {
+function showForgotPassword(request, response) {
+  response.render("forgotpassword", {
     pageTitle: "Forgot Password",
-    emailValue: options.emailValue || "",
-    emailError: options.emailError || "",
-    recoveryPasswordError: options.recoveryPasswordError || "",
-    formError: options.formError || "",
-    resetMessage: options.resetMessage || "",
+    emailError: "",
+    resetMessage: "",
+    resetLink: "",
   });
 }
 
-function resetSnapshotDate(value) {
-  if (value === null) {
-    return null;
+// Shows the page where a student chooses a new password.
+function showResetPassword(request, response) {
+  const suppliedToken =
+    typeof request.query.token === "string" ? request.query.token : "";
+
+  if (Object.keys(request.query).length > 0) {
+    request.session.resetToken = /^[a-f0-9]{64}$/i.test(suppliedToken)
+      ? suppliedToken.toLowerCase()
+      : null;
   }
 
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? date : undefined;
-}
-
-function passwordResetAccountFilter(authorisation) {
-  if (
-    !authorisation ||
-    typeof authorisation.studentId !== "string" ||
-    typeof authorisation.email !== "string" ||
-    typeof authorisation.passwordHash !== "string"
-  ) {
-    return null;
-  }
-
-  const recoveryPasswordSetAt = resetSnapshotDate(
-    authorisation.recoveryPasswordSetAt,
-  );
-  const passwordChangedAt = resetSnapshotDate(
-    authorisation.passwordChangedAt,
-  );
-  const lockedAt = resetSnapshotDate(authorisation.lockedAt);
-  const deactivatedAt = resetSnapshotDate(authorisation.deactivatedAt);
-
-  if (
-    recoveryPasswordSetAt === undefined ||
-    passwordChangedAt === undefined ||
-    lockedAt === undefined ||
-    deactivatedAt === undefined
-  ) {
-    return null;
-  }
-
-  return {
-    studentId: authorisation.studentId,
-    email: authorisation.email,
-    status: "active",
-    passwordHash: authorisation.passwordHash,
-    passwordChangedAt: passwordChangedAt,
-    recoveryPasswordHash: { $type: "string" },
-    recoveryPasswordSetAt: recoveryPasswordSetAt,
-    lockedAt: lockedAt,
-    deactivatedAt: deactivatedAt,
-  };
-}
-
-function getPasswordResetAuthorisation(request) {
-  const authorisation = request.session.passwordResetAuthorisation;
-
-  if (
-    !authorisation ||
-    !Number.isFinite(authorisation.expiresAt) ||
-    authorisation.expiresAt <= Date.now() ||
-    !passwordResetAccountFilter(authorisation)
-  ) {
-    delete request.session.passwordResetAuthorisation;
-    return null;
-  }
-
-  return authorisation;
-}
-
-function recoveryAttemptIsBlocked(databaseUser, now) {
-  const blockedUntil = databaseUser.recoveryBlockedUntil
-    ? new Date(databaseUser.recoveryBlockedUntil).getTime()
-    : 0;
-  const windowStartedAt = databaseUser.recoveryAttemptWindowStartedAt
-    ? new Date(databaseUser.recoveryAttemptWindowStartedAt).getTime()
-    : 0;
-  const windowIsCurrent =
-    windowStartedAt > now.getTime() - RECOVERY_ATTEMPT_WINDOW_MS;
-
-  return (
-    blockedUntil > now.getTime() ||
-    (windowIsCurrent && databaseUser.recoveryFailedAttempts >= MAX_RECOVERY_ATTEMPTS)
-  );
-}
-
-async function refreshRecoveryAttemptWindow(databaseUser, now) {
-  const expiredBefore = new Date(
-    now.getTime() - RECOVERY_ATTEMPT_WINDOW_MS,
-  );
-
-  await User.updateOne(
-    {
-      _id: databaseUser._id,
-      $and: [
-        {
-          $or: [
-            { recoveryAttemptWindowStartedAt: null },
-            { recoveryAttemptWindowStartedAt: { $lte: expiredBefore } },
-          ],
-        },
-        {
-          $or: [
-            { recoveryBlockedUntil: null },
-            { recoveryBlockedUntil: { $lte: now } },
-          ],
-        },
-      ],
-    },
-    {
-      $set: {
-        recoveryFailedAttempts: 0,
-        recoveryAttemptWindowStartedAt: now,
-        recoveryBlockedUntil: null,
-      },
-    },
-  );
-
-  return User.findOne({ _id: databaseUser._id });
-}
-
-async function recordRecoveryFailure(databaseUser, now) {
-  const expiredBefore = new Date(
-    now.getTime() - RECOVERY_ATTEMPT_WINDOW_MS,
-  );
-  const updatedUser = await User.findOneAndUpdate(
-    {
-      _id: databaseUser._id,
-      status: "active",
-      recoveryAttemptWindowStartedAt: { $gt: expiredBefore },
-      recoveryFailedAttempts: { $lt: MAX_RECOVERY_ATTEMPTS },
-      $or: [
-        { recoveryBlockedUntil: null },
-        { recoveryBlockedUntil: { $lte: now } },
-      ],
-    },
-    {
-      $inc: { recoveryFailedAttempts: 1 },
-      $set: { updatedAt: now },
-    },
-    { new: true },
-  );
-
-  if (
-    updatedUser &&
-    updatedUser.recoveryFailedAttempts >= MAX_RECOVERY_ATTEMPTS
-  ) {
-    await User.updateOne(
-      {
-        _id: updatedUser._id,
-        recoveryAttemptWindowStartedAt:
-          updatedUser.recoveryAttemptWindowStartedAt,
-        recoveryFailedAttempts: { $gte: MAX_RECOVERY_ATTEMPTS },
-      },
-      {
-        $set: {
-          recoveryBlockedUntil: new Date(
-            now.getTime() + RECOVERY_ATTEMPT_WINDOW_MS,
-          ),
-        },
-      },
-    );
-  }
-}
-
-// Shows the recovery form without revealing whether an account exists.
-function showForgotPassword(request, response) {
-  const resetMessage =
-    request.query.reset === "expired"
-      ? "Your password reset access is missing, expired, or no longer valid."
-      : "";
-
-  return renderForgotPassword(response, { resetMessage: resetMessage });
-}
-
-// Only a current, server-stored recovery authorisation can open this page.
-async function showResetPassword(request, response) {
-  const authorisation = getPasswordResetAuthorisation(request);
-  const accountFilter = passwordResetAccountFilter(authorisation);
-  const databaseUser = accountFilter
-    ? await User.findOne(accountFilter)
-    : null;
-
-  if (!databaseUser) {
-    delete request.session.passwordResetAuthorisation;
-    response.redirect("/forgot-password?reset=expired");
+  if (!request.session || !request.session.resetToken) {
+    response.redirect("/forgot-password");
     return;
   }
 
@@ -1694,148 +1435,66 @@ function showLogout(request, response) {
   });
 }
 
-// Verifies the email and pre-set recovery password without sending email.
-async function verifyRecoveryPassword(request, response, next) {
-  delete request.session.passwordResetAuthorisation;
-
-  const email = getTrimmedFormText(
-    request.body["reset-email"],
-  ).toLowerCase();
-  const recoveryPassword =
-    typeof request.body["recovery-password"] === "string"
-      ? request.body["recovery-password"]
+// Prepares a one-time reset token for an active account.
+async function sendResetLink(request, response) {
+  const submittedEmail = request.body["reset-email"];
+  const email =
+    typeof submittedEmail === "string"
+      ? submittedEmail.trim().toLowerCase()
       : "";
   const emailFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  let emailError = "";
 
-  if (email === "") {
-    emailError = "Please enter your email address.";
-  } else if (email.length > 120 || emailFormat.test(email) === false) {
-    emailError = "Please enter a valid email address.";
-  }
-  const recoveryPasswordError = recoveryPasswordValidationError(
-    recoveryPassword,
-  );
-
-  if (emailError || recoveryPasswordError) {
-    renderForgotPassword(response, {
-      status: 422,
-      emailValue: email,
-      emailError: emailError,
-      recoveryPasswordError: recoveryPasswordError,
+  if (
+    email === "" ||
+    email.length > 120 ||
+    emailFormat.test(email) === false
+  ) {
+    response.render("forgotpassword", {
+      pageTitle: "Forgot Password",
+      emailError: "Please enter a valid email address.",
+      resetMessage: "",
+      resetLink: "",
     });
+
     return;
   }
 
-  const now = new Date();
-  let databaseUser = await User.findOne({ email: email });
+  let resetLink = "";
+  const loginUser = await accountRepository.findUserByIdentifier(email);
 
-  if (databaseUser && databaseUser.status === "active") {
-    databaseUser = await refreshRecoveryAttemptWindow(databaseUser, now);
-  }
+  if (loginUser?.status === "active") {
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
 
-  const recoveryIsBlocked =
-    !databaseUser ||
-    databaseUser.status !== "active" ||
-    recoveryAttemptIsBlocked(databaseUser, now);
-  const recoveryPasswordMatches =
-    !recoveryIsBlocked &&
-    databaseUser.recoveryPasswordSetAt &&
-    verifyPassword(
-      recoveryPassword,
-      databaseUser.recoveryPasswordHash,
-    );
+    await accountRepository.createResetToken(loginUser.id, {
+      tokenHash,
+      expiresAt: new Date(Date.now() + 20 * 60 * 1000),
+    });
 
-  if (!recoveryPasswordMatches) {
-    if (
-      databaseUser &&
-      databaseUser.status === "active" &&
-      !recoveryAttemptIsBlocked(databaseUser, now)
-    ) {
-      await recordRecoveryFailure(databaseUser, now);
+    /*
+     * This build shows the link locally. Email delivery is not implemented.
+     * A deployed build needs a private delivery method for this URL through
+     * the team's private mail service and leave SHOW_DEMO_RESET_LINK unset.
+     */
+    if (!isProduction || process.env.SHOW_DEMO_RESET_LINK === "true") {
+      resetLink = `/reset-password?token=${rawToken}`;
     }
-
-    renderForgotPassword(response, {
-      status: 401,
-      emailValue: email,
-      formError:
-        "Recovery could not be verified or is temporarily unavailable.",
-    });
-    return;
   }
 
-  const confirmedUser = await User.findOneAndUpdate(
-    {
-      _id: databaseUser._id,
-      status: "active",
-      passwordHash: databaseUser.passwordHash,
-      passwordChangedAt: databaseUser.passwordChangedAt || null,
-      recoveryPasswordHash: databaseUser.recoveryPasswordHash,
-      recoveryPasswordSetAt: databaseUser.recoveryPasswordSetAt,
-      lockedAt: databaseUser.lockedAt || null,
-      deactivatedAt: databaseUser.deactivatedAt || null,
-      recoveryFailedAttempts: databaseUser.recoveryFailedAttempts,
-      recoveryAttemptWindowStartedAt:
-        databaseUser.recoveryAttemptWindowStartedAt || null,
-      recoveryBlockedUntil: databaseUser.recoveryBlockedUntil || null,
-    },
-    {
-      $set: {
-        recoveryFailedAttempts: 0,
-        recoveryAttemptWindowStartedAt: null,
-        recoveryBlockedUntil: null,
-        updatedAt: now,
-      },
-    },
-    { new: true },
-  );
-
-  if (!confirmedUser) {
-    renderForgotPassword(response, {
-      status: 401,
-      emailValue: email,
-      formError:
-        "Recovery could not be verified or is temporarily unavailable.",
-    });
-    return;
-  }
-
-  const sessionDate = (value) =>
-    value ? new Date(value).toISOString() : null;
-
-  request.session.passwordResetAuthorisation = {
-    studentId: confirmedUser.studentId,
-    email: confirmedUser.email,
-    passwordHash: confirmedUser.passwordHash,
-    passwordChangedAt: sessionDate(confirmedUser.passwordChangedAt),
-    recoveryPasswordSetAt: sessionDate(
-      confirmedUser.recoveryPasswordSetAt,
-    ),
-    lockedAt: sessionDate(confirmedUser.lockedAt),
-    deactivatedAt: sessionDate(confirmedUser.deactivatedAt),
-    expiresAt: Date.now() + PASSWORD_RESET_ACCESS_MS,
-  };
-
-  request.session.save((error) => {
-    if (error) {
-      next(error);
-      return;
-    }
-
-    response.redirect("/reset-password");
+  response.render("forgotpassword", {
+    pageTitle: "Forgot Password",
+    emailError: "",
+    resetMessage:
+      "If an active account matches that email, a reset link has been prepared.",
+    resetLink,
   });
 }
 
-// Atomically changes the password only while the approved account is unchanged.
+// Checks and saves the new password for the reset account.
 async function resetPassword(request, response) {
-  const authorisation = getPasswordResetAuthorisation(request);
-  const accountFilter = passwordResetAccountFilter(authorisation);
-
-  if (!accountFilter) {
-    response.redirect("/forgot-password?reset=expired");
-    return;
-  }
-
   const newPassword =
     typeof request.body["new-password"] === "string"
       ? request.body["new-password"]
@@ -1844,33 +1503,38 @@ async function resetPassword(request, response) {
     typeof request.body["confirm-password"] === "string"
       ? request.body["confirm-password"]
       : "";
-  let newPasswordError = newPasswordValidationError(newPassword);
-  let confirmPasswordError = "";
 
-  if (confirmPassword === "") {
-    confirmPasswordError = "Please confirm your new password.";
-  } else if (confirmPassword !== newPassword) {
-    confirmPasswordError = "Passwords do not match.";
-  }
-
-  const databaseUser = await User.findOne(accountFilter);
-
-  if (!databaseUser) {
-    delete request.session.passwordResetAuthorisation;
-    response.redirect("/forgot-password?reset=expired");
+  if (!request.session || !request.session.resetToken) {
+    response.redirect("/forgot-password");
     return;
   }
 
+  let newPasswordError = "";
+  let confirmPasswordError = "";
+
   if (
-    !newPasswordError &&
-    verifyPassword(newPassword, databaseUser.recoveryPasswordHash)
+    newPassword.length < 8 ||
+    Buffer.byteLength(newPassword, "utf8") > 72
   ) {
     newPasswordError =
-      "Choose a login password that is different from the recovery password.";
+      "Password must contain at least 8 characters and no more than 72 UTF-8 bytes.";
+  } else if (
+    !/[a-z]/.test(newPassword) ||
+    !/[A-Z]/.test(newPassword) ||
+    !/\d/.test(newPassword)
+  ) {
+    newPasswordError =
+      "Password must include uppercase and lowercase letters and a number.";
   }
 
-  if (newPasswordError || confirmPasswordError) {
-    response.status(422).render("resetpassword", {
+  if (confirmPassword === "") {
+    confirmPasswordError = "Please confirm your new password.";
+  } else if (newPassword !== confirmPassword) {
+    confirmPasswordError = "Passwords do not match.";
+  }
+
+  if (newPasswordError !== "" || confirmPasswordError !== "") {
+    response.render("resetpassword", {
       pageTitle: "Reset Password",
       resetComplete: false,
       newPasswordError: newPasswordError,
@@ -1879,37 +1543,29 @@ async function resetPassword(request, response) {
     return;
   }
 
-  const newPasswordHash = createPasswordHash(newPassword);
-  const changedAt = new Date();
-  const updatedUser = await User.findOneAndUpdate(
-    {
-      ...accountFilter,
-      recoveryPasswordHash: databaseUser.recoveryPasswordHash,
-    },
-    {
-      $set: {
-        passwordHash: newPasswordHash,
-        passwordChangedAt: changedAt,
-        recoveryFailedAttempts: 0,
-        recoveryAttemptWindowStartedAt: null,
-        recoveryBlockedUntil: null,
-        updatedAt: changedAt,
-      },
-      $unset: {
-        recoveryPasswordHash: 1,
-        recoveryPasswordSetAt: 1,
-      },
-    },
-    { new: true },
-  );
+  const tokenHash = crypto
+    .createHash("sha256")
+    .update(request.session.resetToken)
+    .digest("hex");
 
-  if (!updatedUser) {
-    delete request.session.passwordResetAuthorisation;
-    response.redirect("/forgot-password?reset=expired");
+  try {
+    await accountRepository.consumeResetToken({
+      tokenHash,
+      newPasswordHash: await bcrypt.hash(newPassword, 10),
+    });
+  } catch (error) {
+    request.session.resetToken = null;
+    response.status(error.statusCode || 400).render("resetpassword", {
+      pageTitle: "Reset Password",
+      resetComplete: false,
+      newPasswordError: error.message,
+      confirmPasswordError: "",
+    });
     return;
   }
 
-  delete request.session.passwordResetAuthorisation;
+  request.session.resetToken = null;
+
   response.render("resetpassword", {
     pageTitle: "Password Reset Complete",
     resetComplete: true,
@@ -1923,7 +1579,9 @@ async function showDeactivateAccount(request, response) {
   const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
-    response.redirect("/login.html");
+    response.redirect(
+      "/login.html?returnTo=%2Fdeactivate-account",
+    );
     return;
   }
 
@@ -1933,17 +1591,21 @@ async function showDeactivateAccount(request, response) {
   });
 }
 
-// The success view is shown only by a completed deactivation POST request.
+// Shows the message after an account is deactivated.
 function showDeactivatedSuccess(request, response) {
-  response.redirect("/login.html");
+  response.render("deactivated-success", {
+    pageTitle: "Account Deactivated",
+  });
 }
 
-// Checks confirmation, saves the inactive state, and then ends the session.
+// Checks the confirmation checkbox and updates the current user's account status.
 async function deactivateAccount(request, response) {
   const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
-    response.redirect("/login.html");
+    response.redirect(
+      "/login.html?returnTo=%2Fdeactivate-account",
+    );
     return;
   }
 
@@ -1957,58 +1619,24 @@ async function deactivateAccount(request, response) {
     return;
   }
 
-  let loginUser = null;
-
-  for (let i = 0; i < loginStore.users.length; i += 1) {
-    if (loginStore.users[i].id === currentUser._id) {
-      loginUser = loginStore.users[i];
-    }
-  }
-
-  if (!loginUser) {
-    response.render("deactivate-id", {
-      pageTitle: "Deactivate Account",
-      deactivateError: "Current user not found.",
-    });
-    return;
-  }
-
-  if (loginUser.role === "admin") {
-    response.status(409).render("deactivate-id", {
-      pageTitle: "Deactivate Account",
-      deactivateError:
-        "Administrator accounts cannot be deactivated. Use a member account instead.",
-    });
-    return;
-  }
-
-  let accountState;
-
   try {
-    accountState = await deactivateDatabaseAccount(currentUser.studentId);
+    await accountRepository.deactivateUser(currentUser._id);
   } catch (error) {
-    console.error(error);
-    response.status(500).render("deactivate-id", {
-      pageTitle: "Deactivate Account",
-      deactivateError: "Could not deactivate the account. Please try again.",
-    });
-    return;
-  }
+    if (error?.code === "LAST_ACTIVE_ADMIN") {
+      response.status(409).render("deactivate-id", {
+        pageTitle: "Deactivate Account",
+        deactivateError: error.message,
+      });
+      return;
+    }
 
-  if (!accountState) {
-    response.status(409).render("deactivate-id", {
-      pageTitle: "Deactivate Account",
-      deactivateError: "This account is not available for deactivation.",
-    });
-    return;
+    throw error;
   }
-
-  loginUser.status = accountState.status;
 
   request.session.destroy(function (error) {
     if (error) {
-      response.status(500).send("Could not deactivate the account.");
-      return;
+      /* The database change already committed; auth checks still reject it. */
+      console.error("Could not destroy the deactivated account session.", error);
     }
 
     response.clearCookie("rmit.connect.sid", {
@@ -2018,9 +1646,7 @@ async function deactivateAccount(request, response) {
       secure: isProduction,
     });
 
-    response.render("deactivated-success", {
-      pageTitle: "Account Deactivated",
-    });
+    response.redirect("/deactivated-success");
   });
 }
 
@@ -2040,24 +1666,28 @@ app.post(
   "/discussions",
   requireForumLogin,
   upload.single("postImage"),
+  validateForumImage,
   createDiscussion,
 );
 app.post(
   "/discussions/:id/edit",
   requireForumLogin,
   upload.single("postImage"),
+  validateForumImage,
   updateDiscussion,
 );
 app.post(
   "/discussions/:id/replies",
   requireForumLogin,
   upload.single("replyImage"),
+  validateForumImage,
   createReply,
 );
 app.post(
   "/discussions/:id/replies/:replyId/edit",
   requireForumLogin,
   upload.single("replyImage"),
+  validateForumImage,
   updateReply,
 );
 app.post("/discussions/:id/replies/:replyId/delete", deleteReply);
@@ -2119,15 +1749,27 @@ app.get("/wishlist/login.html", (request, response) => {
 // Shared User Account routes.
 app.get("/forgot-password", showForgotPassword);
 app.get("/reset-password", showResetPassword);
-app.post("/forgot-password", verifyRecoveryPassword);
-app.post("/reset-password", resetPassword);
+app.post("/forgot-password", passwordHelpLimiter, sendResetLink);
+app.post("/reset-password", passwordHelpLimiter, resetPassword);
 app.get("/logout", showLogout);
 app.get("/deactivate-account", showDeactivateAccount);
 app.post("/deactivate-account", deactivateAccount);
 app.get("/deactivated-success", showDeactivatedSuccess);
 
 function handleRootError(error, request, response, _next) {
-  const isApiRequest = request.path.startsWith("/api/");
+  const isApiRequest = /^\/api(?:\/|$)/i.test(request.path);
+  const isAccountApiRequest = accountApiPath.test(request.path);
+
+  function sendApiError(status, code, message) {
+    if (isAccountApiRequest) {
+      return response.status(status).json({
+        success: false,
+        error: { code, message },
+      });
+    }
+
+    return response.status(status).json({ error: message, code });
+  }
 
   if (
     error instanceof multer.MulterError ||
@@ -2138,23 +1780,25 @@ function handleRootError(error, request, response, _next) {
   }
 
   if (error?.type === "entity.too.large" || error?.status === 413) {
-    const message = "Request body is larger than the 6 MB limit.";
+    const message = isAccountApiRequest
+      ? "Request body is larger than the 1.5 MB limit."
+      : "Request body is larger than the 6 MB limit.";
     return isApiRequest
-      ? response.status(413).json({ error: message, code: "PAYLOAD_TOO_LARGE" })
+      ? sendApiError(413, "PAYLOAD_TOO_LARGE", message)
       : response.status(413).type("text").send(message);
   }
 
   if (error instanceof SyntaxError && error.status === 400 && "body" in error) {
     const message = "Request body contains invalid JSON.";
     return isApiRequest
-      ? response.status(400).json({ error: message, code: "INVALID_JSON" })
+      ? sendApiError(400, "INVALID_JSON", message)
       : response.status(400).type("text").send(message);
   }
 
   console.error(error);
   const message = "Something went wrong on the server.";
   return isApiRequest
-    ? response.status(500).json({ error: message, code: "INTERNAL_ERROR" })
+    ? sendApiError(500, "INTERNAL_ERROR", message)
     : response.status(500).type("text").send(message);
 }
 
@@ -2162,22 +1806,17 @@ function handleRootError(error, request, response, _next) {
 async function prepareApp() {
   if (accountAppMounted) return app;
 
-  const { dataStore } = await import("./modules/account/src/data.js");
-  const passwordModule = await import("./modules/account/src/passwords.js");
   const { createApp } = await import("./modules/account/src/app.js");
+  const { createMongoAccountRepository } = await import(
+    "./modules/account/src/mongo-repository.js"
+  );
 
-  loginStore = dataStore;
-  createPasswordHash = passwordModule.createPasswordHash;
-  verifyPassword = passwordModule.verifyPassword;
+  accountRepository = createMongoAccountRepository();
   app.use(
     createApp({
-      sessionSecret: sessionSecret,
-      accountStatusStore: {
-        findByStudentId: findDatabaseAccountState,
-        findByIdentifier: findDatabaseAccountByIdentifier,
-        updateProfile: updateDatabaseProfile,
-        updateStatus: updateDatabaseAccountStatus,
-      },
+      sessionSecret,
+      repository: accountRepository,
+      useExistingSession: true,
     }),
   );
   app.use(handleRootError);
@@ -2188,8 +1827,10 @@ async function prepareApp() {
 
 // Starts the local Express server after all routes are prepared.
 async function startServer(listenPort = port) {
-  await connectDatabase();
+  // Prepare all shared models before the database checks their indexes.
   await prepareApp();
+  await connectDatabase();
+  await connectLegacySampleAuthors();
 
   return new Promise((resolve, reject) => {
     let settled = false;

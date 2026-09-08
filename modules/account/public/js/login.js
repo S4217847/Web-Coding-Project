@@ -28,6 +28,10 @@ const rememberInput = byId("rememberAccount");
 const formMessage = byId("loginMessage");
 const submitButton = byId("loginSubmit");
 
+function utf8ByteLength(value) {
+    return new TextEncoder().encode(value).length;
+}
+
 /* Redirect targets are allow-listed to prevent an open-redirect vulnerability. */
 
 function safeReturnDestination(
@@ -44,8 +48,10 @@ function safeReturnDestination(
         "/",
         "/admin.html",
         "/blogs",
+        "/deactivate-account",
         "/discussions",
         "/editprofile.html",
+        "/profile.html",
         "/login.html",
         "/reviews",
         "/reviews/browse",
@@ -125,7 +131,7 @@ function validateIdentity() {
         return "Enter your username or RMIT email address.";
     }
 
-    if (identity.length > 100) {
+    if (identity.length > 120) {
         return "The username or email is too long.";
     }
 
@@ -139,11 +145,11 @@ function validateIdentity() {
     }
 
     const usernamePattern =
-        /^[a-zA-Z0-9._-]{3,50}$/;
+        /^(?=.{3,50}$)[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])$/;
 
     return usernamePattern.test(identity)
         ? ""
-        : "Use 3–50 letters, numbers, dots, underscores, or hyphens.";
+        : "Use 3–50 letters, numbers, dots, underscores, or hyphens; begin and end with a letter or number.";
 }
 
 function validatePassword() {
@@ -151,7 +157,7 @@ function validatePassword() {
         return "Enter your password.";
     }
 
-    if (passwordInput.value.length > 200) {
+    if (utf8ByteLength(passwordInput.value) > 72) {
         return "The password is too long.";
     }
 
@@ -330,6 +336,14 @@ if (rememberedIdentity) {
     identityInput.value = rememberedIdentity;
     rememberInput.checked = true;
     passwordInput.focus();
+}
+
+if (new URLSearchParams(location.search).get("registered") === "1") {
+    setMessage(
+        formMessage,
+        "Account created successfully. Log in with your new details.",
+        "success"
+    );
 }
 
 initialiseShell()

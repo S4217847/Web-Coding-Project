@@ -256,6 +256,56 @@ textarea {
     font-weight: bold;
 }
 
+.profileAvatar {
+    width: 96px;
+    height: 96px;
+    flex-shrink: 0;
+    border: 3px solid #FFDEA8;
+    border-radius: 50%;
+    background-color: #000054;
+    object-fit: cover;
+}
+
+.profileFacts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin: 0 0 26px;
+}
+
+.profileFact {
+    padding: 14px 16px;
+    border: 1px solid #EEEEEE;
+    border-radius: 8px;
+    background-color: #FAFAFA;
+}
+
+.profileFact dt {
+    margin-bottom: 4px;
+    color: #707070;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.profileFact dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.profileAbout {
+    margin-bottom: 24px;
+}
+
+.profileAbout h2 {
+    margin-bottom: 8px;
+}
+
+.profileAbout p {
+    margin: 0;
+    white-space: pre-wrap;
+}
+
 .profileSummary h2 {
     margin: 0;
 }
@@ -392,7 +442,7 @@ textarea:focus-visible {
 
 .adminSummary {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 16px;
     margin-bottom: 20px;
 }
@@ -604,9 +654,12 @@ textarea:focus-visible {
     }
 
     .formRow,
-    .adminSummary,
     .footerInner {
         grid-template-columns: 1fr;
+    }
+
+    .adminSummary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .footerInner {
@@ -615,6 +668,14 @@ textarea:focus-visible {
 }
 
 @media (max-width: 500px) {
+    .adminSummary {
+        grid-template-columns: 1fr;
+    }
+
+    .profileFacts {
+        grid-template-columns: 1fr;
+    }
+
     .formCard,
     .profileCard,
     .sectionCard {
@@ -625,4 +686,9 @@ textarea:focus-visible {
         align-items: flex-start;
         flex-direction: column;
     }
+}
+
+.deactivatedStatus {
+    background: #eeeeee;
+    color: #4b4b4b;
 }

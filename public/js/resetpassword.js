@@ -7,22 +7,19 @@ const newPasswordErrorText = document.getElementById(
 const confirmPasswordErrorText = document.getElementById(
   "confirm-password-error-text"
 );
-const asciiSecretPattern = /^[\x21-\x7e]+$/;
 
 resetPasswordForm.noValidate = true;
+
+function utf8ByteLength(value) {
+  return new TextEncoder().encode(value).length;
+}
 
 function checkNewPassword() {
   const newPassword = newPasswordInput.value;
 
-  if (newPassword.length < 8 || newPassword.length > 64) {
+  if (newPassword.length < 8 || utf8ByteLength(newPassword) > 72) {
     newPasswordErrorText.textContent =
-      "Password must contain 8 to 64 characters.";
-    return false;
-  }
-
-  if (!asciiSecretPattern.test(newPassword)) {
-    newPasswordErrorText.textContent =
-      "Password must use ASCII letters, numbers, or symbols without spaces.";
+      "Password must contain at least 8 characters and no more than 72 UTF-8 bytes.";
     return false;
   }
 

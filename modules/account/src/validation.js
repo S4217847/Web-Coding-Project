@@ -9,55 +9,32 @@ const EMAIL_PATTERN =
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const USERNAME_PATTERN =
-    /^[a-zA-Z0-9._-]{3,50}$/;
+    /^(?=.{3,50}$)[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])$/;
 
-const ASCII_SECRET_PATTERN =
-    /^[\x21-\x7e]+$/;
+const STUDENT_ID_PATTERN =
+    /^s\d{7}$/i;
 
-function newPasswordError(password) {
-    if (
-        password.length < 8 ||
-        password.length > 64
-    ) {
-        return "New password must contain 8 to 64 characters.";
-    }
+const PASSWORD_MAX_BYTES = 72;
 
-    if (!ASCII_SECRET_PATTERN.test(password)) {
-        return "New password must use ASCII letters, numbers, or symbols without spaces.";
-    }
-
-    if (
-        !/[a-z]/.test(password) ||
-        !/[A-Z]/.test(password) ||
-        !/\d/.test(password)
-    ) {
-        return "New password must include uppercase and lowercase letters and a number.";
-    }
-
-    return "";
+function passwordByteLength(password) {
+    return Buffer.byteLength(password, "utf8");
 }
 
-function recoveryPasswordError(password) {
+function validatePassword(password, fieldName, details) {
     if (
-        password.length < 12 ||
-        password.length > 64
+        password.length < 8 ||
+        passwordByteLength(password) > PASSWORD_MAX_BYTES
     ) {
-        return "Recovery password must contain 12 to 64 characters.";
-    }
-
-    if (!ASCII_SECRET_PATTERN.test(password)) {
-        return "Recovery password must use ASCII letters, numbers, or symbols without spaces.";
-    }
-
-    if (
+        details[fieldName] =
+            "Password must contain at least 8 characters and no more than 72 UTF-8 bytes.";
+    } else if (
         !/[a-z]/.test(password) ||
         !/[A-Z]/.test(password) ||
         !/\d/.test(password)
     ) {
-        return "Recovery password must include uppercase and lowercase letters and a number.";
+        details[fieldName] =
+            "Password must include uppercase and lowercase letters and a number.";
     }
-
-    return "";
 }
 
 export function isPlainObject(value) {
@@ -88,7 +65,7 @@ export function validateLogin(body) {
     if (!identifier) {
         details.identity =
             "Enter a username or email address.";
-    } else if (identifier.length > 100) {
+    } else if (identifier.length > 120) {
         details.identity =
             "The username or email is too long.";
     } else if (
@@ -108,7 +85,10 @@ export function validateLogin(body) {
     if (!password) {
         details.password =
             "Enter a password.";
-    } else if (password.length > 200) {
+    } else if (
+        passwordByteLength(password) >
+        PASSWORD_MAX_BYTES
+    ) {
         details.password =
             "The password is too long.";
     }
@@ -116,6 +96,67 @@ export function validateLogin(body) {
     return {
         identifier,
         password,
+        details
+    };
+}
+
+export function validateRegistration(body) {
+    const values = {
+        username: cleanText(body?.username).toLowerCase(),
+        studentId: cleanText(body?.studentId).toUpperCase(),
+        name: cleanText(body?.name),
+        email: cleanText(body?.email).toLowerCase(),
+        description: cleanText(body?.description),
+        password:
+            typeof body?.password === "string"
+                ? body.password
+                : ""
+    };
+
+    const confirmPassword =
+        typeof body?.confirmPassword === "string"
+            ? body.confirmPassword
+            : "";
+
+    const details = {};
+
+    if (!USERNAME_PATTERN.test(values.username)) {
+        details.username =
+            "Use 3–50 letters, numbers, dots, underscores, or hyphens; begin and end with a letter or number.";
+    }
+
+    if (!STUDENT_ID_PATTERN.test(values.studentId)) {
+        details.studentId =
+            "Enter an RMIT student ID such as S4221230.";
+    }
+
+    if (values.name.length < 2 || values.name.length > 80) {
+        details.name =
+            "Name must contain 2 to 80 characters.";
+    }
+
+    if (
+        !EMAIL_PATTERN.test(values.email) ||
+        values.email.length > 120
+    ) {
+        details.email =
+            "Enter a valid email address.";
+    }
+
+    if (values.description.length > 300) {
+        details.description =
+            "Description must not exceed 300 characters.";
+    }
+
+    validatePassword(values.password, "password", details);
+
+    if (confirmPassword !== values.password) {
+        details.confirmPassword =
+            "Enter the same password again.";
+    }
+
+    return {
+        values,
         details
     };
 }
@@ -136,9 +177,7 @@ export function validateProfilePatch(body) {
         "avatarUrl",
         "avatarDataUrl",
         "currentPassword",
-        "newPassword",
-        "recoveryPassword",
-        "confirmRecoveryPassword"
+        "newPassword"
     ]);
 
     const suppliedFields =
@@ -237,81 +276,42 @@ export function validateProfilePatch(body) {
     const hasNewPassword =
         Object.hasOwn(body, "newPassword");
 
-    const hasRecoveryPassword =
-        Object.hasOwn(body, "recoveryPassword") ||
-        Object.hasOwn(
-            body,
-            "confirmRecoveryPassword"
-        );
-
-    if (
-        hasCurrentPassword ||
-        hasNewPassword ||
-        hasRecoveryPassword
-    ) {
+    if (hasCurrentPassword || hasNewPassword) {
         values.currentPassword =
             typeof body.currentPassword === "string"
                 ? body.currentPassword
                 : "";
 
+        values.newPassword =
+            typeof body.newPassword === "string"
+                ? body.newPassword
+                : "";
+
         if (!values.currentPassword) {
             details.currentPassword =
-                "Enter the current login password before changing a password.";
+                "Enter the current password before choosing a new one.";
         } else if (
-            values.currentPassword.length > 200
+            passwordByteLength(values.currentPassword) >
+            PASSWORD_MAX_BYTES
         ) {
             details.currentPassword =
                 "The current password is too long.";
         }
 
-        if (hasNewPassword) {
-            values.newPassword =
-                typeof body.newPassword === "string"
-                    ? body.newPassword
-                    : "";
-
-            const passwordError =
-                newPasswordError(
-                    values.newPassword
-                );
-
-            if (passwordError) {
-                details.newPassword =
-                    passwordError;
-            }
-        }
-
-        if (hasRecoveryPassword) {
-            values.recoveryPassword =
-                typeof body.recoveryPassword === "string"
-                    ? body.recoveryPassword
-                    : "";
-
-            values.confirmRecoveryPassword =
-                typeof body.confirmRecoveryPassword === "string"
-                    ? body.confirmRecoveryPassword
-                    : "";
-
-            const passwordError =
-                recoveryPasswordError(
-                    values.recoveryPassword
-                );
-
-            if (passwordError) {
-                details.recoveryPassword =
-                    passwordError;
-            }
-
-            if (!values.confirmRecoveryPassword) {
-                details.confirmRecoveryPassword =
-                    "Confirm the recovery password.";
-            } else if (
-                values.confirmRecoveryPassword !==
-                values.recoveryPassword
-            ) {
-                details.confirmRecoveryPassword =
-                    "Enter the same recovery password again.";
-            }
+        if (
+            values.newPassword.length < 8 ||
+            passwordByteLength(values.newPassword) >
+            PASSWORD_MAX_BYTES
+        ) {
+            details.newPassword =
+                "New password must contain at least 8 characters and no more than 72 UTF-8 bytes.";
+        } else if (
+            !/[a-z]/.test(values.newPassword) ||
+            !/[A-Z]/.test(values.newPassword) ||
+            !/\d/.test(values.newPassword)
+        ) {
+            details.newPassword =
+                "New password must include uppercase and lowercase letters and a number.";
         }
     }
 

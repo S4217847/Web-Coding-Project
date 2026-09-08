@@ -1,25 +1,28 @@
 # Verification checklist
 
-Use this checklist after a fresh `npm install`. A clean server restart restores
-the documented seed before a demonstration.
+Use this checklist after a fresh `npm ci`. `npm run start:local` creates a new
+private disposable database and loads the documented demonstration seed; a
+normal `npm start` uses the configured Atlas database and preserves its data.
 
 ## Automated checks
 
 ```powershell
-npm test
 npm run check
 ```
 
-Expected result: every Node test passes and the static check reports five HTML
-pages, eight browser modules, and five server modules. Investigate every failure;
-do not hide or skip a test to obtain green output.
+Expected result: the static inventory and every Node test suite pass. The exact
+page, script, stylesheet, and test counts may grow during team integration, so
+use the command's current output rather than a historical hard-coded count.
+Investigate every failure; do not hide or skip a test to obtain green output.
 
-The integration suite binds an unused local port, so the normal development
-server may remain on port 3000. It resets its own data before every test.
+The integration suites bind unused local ports and use private temporary MongoDB
+instances. They do not read or alter the team Atlas database.
 
 ## Browser setup
 
-1. Run `npm start` and open <http://127.0.0.1:3000/login.html>.
+1. Run `npm run start:local` for a self-contained demonstration, or configure
+   `.env` and run `npm start` for Atlas. Then open
+   <http://127.0.0.1:3000/login.html>.
 2. Open browser developer tools. Keep Console and Network visible.
 3. Enable “Preserve log” only when following a redirect; otherwise clear old
    messages before each section.
@@ -71,14 +74,15 @@ server may remain on port 3000. It resets its own data before every test.
   password. No other changed field should persist after either failure.
 - Save valid text changes and refresh to confirm server persistence.
 - Save a valid password change, log out, and verify old credentials fail while
-  the new password succeeds. Restart afterward to restore the seed password.
+  the new password succeeds. Restart `npm run start:local` afterward if you need
+  a fresh disposable database with the documented seed password.
 - If testing a profile image, accept only a JPG/PNG below the stated limit.
 - Confirm text drafts may restore for the same account but never include password
   fields and never leak from Dat to Jay.
 
 ## Administration
 
-- Dat sees three safe account records and accurate total/active/locked summaries.
+- Dat sees four seeded account records and accurate total/active/locked/deactivated summaries.
 - Search and status filtering work together without another server fetch.
 - Attempt to lock Dat: the server rejects self-locking.
 - Lock Jay. Jay's already-open authenticated page receives `423 ACCOUNT_LOCKED`
@@ -119,3 +123,21 @@ git diff --stat
   and exact files/folders from the merged repository—no confirmation notes remain.
 - AI-use acknowledgements are accurate and consistent with course requirements.
 - Commit from the intended branch only after automated and manual checks pass.
+
+## Integrated Forum and legacy-owner checks
+
+- Open Home and Sitemap before login, after login, and after logout; check the correct session link.
+- Check that the original Blog sample and six Review samples retain owner-only controls.
+- Submit an anonymous or invalid Forum upload; no unused image should remain.
+- Attempt a non-owner image edit and a Reply to a deleted Discussion; both are denied and the new upload is removed.
+- Verify locked and password-revoked sessions cannot upload to the Forum.
+- Keep the original sample source files unchanged and confirm the intended database name.
+
+## Password recovery and deactivation
+
+- Use a disposable local account to request a reset link and complete one reset.
+- Check expiry, single use, password validation, and stale-session rejection.
+- Do not treat a locally displayed link as implemented email delivery.
+- Deactivation uses the distinct `deactivated` status and preserves the User document.
+- Keep the last-active-administrator guard in place.
+- Do not run the two historical recovery/deactivation review suites against this workflow.

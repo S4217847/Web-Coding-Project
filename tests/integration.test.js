@@ -1,29 +1,20 @@
-require("dotenv").config();
-
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { after, before, beforeEach, test } = require("node:test");
-const bcrypt = require("bcryptjs");
+const { after, before, test } = require("node:test");
 const mongoose = require("mongoose");
+const { MongoMemoryReplSet } = require("mongodb-memory-server");
 
 const { Discussion } = require("../models/discussion");
 const { Reply } = require("../models/reply");
 const { User } = require("../models/user");
-
-const testDatabaseName = "rmit_connect_a3_test";
-const testDatabaseUri = process.env.MONGODB_TEST_URI;
-
-if (!testDatabaseUri) {
-  throw new Error("MONGODB_TEST_URI is required for integration tests.");
-}
-
-process.env.MONGODB_URI = testDatabaseUri;
-
-const { startServer } = require("../index");
+const { connectDatabase } = require("../database");
+const { seedDatabase } = require("../scripts/seed");
 
 let server;
 let baseUrl;
+let mongoServer;
+let startServer;
 
 class BrowserSession {
   constructor() {
@@ -86,54 +77,21 @@ function removeForumTestImage(imagePath) {
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }
 
-async function clearForumTestData() {
-  if (mongoose.connection.name !== testDatabaseName) {
-    throw new Error("Forum test cleanup was blocked outside the test database.");
-  }
-
-  await Reply.deleteMany({});
-  await Discussion.deleteMany({});
-  await User.deleteMany({});
-}
-
-async function prepareForumTestUsers() {
-  const datPasswordHash = await bcrypt.hash("ConnectDemo!26", 10);
-  const jayPasswordHash = await bcrypt.hash("StudentDemo!26", 10);
-
-  await User.create([
-    {
-      username: "dat.pham",
-      studentId: "S4221230",
-      name: "Dat Pham",
-      email: "s4221230@rmit.edu.vn",
-      passwordHash: datPasswordHash,
-      description: "Test administrator for the Discussion Forum.",
-      role: "admin",
-      status: "active",
-    },
-    {
-      username: "jay.nguyen",
-      studentId: "S4217847",
-      name: "Jay Nguyen",
-      email: "s4217847@rmit.edu.vn",
-      passwordHash: jayPasswordHash,
-      description: "Test member for the Discussion Forum.",
-      role: "member",
-      status: "active",
-    },
-  ]);
-}
-
 before(async () => {
-  server = await startServer(0);
-  assert.equal(mongoose.connection.name, testDatabaseName);
-  await clearForumTestData();
-  await prepareForumTestUsers();
-  baseUrl = `http://127.0.0.1:${server.address().port}`;
-});
+  process.env.NODE_ENV = "test";
+  mongoServer = await MongoMemoryReplSet.create({
+    replSet: { count: 1, storageEngine: "wiredTiger" },
+  });
+  process.env.MONGODB_URI = mongoServer.getUri();
+  process.env.MONGODB_DB_NAME = "rmit_connect_integration_test";
+  process.env.SESSION_SECRET = "integration-test-session-secret-2026";
 
-beforeEach(() => {
-  assert.equal(mongoose.connection.name, testDatabaseName);
+  /* index.js reads configuration when imported, after the test URI is ready. */
+  ({ startServer } = require("../index"));
+  await connectDatabase();
+  await seedDatabase({ connect: false });
+  server = await startServer(0);
+  baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
 
 after(async () => {
@@ -143,11 +101,8 @@ after(async () => {
     });
   }
 
-  if (mongoose.connection.name === testDatabaseName) {
-    await clearForumTestData();
-  }
-
   await mongoose.disconnect();
+  if (mongoServer) await mongoServer.stop();
 });
 
 test("shared pages, compatibility routes, and security headers are available", async () => {
@@ -163,6 +118,8 @@ test("shared pages, compatibility routes, and security headers are available", a
     "/wishlist",
     "/wishlist/add",
     "/login.html",
+    "/register.html",
+    "/profile.html",
     "/editprofile.html",
     "/admin.html",
     "/forgot-password",
@@ -194,10 +151,7 @@ test("shared pages, compatibility routes, and security headers are available", a
 
 test("a port collision fails cleanly instead of throwing from server.address()", async () => {
   const occupiedPort = Number(new URL(baseUrl).port);
-  await assert.rejects(
-    startServer(occupiedPort),
-    (error) => error?.code === "EADDRINUSE",
-  );
+  await assert.rejects(startServer(occupiedPort), (error) => error?.code === "EADDRINUSE");
 });
 
 test("malformed and oversized JSON return controlled API errors", async () => {
@@ -208,6 +162,39 @@ test("malformed and oversized JSON return controlled API errors", async () => {
   });
   assert.equal(malformed.status, 400);
   assert.equal((await malformed.json()).code, "INVALID_JSON");
+
+  const malformedAccount = await fetch(baseUrl + "/api/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{also not valid json",
+  });
+  assert.equal(malformedAccount.status, 400);
+  assert.equal(
+    (await malformedAccount.json()).error.code,
+    "INVALID_JSON",
+  );
+
+  const mixedCaseAccount = await fetch(baseUrl + "/API/SESSION", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{still not valid json",
+  });
+  assert.equal(mixedCaseAccount.status, 400);
+  assert.equal(
+    (await mixedCaseAccount.json()).error.code,
+    "INVALID_JSON",
+  );
+
+  const oversizedAccount = await fetch(baseUrl + "/api/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: "x".repeat(1.6 * 1024 * 1024) }),
+  });
+  assert.equal(oversizedAccount.status, 413);
+  assert.equal(
+    (await oversizedAccount.json()).error.code,
+    "PAYLOAD_TOO_LARGE",
+  );
 
   const oversized = await fetch(baseUrl + "/api/blogs", {
     method: "POST",
@@ -232,7 +219,7 @@ test("one shared session authenticates every module and logout clears it", async
   }
 
   const login = await dat.login("dat.pham", "ConnectDemo!26");
-  assert.equal(login.data.user.id, "user-dat");
+  assert.match(login.data.user.id, /^[a-f\d]{24}$/i);
 
   for (const route of ["/", "/sitemap"]) {
     const response = await dat.request(route);
@@ -249,8 +236,9 @@ test("one shared session authenticates every module and logout clears it", async
     assert.equal(response.status, 200, route);
   }
 
-  const forum = await dat.request("/discussions");
+  const forum = await dat.request("/discussions", { redirect: "manual" });
   assert.equal(forum.status, 200);
+  assert.match(await forum.text(), /Discussion Forum/i);
 
   const logout = await dat.request("/logout");
   assert.equal(logout.status, 200);
@@ -271,7 +259,7 @@ test("one shared session authenticates every module and logout clears it", async
 
 test("Blog supports validated, owned CRUD, comments, and documented image sizes", async () => {
   const dat = new BrowserSession();
-  await dat.login("dat.pham", "ConnectDemo!26");
+  const login = await dat.login("dat.pham", "ConnectDemo!26");
 
   const unsupportedCategory = await dat.request(
     "/api/blogs",
@@ -299,7 +287,7 @@ test("Blog supports validated, owned CRUD, comments, and documented image sizes"
   );
   assert.equal(createdResponse.status, 201);
   const created = await createdResponse.json();
-  assert.equal(created.authorId, "user-dat");
+  assert.equal(created.authorId, login.data.user.id);
   assert.equal(created.image, mediumImage);
 
   const update = await dat.request(
@@ -339,7 +327,7 @@ test("Blog supports validated, owned CRUD, comments, and documented image sizes"
 test("Reviews derive identity and support validated course, image, and owned CRUD", async () => {
   const dat = new BrowserSession();
   const jay = new BrowserSession();
-  await dat.login("dat.pham", "ConnectDemo!26");
+  const datLogin = await dat.login("dat.pham", "ConnectDemo!26");
   await jay.login("jay.nguyen", "StudentDemo!26");
 
   const fractional = await dat.request(
@@ -368,7 +356,7 @@ test("Reviews derive identity and support validated course, image, and owned CRU
   );
   assert.equal(createdResponse.status, 201);
   const created = await createdResponse.json();
-  assert.equal(created.userId, "user-dat");
+  assert.equal(created.userId, datLogin.data.user.id);
   assert.equal(created.reviewerName, "Dat Pham");
   assert.equal(created.courseCode, "COSC3060");
   assert.equal(created.imageUrl, imageUrl);
@@ -604,4 +592,533 @@ test("Wishlist duplicate prevention and state transitions work through shared lo
     method: "DELETE",
   });
   assert.equal(remove.status, 200);
+});
+
+test("password reset and account deactivation persist through the root page controllers", async () => {
+  const account = new BrowserSession();
+  const oldPassword = "TemporaryPass9A";
+  const newPassword = "ReplacementPass9B";
+
+  const registration = await account.request(
+    "/api/users",
+    jsonRequest("POST", {
+      username: "root.e2e",
+      studentId: "S4999999",
+      name: "Root Controller Test",
+      email: "root.e2e@rmit.edu.vn",
+      description: "Temporary account for reset and deactivation testing.",
+      password: oldPassword,
+      confirmPassword: oldPassword,
+    }),
+  );
+  assert.equal(registration.status, 201);
+
+  const dormantSession = new BrowserSession();
+  await dormantSession.login("root.e2e", oldPassword);
+
+  const malformedEmailShape = await account.request("/forgot-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "reset-email%5Bnested%5D=not-an-email",
+  });
+  assert.equal(malformedEmailShape.status, 200);
+  assert.match(await malformedEmailShape.text(), /valid email address/i);
+
+  const forgot = await account.request("/forgot-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ "reset-email": "root.e2e@rmit.edu.vn" }),
+  });
+  assert.equal(forgot.status, 200);
+  const forgotPage = await forgot.text();
+  const resetToken = forgotPage.match(
+    /\/reset-password\?token=([a-f0-9]{64})/i,
+  )?.[1];
+  assert.ok(resetToken, "local mode should expose one demonstration reset link");
+
+  const resetPage = await account.request(
+    `/reset-password?token=${resetToken}`,
+  );
+  assert.equal(resetPage.status, 200);
+
+  const reset = await account.request("/reset-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      "new-password": newPassword,
+      "confirm-password": newPassword,
+    }),
+  });
+  assert.equal(reset.status, 200);
+  assert.match(await reset.text(), /Password Reset Complete/i);
+
+  const revokedDormantSession = await dormantSession.request("/api/profile");
+  assert.equal(revokedDormantSession.status, 401);
+  assert.equal(
+    (await revokedDormantSession.json()).error.code,
+    "SESSION_INVALID",
+  );
+
+  const oldLogin = await new BrowserSession().request(
+    "/api/session",
+    jsonRequest("POST", { identity: "root.e2e", password: oldPassword }),
+  );
+  assert.equal(oldLogin.status, 401);
+
+  const activeSession = new BrowserSession();
+  await activeSession.login("root.e2e", newPassword);
+
+  const anonymousDeactivatePage = await new BrowserSession().request(
+    "/deactivate-account",
+    { redirect: "manual" },
+  );
+  assert.equal(anonymousDeactivatePage.status, 302);
+  assert.equal(
+    anonymousDeactivatePage.headers.get("location"),
+    "/login.html?returnTo=%2Fdeactivate-account",
+  );
+
+  const anonymousDeactivate = await new BrowserSession().request(
+    "/deactivate-account",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({}),
+      redirect: "manual",
+    },
+  );
+  assert.equal(anonymousDeactivate.status, 302);
+  assert.equal(
+    anonymousDeactivate.headers.get("location"),
+    "/login.html?returnTo=%2Fdeactivate-account",
+  );
+
+  const replay = new BrowserSession();
+  assert.equal(
+    (await replay.request(`/reset-password?token=${resetToken}`)).status,
+    200,
+  );
+  const replayResult = await replay.request("/reset-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      "new-password": "ReplayAttempt9C",
+      "confirm-password": "ReplayAttempt9C",
+    }),
+  });
+  assert.equal(replayResult.status, 400);
+  assert.match(await replayResult.text(), /invalid or has expired/i);
+
+  const deactivate = await activeSession.request("/deactivate-account", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ "deactivate-id-confirm": "confirmed" }),
+    redirect: "manual",
+  });
+  assert.equal(deactivate.status, 302);
+  assert.equal(deactivate.headers.get("location"), "/deactivated-success");
+
+  const clearedSession = await activeSession.request("/api/session");
+  assert.equal((await clearedSession.json()).data.authenticated, false);
+
+  const deactivatedLogin = await new BrowserSession().request(
+    "/api/session",
+    jsonRequest("POST", { identity: "root.e2e", password: newPassword }),
+  );
+  assert.equal(deactivatedLogin.status, 403);
+});
+
+test("legacy Blog and Review samples retain their original MongoDB owners", async () => {
+  const dat = new BrowserSession();
+  const jay = new BrowserSession();
+  const datLogin = await dat.login("dat.pham", "ConnectDemo!26");
+  const jayLogin = await jay.login("jay.nguyen", "StudentDemo!26");
+  const kim = await User.findOne({ studentId: "S4028530" });
+  const sampleSource = fs.readFileSync(path.join(__dirname, "..", "review-data.js"), "utf8");
+
+  const blogResponse = await jay.request("/api/blogs/blog-001");
+  assert.equal(blogResponse.status, 200);
+  const blog = await blogResponse.json();
+  assert.equal(blog.authorId, jayLogin.data.user.id);
+  assert.equal(blog.authorSid, "S4217847");
+
+  const blogUpdate = {
+    title: blog.title,
+    category: blog.category,
+    tags: blog.tags,
+    content: blog.content,
+    image: blog.image,
+  };
+  assert.equal(
+    (await dat.request("/api/blogs/blog-001", jsonRequest("PUT", blogUpdate))).status,
+    403,
+  );
+  assert.equal(
+    (await jay.request("/api/blogs/blog-001", jsonRequest("PUT", blogUpdate))).status,
+    200,
+  );
+
+  const reviewResponse = await dat.request("/api/reviews");
+  assert.equal(reviewResponse.status, 200);
+  const reviews = await reviewResponse.json();
+  const expectedOwners = [
+    String(kim._id),
+    datLogin.data.user.id,
+    jayLogin.data.user.id,
+    String(kim._id),
+    datLogin.data.user.id,
+    jayLogin.data.user.id,
+  ];
+
+  for (let i = 0; i < expectedOwners.length; i += 1) {
+    const review = reviews.find((item) => item.id === i + 1);
+    assert.ok(review);
+    assert.equal(review.userId, expectedOwners[i]);
+  }
+
+  const datReview = reviews.find((review) => review.id === 2);
+  const reviewUpdate = {
+    title: datReview.title,
+    description: datReview.description,
+    courseCode: datReview.courseCode,
+    rating: datReview.rating,
+  };
+  assert.equal(
+    (await jay.request("/api/reviews/2", jsonRequest("PUT", reviewUpdate))).status,
+    403,
+  );
+  assert.equal(
+    (await dat.request("/api/reviews/2", jsonRequest("PUT", reviewUpdate))).status,
+    200,
+  );
+  assert.equal(
+    (await jay.request("/api/reviews/2", { method: "DELETE" })).status,
+    403,
+  );
+
+  // The compatibility step changes runtime samples, never their source files.
+  assert.equal(
+    fs.readFileSync(path.join(__dirname, "..", "review-data.js"), "utf8"),
+    sampleSource,
+  );
+  assert.match(sampleSource, /userId: "user-dat"/);
+});
+
+test("Forum rejects anonymous and invalid uploads without leaving files", async () => {
+  const uploadsDirectory = path.join(__dirname, "..", "public", "uploads");
+  const beforeFiles = fs.readdirSync(uploadsDirectory).sort();
+  const anonymous = new BrowserSession();
+  const anonymousForm = new FormData();
+  anonymousForm.append("postTitle", "Anonymous upload must not be saved");
+  anonymousForm.append("postContent", "This request must be stopped before an image is saved.");
+  addForumTestImage(anonymousForm, "postImage");
+
+  const anonymousResponse = await anonymous.request("/discussions", {
+    method: "POST",
+    body: anonymousForm,
+    redirect: "manual",
+  });
+  assert.equal(anonymousResponse.status, 302);
+  assert.match(anonymousResponse.headers.get("location"), /^\/login\.html/);
+  assert.deepEqual(fs.readdirSync(uploadsDirectory).sort(), beforeFiles);
+
+  const dat = new BrowserSession();
+  await dat.login("dat.pham", "ConnectDemo!26");
+  const invalidForm = new FormData();
+  invalidForm.append("postTitle", "");
+  invalidForm.append("postContent", "");
+  addForumTestImage(invalidForm, "postImage");
+  const invalidResponse = await dat.request("/discussions", {
+    method: "POST",
+    body: invalidForm,
+    redirect: "manual",
+  });
+  assert.equal(invalidResponse.status, 400);
+  assert.deepEqual(fs.readdirSync(uploadsDirectory).sort(), beforeFiles);
+
+  const invalidType = new FormData();
+  invalidType.append("postTitle", "Text is not a Forum image");
+  invalidType.append("postContent", "The server must reject this unsupported upload.");
+  invalidType.append("postImage", new Blob(["not an image"], { type: "text/plain" }), "upload.txt");
+  const invalidTypeResponse = await dat.request("/discussions", {
+    method: "POST",
+    body: invalidType,
+    redirect: "manual",
+  });
+  assert.equal(invalidTypeResponse.status, 400);
+  assert.deepEqual(fs.readdirSync(uploadsDirectory).sort(), beforeFiles);
+});
+
+test("Forum preserves ownership and rejects replies below a deleted Discussion", async () => {
+  const dat = new BrowserSession();
+  const jay = new BrowserSession();
+  await dat.login("dat.pham", "ConnectDemo!26");
+  await jay.login("jay.nguyen", "StudentDemo!26");
+  const uploadsDirectory = path.join(__dirname, "..", "public", "uploads");
+  const beforeFiles = fs.readdirSync(uploadsDirectory).sort();
+  const title = "Forum integration guard " + Date.now();
+  let discussion;
+  let reply;
+  const createdImages = new Set();
+
+  try {
+    const form = new FormData();
+    form.append("postTitle", title);
+    form.append("postContent", "An owned Discussion used only by the integration guard test.");
+    addForumTestImage(form, "postImage");
+    assert.equal((await dat.request("/discussions", {
+      method: "POST", body: form, redirect: "manual",
+    })).status, 302);
+    discussion = await Discussion.findOne({ title });
+    assert.ok(discussion);
+    createdImages.add(discussion.image);
+    const ownedFiles = fs.readdirSync(uploadsDirectory).sort();
+
+    const forbiddenForm = new FormData();
+    forbiddenForm.append("postTitle", "Another member must not replace this title");
+    forbiddenForm.append("postContent", "Another member must not replace this content.");
+    addForumTestImage(forbiddenForm, "postImage");
+    assert.equal((await jay.request("/discussions/" + discussion._id + "/edit", {
+      method: "POST", body: forbiddenForm, redirect: "manual",
+    })).status, 403);
+    assert.deepEqual(fs.readdirSync(uploadsDirectory).sort(), ownedFiles);
+    assert.equal((await Discussion.findById(discussion._id)).title, title);
+    assert.equal((await jay.request("/discussions/" + discussion._id + "/delete", {
+      method: "POST", redirect: "manual",
+    })).status, 403);
+
+    const replyForm = new FormData();
+    replyForm.append("replyTitle", "Reply beneath " + title);
+    replyForm.append("replyContent", "This reply must be hidden when its parent is deleted.");
+    addForumTestImage(replyForm, "replyImage");
+    assert.equal((await dat.request("/discussions/" + discussion._id + "/replies", {
+      method: "POST", body: replyForm, redirect: "manual",
+    })).status, 302);
+    reply = await Reply.findOne({ discussionId: discussion._id });
+    assert.ok(reply);
+    createdImages.add(reply.image);
+    const detail = await dat.request("/discussions/" + discussion._id);
+    assert.match(await detail.text(), new RegExp('id="reply-' + reply._id + '"'));
+
+    assert.equal((await dat.request("/discussions/" + discussion._id + "/delete", {
+      method: "POST", redirect: "manual",
+    })).status, 302);
+    assert.ok((await Discussion.findById(discussion._id)).deletedAt);
+    const replyBase = "/discussions/" + discussion._id + "/replies/" + reply._id;
+    assert.equal((await dat.request(replyBase + "/edit", { redirect: "manual" })).status, 404);
+    assert.equal((await dat.request(replyBase + "/delete", {
+      method: "POST", redirect: "manual",
+    })).status, 404);
+
+    const afterDeleteFiles = fs.readdirSync(uploadsDirectory).sort();
+    for (const route of ["/discussions/" + discussion._id + "/replies", replyBase + "/edit"]) {
+      const rejectedReply = new FormData();
+      rejectedReply.append("replyTitle", "A deleted parent must stay closed");
+      rejectedReply.append("replyContent", "No new or edited Reply is allowed below a deleted Discussion.");
+      addForumTestImage(rejectedReply, "replyImage");
+      assert.equal((await dat.request(route, {
+        method: "POST", body: rejectedReply, redirect: "manual",
+      })).status, 404);
+      assert.deepEqual(fs.readdirSync(uploadsDirectory).sort(), afterDeleteFiles);
+    }
+
+    const retainedReply = await Reply.findById(reply._id);
+    assert.ok(retainedReply);
+    assert.equal(retainedReply.deletedAt, null);
+    const list = await dat.request("/discussions");
+    assert.equal((await list.text()).includes(title), false);
+  } finally {
+    for (const imagePath of createdImages) removeForumTestImage(imagePath);
+    if (reply) await Reply.deleteOne({ _id: reply._id });
+    if (discussion) await Discussion.deleteOne({ _id: discussion._id });
+  }
+
+  assert.deepEqual(fs.readdirSync(uploadsDirectory).sort(), beforeFiles);
+});
+
+test("Forum checks image bytes on every create and edit upload route", async () => {
+  const dat = new BrowserSession();
+  const login = await dat.login("dat.pham", "ConnectDemo!26");
+  const uploadsDirectory = path.join(__dirname, "..", "public", "uploads");
+  const beforeFiles = fs.readdirSync(uploadsDirectory).sort();
+  const marker = "Image signature test " + Date.now();
+  const createdImages = new Set();
+  const pngImage = fs.readFileSync(path.join(__dirname, "..", "public", "images", "user_icon.png"));
+  let discussion;
+  let reply;
+
+  try {
+    const form = new FormData();
+    form.append("postTitle", marker);
+    form.append("postContent", "A genuine PNG must still be accepted.");
+    form.append("postImage", new Blob([pngImage], { type: "image/png" }), "valid.png");
+    const created = await dat.request("/discussions", {
+      method: "POST", body: form, redirect: "manual",
+    });
+    discussion = await Discussion.findOne({ title: marker });
+    if (discussion) createdImages.add(discussion.image);
+    assert.equal(created.status, 302);
+    assert.ok(discussion);
+    const successfulPage = await dat.request("/discussions");
+    const successfulHtml = await successfulPage.text();
+    assert.ok(successfulHtml.includes('data-user-id="' + login.data.user.id + '"'));
+    assert.match(successfulHtml, /data-clear-draft="true"/);
+    assert.match(await (await dat.request("/discussions")).text(), /data-clear-draft="false"/);
+
+    const replyForm = new FormData();
+    replyForm.append("replyTitle", marker + " reply");
+    replyForm.append("replyContent", "A genuine JPEG must still be accepted.");
+    addForumTestImage(replyForm, "replyImage");
+    const createdReply = await dat.request("/discussions/" + discussion._id + "/replies", {
+      method: "POST", body: replyForm, redirect: "manual",
+    });
+    reply = await Reply.findOne({ discussionId: discussion._id });
+    if (reply) createdImages.add(reply.image);
+    assert.equal(createdReply.status, 302);
+    assert.ok(reply);
+    const validFiles = fs.readdirSync(uploadsDirectory).sort();
+    const discussionBefore = (await Discussion.findById(discussion._id)).toObject();
+    const replyBefore = (await Reply.findById(reply._id)).toObject();
+    const routes = [
+      ["/discussions", "post"],
+      ["/discussions/" + discussion._id + "/edit", "post"],
+      ["/discussions/" + discussion._id + "/replies", "reply"],
+      ["/discussions/" + discussion._id + "/replies/" + reply._id + "/edit", "reply"],
+    ];
+    const invalidImages = [
+      ["image/jpeg", Buffer.from("Plain text is not a JPEG.")],
+      ["image/png", Buffer.from("Plain text is not a PNG.")],
+      ["image/jpeg", pngImage],
+      ["image/png", Buffer.from([0x89, 0x50])],
+    ];
+
+    for (const [route, prefix] of routes) {
+      for (const [type, bytes] of invalidImages) {
+        const invalid = new FormData();
+        invalid.append(prefix + "Title", marker + " rejected");
+        invalid.append(prefix + "Content", "This rejected upload must not change the database.");
+        invalid.append(prefix + "Image", new Blob([bytes], { type }), "invalid-image.jpg");
+        const rejected = await dat.request(route, {
+          method: "POST", body: invalid, redirect: "manual",
+        });
+        assert.equal(rejected.status, 400, route + " / " + type);
+        assert.match(await rejected.text(), /JPEG and PNG images/i);
+        assert.deepEqual(fs.readdirSync(uploadsDirectory).sort(), validFiles);
+        assert.deepEqual((await Discussion.findById(discussion._id)).toObject(), discussionBefore);
+        assert.deepEqual((await Reply.findById(reply._id)).toObject(), replyBefore);
+        assert.equal(await Discussion.countDocuments({ title: marker + " rejected" }), 0);
+        assert.equal(await Reply.countDocuments({ title: marker + " rejected" }), 0);
+      }
+    }
+  } finally {
+    // Clean only documents and uploads created by this test, including a failed assertion.
+    const testDiscussions = await Discussion.find({ title: { $in: [marker, marker + " rejected"] } });
+    if (discussion && !testDiscussions.some((item) => String(item._id) === String(discussion._id))) {
+      const edited = await Discussion.findById(discussion._id);
+      if (edited) testDiscussions.push(edited);
+    }
+    for (const item of testDiscussions) {
+      createdImages.add(item.image);
+      const testReplies = await Reply.find({ discussionId: item._id });
+      for (const testReply of testReplies) createdImages.add(testReply.image);
+      await Reply.deleteMany({ discussionId: item._id });
+      await Discussion.deleteOne({ _id: item._id });
+    }
+    for (const imagePath of createdImages) removeForumTestImage(imagePath);
+  }
+  assert.deepEqual(fs.readdirSync(uploadsDirectory).sort(), beforeFiles);
+});
+
+test("a malformed new reset link cannot reuse the previous session token", async () => {
+  for (const query of ["token=invalid", "token=", "token%5B%5D=invalid"]) {
+    const account = new BrowserSession();
+    assert.equal((await account.request("/reset-password?token=" + "a".repeat(64))).status, 200);
+    const invalid = await account.request("/reset-password?" + query, { redirect: "manual" });
+    assert.equal(invalid.status, 302, query);
+    assert.equal(invalid.headers.get("location"), "/forgot-password");
+    const retry = await account.request("/reset-password", { redirect: "manual" });
+    assert.equal(retry.status, 302);
+  }
+});
+
+test("Logout also clears password-reset access from the shared session", async () => {
+  const dat = new BrowserSession();
+  await dat.login("dat.pham", "ConnectDemo!26");
+  await dat.request("/reset-password?token=" + "b".repeat(64));
+  assert.equal((await dat.request("/logout")).status, 200);
+  const reset = await dat.request("/reset-password", { redirect: "manual" });
+  assert.equal(reset.status, 302);
+  assert.equal(reset.headers.get("location"), "/forgot-password");
+  assert.equal((await dat.request("/api/profile")).status, 401);
+  assert.equal((await dat.request("/discussions", { redirect: "manual" })).status, 302);
+});
+
+test("root Deactivation requires confirmation and preserves the last active admin", async () => {
+  const dat = new BrowserSession();
+  const login = await dat.login("dat.pham", "ConnectDemo!26");
+  const missingConfirmation = await dat.request("/deactivate-account", {
+    method: "POST", body: new URLSearchParams({}),
+  });
+  assert.equal(missingConfirmation.status, 200);
+  assert.match(await missingConfirmation.text(), /Please confirm that you understand/i);
+  const lastAdmin = await dat.request("/deactivate-account", {
+    method: "POST", body: new URLSearchParams({ "deactivate-id-confirm": "confirmed" }),
+    redirect: "manual",
+  });
+  assert.equal(lastAdmin.status, 409);
+  assert.equal((await User.findById(login.data.user.id)).status, "active");
+  assert.equal((await dat.request("/api/profile")).status, 200);
+});
+
+test("locked and outdated Account sessions cannot upload to the Forum", async () => {
+  const admin = new BrowserSession();
+  await admin.login("dat.pham", "ConnectDemo!26");
+  const account = new BrowserSession();
+  const registration = await account.request("/api/users", jsonRequest("POST", {
+    username: "forum.guard",
+    studentId: "S4899901",
+    name: "Forum Guard",
+    email: "forum.guard@example.org",
+    password: "ForumGuard!26",
+    confirmPassword: "ForumGuard!26",
+  }));
+  assert.equal(registration.status, 201);
+  const user = (await registration.json()).data.user;
+  const lockedSession = new BrowserSession();
+  await lockedSession.login("forum.guard", "ForumGuard!26");
+  const uploadsDirectory = path.join(__dirname, "..", "public", "uploads");
+  const beforeFiles = fs.readdirSync(uploadsDirectory).sort();
+
+  const lock = await admin.request("/api/admin/users/" + user.id + "/status",
+    jsonRequest("PATCH", { status: "locked" }));
+  assert.equal(lock.status, 200);
+
+  async function assertUploadDenied(client) {
+    const form = new FormData();
+    form.append("postTitle", "Inactive session must not create a post");
+    form.append("postContent", "This request must be rejected before an upload is saved.");
+    addForumTestImage(form, "postImage");
+    const response = await client.request("/discussions", {
+      method: "POST", body: form, redirect: "manual",
+    });
+    assert.equal(response.status, 302);
+    assert.match(response.headers.get("location"), /^\/login\.html/);
+    assert.deepEqual(fs.readdirSync(uploadsDirectory).sort(), beforeFiles);
+  }
+  await assertUploadDenied(lockedSession);
+
+  const unlock = await admin.request("/api/admin/users/" + user.id + "/status",
+    jsonRequest("PATCH", { status: "active" }));
+  assert.equal(unlock.status, 200);
+  const oldSession = new BrowserSession();
+  const currentSession = new BrowserSession();
+  await oldSession.login("forum.guard", "ForumGuard!26");
+  await currentSession.login("forum.guard", "ForumGuard!26");
+  const changePassword = await currentSession.request("/api/profile", jsonRequest("PATCH", {
+    currentPassword: "ForumGuard!26",
+    newPassword: "ForumChanged!26",
+  }));
+  assert.equal(changePassword.status, 200);
+  await assertUploadDenied(oldSession);
+  assert.equal((await currentSession.request("/discussions")).status, 200);
 });

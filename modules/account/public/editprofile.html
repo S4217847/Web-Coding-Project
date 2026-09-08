@@ -23,7 +23,7 @@
                 <li><a href="/blogs">Blogs</a></li>
                 <li><a href="/reviews/browse">Reviews</a></li>
                 <li><a href="/wishlist">Wishlist</a></li>
-                <li><a href="/editprofile.html" aria-current="page">Profile</a></li>
+                <li><a href="/profile.html" aria-current="page">Profile</a></li>
             </ul>
         </nav>
 
@@ -176,11 +176,8 @@
                     </div>
 
                     <fieldset class="passwordGroup">
-                        <legend>Change login or recovery password (optional)</legend>
-                        <p>
-                            Enter your current login password when changing either password.
-                            Leave the other fields blank to keep them unchanged.
-                        </p>
+                        <legend>Change password (optional)</legend>
+                        <p>Leave all three fields blank to keep your current password.</p>
 
                         <div class="formField">
                             <label for="currentPassword">Current Password</label>
@@ -189,7 +186,7 @@
                                 name="currentPassword"
                                 type="password"
                                 autocomplete="current-password"
-                                maxlength="200"
+                                maxlength="72"
                                 aria-describedby="currentPasswordError">
                             <small
                                 id="currentPasswordError"
@@ -207,10 +204,10 @@
                                     name="newPassword"
                                     type="password"
                                     autocomplete="new-password"
-                                    maxlength="64"
+                                    maxlength="72"
                                     aria-describedby="newPasswordHint newPasswordError">
                                 <small id="newPasswordHint">
-                                    Use 8–64 ASCII characters without spaces, including uppercase and lowercase letters and a number.
+                                    Use at least 8 characters, no more than 72 UTF-8 bytes, with uppercase and lowercase letters and a number.
                                 </small>
                                 <small
                                     id="newPasswordError"
@@ -227,55 +224,12 @@
                                     name="confirmPassword"
                                     type="password"
                                     autocomplete="new-password"
-                                    maxlength="64"
+                                    maxlength="72"
                                     aria-describedby="confirmPasswordError">
                                 <small
                                     id="confirmPasswordError"
                                     class="fieldError"
                                     data-error-for="confirmPassword"
-                                    hidden>
-                                </small>
-                            </div>
-                        </div>
-
-                        <p id="recoveryPasswordStatus" aria-live="polite">
-                            Checking recovery password status…
-                        </p>
-
-                        <div class="formRow">
-                            <div class="formField">
-                                <label for="recoveryPassword">New Recovery Password</label>
-                                <input
-                                    id="recoveryPassword"
-                                    name="recoveryPassword"
-                                    type="password"
-                                    autocomplete="new-password"
-                                    maxlength="64"
-                                    aria-describedby="recoveryPasswordHint recoveryPasswordError">
-                                <small id="recoveryPasswordHint">
-                                    Use 12–64 ASCII characters without spaces, including uppercase and lowercase letters and a number. Do not reuse your login password.
-                                </small>
-                                <small
-                                    id="recoveryPasswordError"
-                                    class="fieldError"
-                                    data-error-for="recoveryPassword"
-                                    hidden>
-                                </small>
-                            </div>
-
-                            <div class="formField">
-                                <label for="confirmRecoveryPassword">Confirm Recovery Password</label>
-                                <input
-                                    id="confirmRecoveryPassword"
-                                    name="confirmRecoveryPassword"
-                                    type="password"
-                                    autocomplete="new-password"
-                                    maxlength="64"
-                                    aria-describedby="confirmRecoveryPasswordError">
-                                <small
-                                    id="confirmRecoveryPasswordError"
-                                    class="fieldError"
-                                    data-error-for="confirmRecoveryPassword"
                                     hidden>
                                 </small>
                             </div>

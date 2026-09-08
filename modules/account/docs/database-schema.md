@@ -1,57 +1,68 @@
-# MongoDB Atlas schema and implementation status
+# Dat's MongoDB database design
 
-The final group application uses MongoDB Atlas for persistent backend data.
-This document separates the collections implemented for Assessment 3 from
-module data that still uses runtime stores and collections that remain planned.
+This document is the implementation contract for Dat Pham's Assessment 3
+scope: Login, Edit Profile, Administration, Wishlist and Favourites. It covers
+only the collections owned or directly used by that scope. The other team
+modules document their own collections separately.
 
-## Scope and implementation status
+The design targets the five requirements in the 10-point Database rubric:
 
-| Area | Current implementation | MongoDB Atlas status or future direction |
+1. a complete diagram for the assigned individual and shared features;
+2. collections, documents, fields, types, validation, and relationships;
+3. accurate one-to-one, one-to-many, and many-to-many relationships where they
+   are relevant;
+4. minimal duplication plus indexes that support real retrieval, filtering,
+   and sorting;
+5. an implementation that matches this design and contains representative
+   sample records.
+
+The standalone Mermaid source is in
+[`database-diagram.mmd`](database-diagram.mmd). Representative records and the
+expected seed coverage are in [`sample-data.md`](sample-data.md).
+
+## Collection summary
+
+| Physical MongoDB collection | Mongoose model | Purpose |
 | --- | --- | --- |
-| Accounts, login, profile, and administration | Login reads MongoDB credentials and status. Profile email/password changes and lock/deactivation changes persist in `users`. Matching runtime users and other Profile edits remain in memory. | Partial migration through `studentId`, not a full Account migration. MongoDB `sessions` and `adminActions` remain planned. |
-| Password recovery | A pre-set recovery password is hashed in `users`. Successful verification grants 10-minute Reset access in the server session. No email is sent. | Implemented with User fields and the current in-memory session. The earlier `passwordResetTokens` collection design is not used. |
-| Catalogue, wishlist, cart hand-off, and purchase history | Products and user-owned relations remain in memory. | `products`, `wishlistEntries`, `cartItems`, `purchases`, `purchaseItems`, and `productActivityEvents` remain planned. |
-| Discussion Forum | Implemented with MongoDB `users`, `discussions`, and `replies`, ObjectId references, image paths, ownership checks, and soft deletion. | Implemented and tested. |
-| Blog and comments | Posts and comments currently remain in memory. | `blogPosts` and `blogComments` remain planned. |
-| Course reviews and ratings | Reviews currently remain in memory and are linked to the signed-in user and course code. | A `reviews` collection linked to Users and courses remains planned. |
-| Sitemap | Static navigation and account links are defined in `views/sitemap.ejs`. Active MongoDB Discussions and Replies, plus the current Blog and Review data, are added when the page is rendered. | Implemented as a derived view. It does not require its own collection. |
+| `users` | `User` | Login identity, password hash, profile attributes, role, and account status |
+| `products` | `Product` | Canonical catalogue facts displayed by Browse Items and Wishlist |
+| `wishlistentries` | `WishlistEntry` | One current user-product relationship whose state is `saved` or `cart` |
+| `purchases` | `Purchase` | Immutable history created when a user marks one product as purchased |
+| `passwordresettokens` | `PasswordResetToken` | At most one active, expiring reset challenge for a user |
 
-The implemented Mongoose models and current collections are documented
-separately from the future-facing collection designs below. Planned collections
-must be confirmed with the relevant module owner before implementation.
+In production, `connect-mongo` also owns a `sessions` collection. It is an
+operational store for encrypted Express session records with expiry metadata,
+not a domain entity authored by the Account or Wishlist repositories. It has no
+business relationship to model in the ER diagram and is intentionally excluded
+from the five domain collection contracts below. Local development and tests use
+an in-process session store unless production mode is explicitly enabled.
 
-## Full-team relationship diagram
+The literal Mongoose schemas are defined in `models/user.js`,
+`models/product.js`, `models/wishlist-entry.js`, `models/purchase.js`, and
+`models/password-reset-token.js`. `models/index.js` exposes the shared model
+set. `modules/account/src/mongo-repository.js` owns the Account/Wishlist queries
+and keeps database details out of browser code.
 
-The diagram combines implemented collections with the planned collections
-listed above. Recovery adds fields to `USER`, not a separate token collection.
-`SESSION` and `ADMIN_ACTION` represent planned MongoDB collections.
+There is deliberately no separate `cartitems` collection. The current product
+has one action that moves an existing saved item to a cart-ready state; it does
+not support independent cart variants. Keeping `status` on the single
+`wishlistentries` junction makes the move one atomic update and makes the
+unique user-product rule enforceable in one place.
+
+There is also no separate `profiles` collection. A profile belongs to exactly
+one account and is always read and updated with that account, so its attributes
+are stored in the `users` document. This is not an undocumented relationship:
+it is intentional embedding/flattening of one-to-one data.
+
+## Complete relationship diagram
 
 ```mermaid
 erDiagram
-    USER ||--o{ SESSION : authenticates
-    USER ||--o{ ADMIN_ACTION : performs
-    USER ||--o{ ADMIN_ACTION : is_target_of
-
     USER ||--o{ WISHLIST_ENTRY : owns
-    PRODUCT ||--o{ WISHLIST_ENTRY : references
-    USER ||--o{ CART_ITEM : owns
-    PRODUCT ||--o{ CART_ITEM : references
-    USER ||--o{ PURCHASE : places
-    PURCHASE ||--|{ PURCHASE_ITEM : contains
-    PRODUCT ||--o{ PURCHASE_ITEM : snapshots
-    USER ||--o{ PRODUCT_ACTIVITY_EVENT : causes
-    PRODUCT ||--o{ PRODUCT_ACTIVITY_EVENT : records
-
-    USER ||--o{ DISCUSSION : authors
-    USER ||--o{ REPLY : authors
-    DISCUSSION ||--o{ REPLY : receives
-
-    USER ||--o{ BLOG_POST : authors
-    BLOG_POST ||--o{ BLOG_COMMENT : receives
-    USER ||--o{ BLOG_COMMENT : authors
-
-    USER ||--o{ REVIEW : authors
-    PRODUCT ||--o{ REVIEW : receives
+    PRODUCT ||--o{ WISHLIST_ENTRY : appears_in
+    USER ||--o{ PURCHASE : makes
+    PRODUCT ||--o{ PURCHASE : records
+    USER ||--o| PASSWORD_RESET_TOKEN : has_active
 
     USER {
         ObjectId _id PK
@@ -60,17 +71,12 @@ erDiagram
         string name
         string email UK
         string passwordHash
-        date passwordChangedAt
-        string recoveryPasswordHash
-        date recoveryPasswordSetAt
-        int recoveryFailedAttempts
-        date recoveryAttemptWindowStartedAt
-        date recoveryBlockedUntil
         string description
         string avatarUrl
         string course
         string role
         string status
+        int authVersion
         date lastActiveAt
         date lockedAt
         date deactivatedAt
@@ -85,9 +91,9 @@ erDiagram
         string category
         string description
         int priceVnd
-        string imageUrl
-        object availableOptions
-        object cachedStats
+        string image
+        string imageAlt
+        boolean isActive
         date createdAt
         date updatedAt
     }
@@ -96,16 +102,7 @@ erDiagram
         ObjectId _id PK
         ObjectId userId FK
         ObjectId productId FK
-        date createdAt
-        date updatedAt
-    }
-
-    CART_ITEM {
-        ObjectId _id PK
-        ObjectId userId FK
-        ObjectId productId FK
-        string configurationKey
-        object selectedOptions
+        string status
         int quantity
         date createdAt
         date updatedAt
@@ -114,695 +111,326 @@ erDiagram
     PURCHASE {
         ObjectId _id PK
         ObjectId userId FK
-        string orderNumber UK
-        object deliverySnapshot
-        object paymentSummary
-        int totalVnd
-        string status
-        date purchasedAt
-    }
-
-    PURCHASE_ITEM {
-        ObjectId _id PK
-        ObjectId purchaseId FK
         ObjectId productId FK
-        string productNameSnapshot
-        object selectedOptions
+        string productName
+        int unitPriceVnd
         int quantity
-        int pricePaidVnd
-    }
-
-    PRODUCT_ACTIVITY_EVENT {
-        ObjectId _id PK
-        ObjectId userId FK
-        ObjectId productId FK
-        string type
-        string operationKey UK
-        date occurredAt
-    }
-
-    DISCUSSION {
-        ObjectId _id PK
-        string title
-        string content
-        string image
-        ObjectId authorId FK
+        date purchasedAt
         date createdAt
-        date updatedAt
-        date deletedAt
-        ObjectId deletedBy FK
     }
 
-    REPLY {
+    PASSWORD_RESET_TOKEN {
         ObjectId _id PK
-        string title
-        string content
-        string image
-        ObjectId authorId FK
-        ObjectId discussionId FK
-        date createdAt
-        date updatedAt
-        date deletedAt
-        ObjectId deletedBy FK
-    }
-
-    BLOG_POST {
-        ObjectId _id PK
-        ObjectId authorUserId FK
-        string slug UK
-        string title
-        string summary
-        array tags
-        array categories
-        string content
-        string imageUrl
-        string visibility
-        date publishedAt
-        date updatedAt
-    }
-
-    BLOG_COMMENT {
-        ObjectId _id PK
-        ObjectId blogPostId FK
-        ObjectId authorUserId FK
-        string content
-        date createdAt
-        date updatedAt
-    }
-
-    REVIEW {
-        ObjectId _id PK
-        ObjectId productId FK
-        ObjectId authorUserId FK
-        string title
-        string description
-        int starRating
-        string reviewerNameSnapshot
-        string imageUrl
-        date createdAt
-        date updatedAt
-    }
-
-    SESSION {
-        string _id PK
-        ObjectId userId FK
+        ObjectId userId FK, UK
+        string tokenHash UK
         date expiresAt
-    }
-
-    ADMIN_ACTION {
-        ObjectId _id PK
-        ObjectId actorUserId FK
-        ObjectId targetUserId FK
-        string action
-        string reason
+        date usedAt
         date createdAt
     }
 ```
 
-`FK` labels represent application-level references. MongoDB does not enforce
-relational foreign keys, so the service layer must validate every referenced
-record, ownership rule, and account status.
+Mermaid's `o|` marker means “zero or one”; it does not mean every user must
+always have a reset token. `PK`, `UK`, and `FK` mean primary key, unique key,
+and application-level reference. MongoDB does not enforce foreign keys, so the
+service validates referenced documents and ownership before writing.
+
+### Cardinality and implementation
+
+| Relationship | Cardinality | How it is represented |
+| --- | --- | --- |
+| User to active reset token | 1 to 0..1 | `passwordresettokens.userId` is a required reference with a unique index. Reissuing a challenge replaces/upserts the previous record. |
+| User to Wishlist entries | 1 to 0..many | Each entry has one required `userId`; a user may save/cart many products. |
+| Product to Wishlist entries | 1 to 0..many | Each entry has one required `productId`; a product may appear for many users. |
+| User to Product (current saved/cart state) | many to many | `wishlistentries` is the junction collection. The compound unique key `(userId, productId)` allows only one current relation for each pair. |
+| User to Purchases | 1 to 0..many | Each purchase belongs to one user; repeat purchases are allowed. |
+| Product to Purchases | 1 to 0..many | Each purchase names one product; the same product can be purchased repeatedly. |
+| User to Product (purchase history) | many to many over time | `purchases` is a historical junction. It intentionally has no unique user-product key. |
+| User to profile attributes | logical 1 to 1 | `name`, `description`, `avatarUrl`, `course`, and `email` are kept in the same `users` document, not a second collection. |
+
+## Shared conventions
+
+- MongoDB supplies `_id: ObjectId` for every document.
+- References use `ObjectId` values, never usernames or student IDs. Usernames
+  and student IDs can change format; `_id` is the stable relationship key.
+- All identity and ownership values come from the authenticated server session.
+  A client-supplied `userId` never grants access.
+- Mongoose timestamps are stored as UTC BSON dates. Presentation code may
+  convert them to the user's local time.
+- VND prices are non-negative integers. This avoids floating-point rounding and
+  matches a currency normally displayed without a fractional unit.
+- Usernames and emails are normalized to lowercase and student IDs to uppercase
+  before uniqueness is checked.
+- Passwords and reset tokens are never stored in plaintext. Their one-way
+  hashes are excluded from normal Mongoose queries with `select: false`.
+- Password input is limited to 72 UTF-8 bytes, the maximum bcrypt can compare
+  without silently truncating distinct values.
+- Enum values use lowercase machine-readable strings. Labels for people belong
+  in the presentation layer.
+- A referenced product is deactivated with `isActive: false`, not physically
+  deleted, so past purchases remain interpretable.
 
 ## Collection contracts
 
-### Shared account and administration collections
+### `users`
 
-#### `users`
+The shared User model remains compatible with the Discussion Forum while
+adding strict validation needed by login, profile, and administration.
 
-- The current schema defines unique `username`, `studentId`, and `email` fields.
-  Seeded usernames and emails use normalized lowercase values.
-- `name` is stored separately for display, and `course` is shown on Forum pages.
-- `role` is `admin` or `member`.
-- `status` is `active`, `locked`, or `deactivated`. The current status fields
-  include `lockedAt` and `deactivatedAt`.
-- `lastActiveAt` records the User's latest Forum create, edit, or delete action.
-- The profile stores `name`, `description`, `email`, `avatarUrl`, and `course`.
-  MongoDB stores the avatar path rather than the image file.
-- The login password uses `passwordHash`. A pre-set recovery password uses a
-  separate `recoveryPasswordHash`. Both are hashed with `bcryptjs`.
-  APIs never return either hash or plain-text password. Profile responses expose
-  only the boolean `recoveryConfigured` to show whether recovery is available.
-- `createdAt` and `updatedAt` are stored in the User document. Current update
-  routes set `updatedAt` explicitly.
-- Login reads MongoDB credentials and status. Profile email, login password,
-  recovery password, and account status changes persist in this collection.
-  Account routes still require a matching runtime User through `studentId`.
-  Other Profile edits, including name, description, and avatar, remain in memory.
-  Storing these fields in the schema does not mean all Profile edits are migrated.
+| Field | BSON / JS type | Required | Default and validation | Use |
+| --- | --- | --- | --- | --- |
+| `_id` | ObjectId | generated | MongoDB-generated | Stable account key |
+| `username` | String | yes | trim; lowercase; 3-50 characters; begins/ends alphanumeric and may contain dots, underscores, or hyphens; unique | Login and display identity |
+| `studentId` | String | yes | trim; uppercase; `/^S\d{7}$/`; unique | RMIT identity and Forum integration |
+| `name` | String | yes | trim; 2-80 characters | Profile/admin display name |
+| `email` | String | yes | trim; lowercase; general email form `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`; maximum 120 characters; unique | Login and contact identity |
+| `passwordHash` | String | yes | valid 60-character bcrypt hash; `select: false` | Password verifier; never an API field |
+| `description` | String | no | trim; default `""`; maximum 300 characters | Profile introduction |
+| `avatarUrl` | String | no | trim; default `/images/user_icon.png`; maximum 500 characters | URL/path only; image bytes are not duplicated in User |
+| `course` | String | no | trim; default `""`; maximum 120 characters | Shared Forum/profile course label |
+| `role` | String enum | yes | `member` or `admin`; default `member` | Server-side authorization |
+| `status` | String enum | yes | `active`, `locked`, or `deactivated`; default `active` | Login and protected-route access control |
+| `authVersion` | Number | yes | non-negative safe integer; default `0` | Revokes older sessions after a password or account-status change |
+| `lastActiveAt` | Date or null | no | default `null` | Recent-activity administration sort/display |
+| `lockedAt` | Date or null | no | default `null` | When the current lock began |
+| `deactivatedAt` | Date or null | no | default `null` | When the account was deactivated |
+| `createdAt` | Date | generated | Mongoose timestamp | Account creation/audit order |
+| `updatedAt` | Date | generated | Mongoose timestamp | Last document change |
 
-The following fields support password changes and recovery in `models/user.js`:
+Status timestamp invariants are enforced in the service: `locked` requires
+`lockedAt`, `deactivated` requires `deactivatedAt`, and returning to `active`
+clears both state timestamps. A password change replaces `passwordHash` and
+increments `authVersion`; the plaintext current and new password fields are
+request input, never User fields. Protected requests require the stored session
+version to equal the current User version. The repository also refuses to
+deactivate the last active administrator.
 
-| Field | Mongoose type and initial default | Purpose |
+### `products`
+
+`products` is the only source of current catalogue names, descriptions, images,
+categories, prices, and availability.
+
+| Field | BSON / JS type | Required | Default and validation | Use |
+| --- | --- | --- | --- | --- |
+| `_id` | ObjectId | generated | MongoDB-generated | Reference target |
+| `slug` | String | yes | trim; lowercase; URL-safe hyphenated identifier; unique | Stable public API/product identifier |
+| `name` | String | yes | trim; 2-120 characters | Card title and text search |
+| `category` | String | yes | trim; 2-60 characters | Catalogue filter and sort |
+| `description` | String | yes | trim; 10-1,000 characters | Card content and text search |
+| `priceVnd` | Number (integer) | yes | safe integer from `0` to `1,000,000,000` | Price filter/sort and purchase snapshot source |
+| `image` | String | yes | trim; maximum 500 characters | Same-origin image path or approved URL |
+| `imageAlt` | String | yes | trim; 3-200 characters | Accessible image description |
+| `isActive` | Boolean | yes | default `true` | Soft catalogue removal without breaking history |
+| `createdAt` | Date | generated | Mongoose timestamp | Audit and stable tie-breaking |
+| `updatedAt` | Date | generated | Mongoose timestamp | Catalogue change time |
+
+Statistics are not fields on Product. Current saved/cart totals are aggregated
+from `wishlistentries`; completed totals are aggregated from `purchases`. This
+prevents counters becoming inconsistent with the records they claim to count.
+
+### `wishlistentries`
+
+This is both the current Wishlist junction and the cart-ready state. An entry
+does not copy product name, price, category, or image; those are populated/read
+from Product when a response is assembled.
+
+| Field | BSON / JS type | Required | Default and validation | Use |
+| --- | --- | --- | --- | --- |
+| `_id` | ObjectId | generated | MongoDB-generated | Entry key |
+| `userId` | ObjectId ref `User` | yes | must resolve to the authenticated active user | Owner |
+| `productId` | ObjectId ref `Product` | yes | must resolve to an active Product when adding | Selected product |
+| `status` | String enum | yes | `saved` or `cart`; default `saved` | Current workflow state |
+| `quantity` | Number (integer) | yes | integer 1-99; default `1` | Desired quantity in current state |
+| `createdAt` | Date | generated | Mongoose timestamp | Date first added |
+| `updatedAt` | Date | generated | Mongoose timestamp | Recent-state sort and move time |
+
+The unique `(userId, productId)` index rejects a duplicate whether the existing
+row is `saved` or `cart`. Moving to cart is therefore a single conditional
+`$set` of `status`, rather than a delete followed by an insert that could fail
+halfway through.
+
+### `purchases`
+
+The present feature marks one Wishlist/cart product as purchased. A Purchase is
+therefore one immutable event, not an invented multi-item checkout/order header.
+
+| Field | BSON / JS type | Required | Default and validation | Use |
+| --- | --- | --- | --- | --- |
+| `_id` | ObjectId | generated | MongoDB-generated | Purchase key |
+| `userId` | ObjectId ref `User` | yes | must resolve to the authenticated user | Purchaser/ownership |
+| `productId` | ObjectId ref `Product` | yes | must resolve when the event is created | Catalogue relationship |
+| `productName` | String | yes | trim; 2-120 characters | Immutable display snapshot |
+| `unitPriceVnd` | Number (integer) | yes | safe integer from `0` to `1,000,000,000` | Immutable paid-price snapshot |
+| `quantity` | Number (integer) | yes | integer 1-99 | Purchased quantity |
+| `purchasedAt` | Date | yes | default current server time | History sort and reporting |
+| `createdAt` | Date | generated | Mongoose creation timestamp | Technical audit time |
+
+`productName` and `unitPriceVnd` are intentional, limited duplication. Purchase
+history must still show what the user bought and paid if the catalogue item is
+renamed, repriced, or deactivated. Current descriptive fields and images are not
+copied because the current UI can populate them from Product.
+
+There is no unique `(userId, productId)` index: buying the same product again is
+a required and valid favourites workflow.
+
+### `passwordresettokens`
+
+The collection stores a one-use password-reset challenge. It stores only the
+SHA-256 token digest; the random raw token exists briefly in the reset link.
+
+| Field | BSON / JS type | Required | Default and validation | Use |
+| --- | --- | --- | --- | --- |
+| `_id` | ObjectId | generated | MongoDB-generated | Challenge key |
+| `userId` | ObjectId ref `User` | yes | unique | At most one current challenge per user |
+| `tokenHash` | String | yes | exactly 64 lowercase hexadecimal characters; unique; `select: false` | Constant-form digest lookup; never returned |
+| `expiresAt` | Date | yes | future time chosen by the service | Expiry check and TTL cleanup |
+| `usedAt` | Date or null | no | default `null` | Replay prevention/audit |
+| `createdAt` | Date | generated | Mongoose creation timestamp | Issue time and support diagnostics |
+
+Expiry is checked by application code as well as by the TTL index because TTL
+cleanup runs asynchronously. A challenge is valid only when `usedAt` is null
+and `expiresAt` is later than the current time. After a successful reset, the
+service updates the password and marks the challenge consumed by setting
+`usedAt` in one guarded transaction. Reissuing uses an upsert keyed by `userId`,
+replacing the old hash and expiry. Locking or deactivating an account removes
+its outstanding challenge.
+
+## Indexes and query rationale
+
+Indexes are part of the schema, not optional deployment notes. Each unique
+index also turns a business rule into a concurrency-safe database constraint.
+The API translates duplicate-key error `11000` into a controlled `409 Conflict`.
+
+| Collection | Index | Constraint / query supported |
 | --- | --- | --- |
-| `passwordChangedAt` | `Date`, `null` | Records a login password change so older sessions and Reset access can be rejected. |
-| `recoveryPasswordHash` | `String`, `null` | Stores the bcrypt hash of the pre-set recovery password. |
-| `recoveryPasswordSetAt` | `Date`, `null` | Records when recovery was configured. Reset access must match this value. |
-| `recoveryFailedAttempts` | `Number`, `0`, minimum `0` | Counts failed recovery checks in the current attempt window. |
-| `recoveryAttemptWindowStartedAt` | `Date`, `null` | Marks the start of the 15-minute attempt window. |
-| `recoveryBlockedUntil` | `Date`, `null` | Blocks recovery checks until this time without locking normal Login. |
+| `users` | `{ username: 1 }`, unique | Exact normalized username login; no duplicates under concurrent writes |
+| `users` | `{ studentId: 1 }`, unique | Stable shared-module identity lookup |
+| `users` | `{ email: 1 }`, unique | Exact normalized email login/profile uniqueness |
+| `users` | `{ status: 1, name: 1, username: 1 }` | Administration status filter and deterministic name listing |
+| `users` | `{ role: 1 }` | Administrator summary count/filter |
+| `users` | one text index over `username`, `studentId`, `name`, `email` | Administration identity search without multiple competing text indexes |
+| `products` | `{ slug: 1 }`, unique | API lookup by public product identifier |
+| `products` | `{ isActive: 1, category: 1, name: 1 }` | Active catalogue category filter and alphabetical order |
+| `products` | `{ isActive: 1, priceVnd: 1 }` | Active catalogue price order |
+| `products` | one text index over `name`, `description`, `category` | Browse Items search |
+| `wishlistentries` | `{ userId: 1, productId: 1 }`, unique | One live saved/cart relation per user-product pair |
+| `wishlistentries` | `{ userId: 1, status: 1, updatedAt: -1 }` | Current user's saved/cart lists and recent ordering |
+| `wishlistentries` | `{ productId: 1, status: 1 }` | Per-product current saved/cart counts |
+| `purchases` | `{ userId: 1, purchasedAt: -1 }` | User purchase history, newest first |
+| `purchases` | `{ productId: 1, purchasedAt: -1 }` | Product purchase count/history reporting |
+| `passwordresettokens` | `{ userId: 1 }`, unique | Replace/find the user's one current challenge |
+| `passwordresettokens` | `{ tokenHash: 1 }`, unique | Reset link digest lookup and collision prevention |
+| `passwordresettokens` | `{ expiresAt: 1 }`, TTL `expireAfterSeconds: 0` | Automatic cleanup after each stored absolute expiry time |
 
-After a successful Reset, `recoveryPasswordHash` and `recoveryPasswordSetAt`
-are removed with `$unset`. They can therefore be absent as well as `null`.
-The counter returns to `0`, and its window and block timestamps return to `null`.
+MongoDB permits only one text index per collection, which is why each relevant
+collection combines all searchable fields in one definition. In-memory
+JavaScript filtering is acceptable for presentation refinements, but ownership
+and account-status filtering occur in MongoDB/server queries.
 
-New login passwords use 8–64 printable ASCII characters without spaces.
-Recovery passwords use 12–64. Both require uppercase and lowercase letters and
-a number. Existing legacy passwords can still be used to Login; these new-input
-rules do not retroactively reject them.
+### Main retrieval patterns
 
-#### `sessions` (planned MongoDB collection)
+1. **Login:** normalize the identifier, then query the unique `username` or
+   `email` index while explicitly selecting `passwordHash` for verification.
+2. **Administration:** filter by `status`/`role`, optionally apply the combined
+   text search, sort deterministically, and return only safe User fields.
+3. **Browse Items:** query `isActive: true`; apply category/search; sort by name
+   or `priceVnd`; separately find the current user's entries to mark saved state.
+4. **Wishlist:** query `{ userId, status }` ordered by `updatedAt`, populate the
+   Product reference, and never accept an owner from the request body.
+5. **Statistics:** aggregate counts grouped by `productId` and `status` in
+   `wishlistentries`, and by `productId` in `purchases`. Missing groups mean zero.
+6. **Purchase history:** query `{ userId }` ordered by `purchasedAt: -1`; use the
+   snapshots for historical name/price and the Product for current optional
+   presentation data.
+7. **Password reset:** hash the presented raw token and find the selected
+   `tokenHash`, then require unused/unexpired state before changing a password.
 
-- Current sessions use Express `MemoryStore`, not a MongoDB collection.
-  `passwordResetAuthorisation` is session data that grants Reset access for
-  10 minutes. The server checks its expiry and account-state snapshot.
-- Restarting Node clears Login sessions and any unused Reset access. User
-  passwords, recovery configuration, and failed-attempt blocks remain in MongoDB.
-- Protected requests check the current account status and relevant timestamps.
-  Locking, deactivation, or a login password change rejects older access.
-- A future MongoDB-compatible session store could persist sessions with
-  `createdAt`, `lastSeenAt`, and `expiresAt`. Its TTL index is planned, not part
-  of the current implementation.
+## Write invariants and atomic workflows
 
-#### Password recovery workflow (implemented)
+### Add to Wishlist
 
-1. A logged-in user sets or replaces a recovery password through
-   `PATCH /api/profile` after confirming the current login password. The
-   recovery password must differ from the login password.
-2. `POST /forgot-password` checks the current MongoDB email and the pre-set
-   recovery password for an active account. No email or email reset link is sent.
-3. Successful verification stores the target User and account-state snapshot in
-   the server session for 10 minutes. The browser cannot choose a target User ID.
-4. `POST /reset-password` requires that session and a new login password that
-   differs from both the current login password and the recovery password.
-   One conditional User update changes `passwordHash`, sets `passwordChangedAt`,
-   removes the recovery hash and setup time, and clears failed-attempt state.
-   A second request cannot consume the same recovery password again.
-5. A login password, email, recovery password, lock, or deactivation change
-   invalidates Reset access issued against the earlier account state.
+1. Resolve the active User from the server session.
+2. Resolve an active Product by `slug`; do not trust a client price/name.
+3. Create `{ userId, productId, status: "saved", quantity: 1 }`.
+4. If the compound unique index rejects it, return the existing-item `409`
+   response without changing data.
 
-Five failed recovery checks for an eligible account within a 15-minute window
-start a 15-minute recovery-only block in MongoDB. This does not change
-`users.status` or lock normal Login. Successful recovery verification clears
-the failed-attempt state. A Node restart does not clear a stored block.
+### Move to cart
 
-Users who never configured recovery, or who forgot their recovery password,
-cannot use this flow. There is no identity-check bypass.
-
-The earlier `passwordResetTokens` design used `tokenHash`, `expiresAt`, and
-`usedAt` for an email-link approach. It is not used by the current recovery
-routes and does not require a collection or indexes for this implementation.
-
-#### `adminActions` (planned MongoDB collection)
-
-- Records security-sensitive actions such as `lock_user`, `unlock_user`, and
-  `deactivate_user`, including actor, target, reason, and timestamp.
-- Administration uses the same `users.status` source of truth; the audit record
-  is evidence, not a second copy of account state.
-
-### Product, wishlist, cart, and order collections
-
-#### `products`
-
-- `slug` is the stable URL/API identifier corresponding to the current string
-  product ID.
-- Store prices as integer VND to avoid floating-point rounding.
-- Fixed product data includes title/name, description, category, image URL and
-  alt text, price, and valid selectable details such as size or colour.
-- `cachedStats` may expose wishlist, cart, and purchase counts efficiently, but
-  it is a rebuildable projection of entries/events. It is not an independent
-  source of truth.
-
-#### `wishlistEntries`
-
-- A row represents a currently saved user-product relationship and stores
-  references rather than copied product details.
-- A compound unique index on `{ userId, productId }` prevents duplicate wishlist
-  entries for the same user and product.
-- Removing or moving an item deletes this current-state relation, while the
-  corresponding immutable activity event preserves historical statistics.
-
-#### `cartItems`
-
-- A row represents a product currently in one user's cart.
-- `selectedOptions` holds user-editable text details validated against the
-  product's allowed options; `quantity` is a positive bounded integer.
-- Product title, image, and current price remain fixed product data and are
-  populated from `products` when the cart is retrieved.
-- `configurationKey` is a deterministic key made from normalized selected
-  options. A compound unique index prevents duplicate rows for the same user,
-  product, and configuration; adding that configured product increments its
-  quantity.
-
-#### `purchases` and `purchaseItems`
-
-- `purchases` is the completed order header with user, order number, totals,
-  delivery snapshot, safe payment summary, status, and purchase time.
-- Never store a CVV or full credit-card number. A simulated checkout should
-  validate and discard raw input, retaining only safe fields such as card brand,
-  last four digits, and a mock/provider reference.
-- `purchaseItems` captures product name, image URL, selected details, quantity,
-  and `pricePaidVnd` at checkout. Later catalogue edits therefore do not rewrite
-  order history.
-- A detailed confirmation page reads the immutable purchase and item snapshots.
-
-#### `productActivityEvents`
-
-- Immutable event types are `wishlist_added`, `wishlist_removed`,
-  `moved_to_cart`, and `purchased`.
-- These events make the assignment's historical statistics possible. Current
-  wishlist rows can answer "how many users have this saved now", but cannot
-  answer "how many times was this ever added or moved" after rows are deleted.
-- `operationKey` is an idempotency key. A retry must not increment a statistic
-  twice.
-- Public statistics are aggregated by product and type; user identifiers are
-  never exposed in the public result.
-
-### Discussion Forum collections
-
-#### `discussions`
-
-- Each Discussion stores `title`, `content`, a required `image` path,
-  `authorId`, and timestamps.
-- `authorId` references the shared `users` collection.
-- Uploaded JPEG and PNG files are stored in `public/uploads`. The document
-  stores only the public image path.
-- Editing updates `updatedAt`. Soft deletion sets `deletedAt` and `deletedBy`
-  without removing the document from MongoDB.
-- Public Forum and Sitemap queries exclude Discussions where `deletedAt` is set.
-
-#### `replies`
-
-- Each Reply stores `title`, `content`, a required `image` path, `authorId`,
-  `discussionId`, and timestamps.
-- `authorId` references the shared `users` collection, and `discussionId`
-  references the parent Discussion.
-- Editing updates `updatedAt`. Soft deletion sets `deletedAt` and `deletedBy`
-  without removing the document from MongoDB.
-- Replies are not nested. The current schema does not have `parentPostId` or
-  Reply-to-Reply relationships.
-- Edit and delete routes verify that the authenticated User matches `authorId`.
-- The Title filter checks the original Discussion title. The Content filter
-  checks Discussion content and active Reply content.
-- Newest sorting compares the original Discussion time with its active Reply
-  times. Oldest sorting uses the original Discussion time.
-
-### Blog collections
-
-#### `blogPosts`
-
-- Main data includes title, author, added/published date, tags/categories, full
-  text, image URL/alt text, and a generated preview summary/thumbnail.
-- `visibility` is `draft`, `public`, or `archived`. Public list views return
-  previews; detail views return full content and comments.
-- Only the author (or an explicitly authorized administrator) may edit or delete
-  a post. `deletedAt` can retain moderation/audit history while excluding the
-  post from public queries.
-- Search covers title, summary, full text, tags, and categories; separate indexes
-  support author and date filters.
-
-#### `blogComments`
-
-- A comment references its blog post and authenticated author and stores content
-  plus creation/update timestamps.
-- Although comment creation is not separately listed as a CRUD requirement, a
-  stored comment collection is required for the mandated detailed view that
-  displays comments.
-- If comment deletion is supported, use the same ownership and soft-deletion
-  pattern as forum posts.
-
-### Product review and rating collection
-
-#### `reviews`
-
-- Each review references the product and authenticated author and stores title,
-  description, integer `starRating` from 1 to 5, reviewer-name snapshot, added
-  date, image URL, and image alt text.
-- The reviewer snapshot preserves what was displayed at submission time; the
-  user reference remains the authority for ownership.
-- Before creation, the service checks purchase history or another documented
-  product-use entitlement. The client cannot declare itself eligible.
-- List responses provide previews; detail responses provide the full review.
-  Search/filter supports title, description, reviewer, rating, product, and date.
-- Only the authenticated author (or an authorized moderator) may update or
-  delete a review. Soft deletion is recommended if moderation history is needed.
-- Whether one active review is allowed per user-product pair is a team product
-  decision, not an assignment requirement. Add a partial unique index only if
-  the team adopts that rule.
-
-## Implemented and planned indexes
-
-The unique `username`, `studentId`, and `email` indexes are created from the
-current Mongoose User schema. The current `discussions` and `replies`
-collections use MongoDB's default `_id` indexes. Other index commands in this
-section are planned designs until the relevant module owner implements and
-verifies them in MongoDB Atlas.
-
-Recovery uses the existing User identity indexes and the default `_id` index.
-It does not add a token index or TTL index. The server checks the recovery
-timestamps stored on the User and the expiry of the in-memory Reset access.
-
-Each collection may have only one MongoDB text index, so related searchable
-fields must be combined when a text index is added.
+Update one document using a predicate that includes all three security/state
+conditions:
 
 ```javascript
-db.users.createIndex({ username: 1 }, { unique: true });
-db.users.createIndex({ studentId: 1 }, { unique: true });
-db.users.createIndex({ email: 1 }, { unique: true });
-db.users.createIndex({ role: 1, status: 1, name: 1 });
-
-db.sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-db.sessions.createIndex({ userId: 1 });
-db.adminActions.createIndex({ actorUserId: 1, createdAt: -1 });
-db.adminActions.createIndex({ targetUserId: 1, createdAt: -1 });
-
-db.products.createIndex({ slug: 1 }, { unique: true });
-db.products.createIndex({ category: 1, name: 1 });
-db.products.createIndex({ name: 1 });
-db.products.createIndex({ priceVnd: 1 });
-db.products.createIndex({ name: "text", description: "text", category: "text" });
-db.wishlistEntries.createIndex({ userId: 1, productId: 1 }, { unique: true });
-db.wishlistEntries.createIndex({ productId: 1, createdAt: -1 });
-db.cartItems.createIndex(
-    { userId: 1, productId: 1, configurationKey: 1 },
-    { unique: true }
-);
-db.cartItems.createIndex({ userId: 1, quantity: 1 });
-db.cartItems.createIndex({ userId: 1, updatedAt: -1 });
-db.purchases.createIndex({ orderNumber: 1 }, { unique: true });
-db.purchases.createIndex({ userId: 1, purchasedAt: -1 });
-db.purchaseItems.createIndex({ purchaseId: 1 });
-db.purchaseItems.createIndex({ productId: 1 });
-db.productActivityEvents.createIndex({ operationKey: 1 }, { unique: true });
-db.productActivityEvents.createIndex({ productId: 1, type: 1, occurredAt: -1 });
-db.productActivityEvents.createIndex({ userId: 1, productId: 1, occurredAt: -1 });
-
-// Planned Forum indexes. These are not implemented yet.
-db.discussions.createIndex({ deletedAt: 1, createdAt: -1 });
-db.discussions.createIndex({ authorId: 1, updatedAt: -1 });
-db.discussions.createIndex({ title: "text", content: "text" });
-db.replies.createIndex({ discussionId: 1, deletedAt: 1, createdAt: 1 });
-db.replies.createIndex({ authorId: 1, updatedAt: -1 });
-db.replies.createIndex({ title: "text", content: "text" });
-
-db.blogPosts.createIndex({ slug: 1 }, { unique: true });
-db.blogPosts.createIndex({ authorUserId: 1, publishedAt: -1 });
-db.blogPosts.createIndex({ visibility: 1, publishedAt: -1 });
-db.blogPosts.createIndex({ visibility: 1, categories: 1, publishedAt: -1 });
-db.blogPosts.createIndex({ visibility: 1, tags: 1, publishedAt: -1 });
-db.blogPosts.createIndex({
-    title: "text",
-    summary: "text",
-    content: "text",
-    tags: "text",
-    categories: "text"
-});
-db.blogComments.createIndex({ blogPostId: 1, createdAt: 1 });
-db.blogComments.createIndex({ authorUserId: 1, createdAt: -1 });
-
-db.reviews.createIndex({ productId: 1, createdAt: -1 });
-db.reviews.createIndex({ productId: 1, starRating: 1 });
-db.reviews.createIndex({ authorUserId: 1, createdAt: -1 });
-db.reviews.createIndex({ starRating: 1, createdAt: -1 });
-db.reviews.createIndex({
-    title: "text",
-    description: "text",
-    reviewerNameSnapshot: "text",
-    imageAlt: "text"
-});
+{ userId: sessionUserId, productId: resolvedProductId, status: "saved" }
 ```
 
-Every write endpoint must catch duplicate-key error `11000` and translate it to
-a controlled `409 Conflict`. An index is not a substitute for a useful API
-response or server-side validation.
+Set `status` to `cart`. A missing match is not an invitation to insert another
+row; it means absent, not owned, or already moved.
 
-## Representative document shapes
+### Mark purchased
 
-The values are illustrative. Real password hashes, reset tokens, session IDs,
-and payment secrets must not appear in source control.
+The Purchase insert and Wishlist-entry removal form one logical transition. In
+production on MongoDB Atlas they run in a transaction:
 
-```javascript
-// users - implemented collection; Account persistence is partly migrated
-{
-    _id: ObjectId("66aa00000000000000000001"),
-    username: "dat.pham",
-    studentId: "S4221230",
-    name: "Dat Pham",
-    email: "s4221230@rmit.edu.vn",
-    passwordHash: "<bcrypt-password-hash>",
-    passwordChangedAt: null,
-    recoveryPasswordHash: null,
-    recoveryPasswordSetAt: null,
-    recoveryFailedAttempts: 0,
-    recoveryAttemptWindowStartedAt: null,
-    recoveryBlockedUntil: null,
-    description: "RMIT Connect administrator and student community organiser.",
-    avatarUrl: "/images/user_icon.png",
-    course: "Bachelor of Business",
-    role: "admin",
-    status: "active",
-    lastActiveAt: ISODate("2026-08-19T04:05:00Z"),
-    lockedAt: null,
-    deactivatedAt: null,
-    createdAt: ISODate("2026-08-02T02:00:00Z"),
-    updatedAt: ISODate("2026-08-02T02:00:00Z")
-}
+1. find the user's current entry and its Product;
+2. create Purchase from server-owned Product values plus entry quantity;
+3. delete exactly that entry using both `_id` and `userId`;
+4. commit, then read and return authoritative updated state;
+5. abort the transaction if either write fails.
 
-// products - fixed catalogue data plus a rebuildable statistics projection
-{
-    _id: ObjectId("66bb00000000000000000001"),
-    slug: "data-bootcamp",
-    name: "Data Visualisation Bootcamp",
-    category: "Short Course",
-    description: "A practical evening data visualisation session.",
-    priceVnd: 95000,
-    imageUrl: "/images/data-bootcamp.jpg",
-    imageAlt: "Two students pointing at information on a laptop screen",
-    availableOptions: { session: ["Tuesday", "Thursday"] },
-    cachedStats: { savedNow: 63, addedTotal: 84, movedToCartTotal: 28, purchasedTotal: 17 },
-    createdAt: ISODate("2026-07-01T08:00:00Z"),
-    updatedAt: ISODate("2026-08-15T08:30:00Z")
-}
+Repeat purchases create repeat Purchase documents. A request idempotency key is
+recommended before exposing this action to unreliable payment integrations;
+the current classroom prototype performs a local mark-purchased transition and
+does not pretend to process a payment.
 
-// wishlistEntries - one current saved relation per user and product
-{
-    _id: ObjectId("66cc00000000000000000001"),
-    userId: ObjectId("66aa00000000000000000001"),
-    productId: ObjectId("66bb00000000000000000001"),
-    createdAt: ISODate("2026-08-15T08:30:00Z"),
-    updatedAt: ISODate("2026-08-15T08:30:00Z")
-}
+### Profile, password, and administration updates
 
-// cartItems - editable quantity/options, fixed product data populated on read
-{
-    _id: ObjectId("66dd00000000000000000001"),
-    userId: ObjectId("66aa00000000000000000001"),
-    productId: ObjectId("66bb00000000000000000001"),
-    configurationKey: "session=thursday",
-    selectedOptions: { session: "Thursday" },
-    quantity: 1,
-    createdAt: ISODate("2026-08-15T08:35:00Z"),
-    updatedAt: ISODate("2026-08-15T08:35:00Z")
-}
+- Profile updates use an allow-list. They cannot mass-assign `role`, `status`,
+  `studentId`, `_id`, or `passwordHash`.
+- An email change is normalized before the unique index is reached.
+- A password change verifies the current password, hashes the replacement,
+  increments `authVersion`, and invalidates reset challenges; raw passwords
+  never enter MongoDB.
+- Administrative lock/unlock operations require an administrator and
+  update status timestamps and `authVersion` consistently. A signed-in user may
+  separately deactivate their own account after password verification and an
+  explicit confirmation. A repeated same-status update is a no-op. An
+  administrator cannot lock their own active session through the classroom UI.
 
-// purchases - safe order, delivery, and payment summary
-{
-    _id: ObjectId("66ee00000000000000000001"),
-    userId: ObjectId("66aa00000000000000000001"),
-    orderNumber: "RMIT-20260815-0001",
-    deliverySnapshot: {
-        recipientName: "Dat Pham",
-        addressLine1: "702 Nguyen Van Linh",
-        city: "Ho Chi Minh City",
-        postalCode: "700000",
-        country: "Vietnam"
-    },
-    paymentSummary: {
-        method: "simulated_card",
-        cardBrand: "visa",
-        cardLast4: "4242",
-        providerReference: "mock_01"
-    },
-    totalVnd: 95000,
-    status: "confirmed",
-    purchasedAt: ISODate("2026-08-15T08:40:00Z")
-}
+## Duplication and deletion decisions
 
-// purchaseItems - immutable checkout snapshot
-{
-    _id: ObjectId("66ff00000000000000000001"),
-    purchaseId: ObjectId("66ee00000000000000000001"),
-    productId: ObjectId("66bb00000000000000000001"),
-    productNameSnapshot: "Data Visualisation Bootcamp",
-    imageUrlSnapshot: "/images/data-bootcamp.jpg",
-    selectedOptions: { session: "Thursday" },
-    quantity: 1,
-    pricePaidVnd: 95000
-}
+| Decision | Reason |
+| --- | --- |
+| Product facts are referenced, not copied into Wishlist entries | Wishlist displays current catalogue data and would otherwise drift after every product edit. |
+| Purchase keeps only name and unit price snapshots | Those two historical facts must not change; copying the full Product would be unnecessary duplication. |
+| Cart state shares `wishlistentries` | The product can occupy only one current workflow state; one row and one unique rule model that truth directly. |
+| Profile attributes remain in User | They have the same lifecycle and access pattern as the account; a second collection would add a join without benefit. |
+| Product statistics are aggregated | Stored counters duplicate relations and become incorrect after partial failures. |
+| Users are deactivated and Products made inactive | Historical ownership and purchases retain valid references. |
+| Expired reset tokens use TTL cleanup | They have no historical product value and should not remain indefinitely. |
 
-// discussions - implemented MongoDB collection
-{
-    _id: ObjectId("670000000000000000000001"),
-    title: "Where is a quiet place to study on campus?",
-    content: "Is there a quiet study area with charging points?",
-    image: "/images/RMIT_campus.png",
-    authorId: ObjectId("66aa00000000000000000001"),
-    createdAt: ISODate("2026-08-18T09:15:00Z"),
-    updatedAt: ISODate("2026-08-18T09:15:00Z"),
-    deletedAt: null,
-    deletedBy: null
-}
+## Implementation-to-design verification
 
-// replies - implemented MongoDB collection
-{
-    _id: ObjectId("670000000000000000000002"),
-    title: "Library study area",
-    content: "The library has quiet study areas and charging points.",
-    image: "/images/RMIT_campus.png",
-    authorId: ObjectId("66aa00000000000000000001"),
-    discussionId: ObjectId("670000000000000000000001"),
-    createdAt: ISODate("2026-08-18T09:28:00Z"),
-    updatedAt: ISODate("2026-08-18T09:28:00Z"),
-    deletedAt: null,
-    deletedBy: null
-}
+Before submission, the following checks demonstrate that code, Atlas, and this
+document agree:
 
-// blogPosts and blogComments - preview fields support list view
-{
-    _id: ObjectId("671000000000000000000001"),
-    authorUserId: ObjectId("66aa00000000000000000001"),
-    slug: "campus-photography-walk-notes",
-    title: "Campus photography walk notes",
-    summary: "Five practical lessons from the student photo walk.",
-    tags: ["photography", "campus"],
-    categories: ["Club Activity"],
-    content: "<sanitized rich text or plain text>",
-    imageUrl: "/uploads/blog/photo-walk-notes.jpg",
-    imageAlt: "Students photographing the campus courtyard",
-    visibility: "public",
-    publishedAt: ISODate("2026-08-16T10:00:00Z"),
-    updatedAt: ISODate("2026-08-16T10:00:00Z")
-}
-{
-    _id: ObjectId("671000000000000000000002"),
-    blogPostId: ObjectId("671000000000000000000001"),
-    authorUserId: ObjectId("66aa00000000000000000001"),
-    content: "The lighting tip was especially useful.",
-    createdAt: ISODate("2026-08-16T10:30:00Z"),
-    updatedAt: ISODate("2026-08-16T10:30:00Z")
-}
+- Mongoose model inspection confirms every field, validator, enum, reference,
+  timestamp option, physical collection name, and index listed above.
+- Startup calls `model.init()` after all models are loaded, which creates missing
+  declared indexes before the server accepts requests. Deployment verification
+  should also compare Atlas's index listings with this table; obsolete remote
+  indexes are removed deliberately rather than dropped automatically at startup.
+- A clean seed produces valid linked Users, Products, Wishlist entries, and
+  Purchases. Reset-token tests create a short-lived record instead of committing
+  a usable secret to source control.
+- Restarting the Node process preserves profile edits, Wishlist/cart state,
+  purchases, and administration state.
+- Tests cover unique identity fields, the unique user-product junction, repeat
+  purchases, foreign/owner access rejection, status transitions, derived
+  statistics, hidden hash fields, reset expiry/replay, and delete/deactivation
+  behaviour.
+- Atlas is configured through environment variables. Credentials and raw reset
+  tokens do not appear in Git history, logs, screenshots, or API responses.
 
-// reviews - ownership comes from authorUserId, display name is a snapshot
-{
-    _id: ObjectId("672000000000000000000001"),
-    productId: ObjectId("66bb00000000000000000001"),
-    authorUserId: ObjectId("66aa00000000000000000001"),
-    title: "Useful practical introduction",
-    description: "Clear examples and enough time to practise each chart.",
-    starRating: 5,
-    reviewerNameSnapshot: "Dat Pham",
-    imageUrl: "/uploads/reviews/data-bootcamp-board.jpg",
-    imageAlt: "Completed chart exercise on the workshop whiteboard",
-    createdAt: ISODate("2026-08-17T07:00:00Z"),
-    updatedAt: ISODate("2026-08-17T07:00:00Z")
-}
-
-// productActivityEvents - immutable input for historical wishlist statistics
-{
-    _id: ObjectId("673000000000000000000001"),
-    userId: ObjectId("66aa00000000000000000001"),
-    productId: ObjectId("66bb00000000000000000001"),
-    type: "wishlist_added",
-    operationKey: "wishlist-add:user-dat:data-bootcamp:20260815T083000Z",
-    occurredAt: ISODate("2026-08-15T08:30:00Z")
-}
-```
-
-## Atomic transitions and invariants
-
-1. Resolve identity from the authenticated session; never accept a client-sent
-   owner ID as authority.
-2. Reject every protected operation when the user is locked or deactivated.
-3. Validate references, input allowlists, lengths, ratings, prices, and quantities
-   on the server before beginning the write.
-4. For wishlist-to-cart, atomically delete the wishlist entry, upsert the cart
-   item, add a `moved_to_cart` event, and update/rebuild cached statistics.
-5. For checkout, atomically create the purchase and item snapshots, remove or
-   update cart rows, add `purchased` events, and return the completed order.
-6. Creating a Discussion inserts one document into `discussions`. Creating a
-   Reply inserts one document into `replies` with its `discussionId`. Soft
-   deletion updates `deletedAt` and `deletedBy`. The related User activity update
-   is currently a separate operation, not a MongoDB transaction.
-7. Current Forum routes derive the User from the authenticated session.
-   Discussion write predicates include `_id`, `authorId`, and `deletedAt: null`.
-   Reply changes first require an active parent Discussion, and their write
-   predicates also include `discussionId`. A write that matches no active owned
-   document returns `404` before the related User activity is updated. Blog and
-   Review authorization must follow each module owner's confirmed implementation.
-8. Use `operationKey` or an equivalent idempotency token for retried transitions,
-   then commit. Abort the transaction if any operation fails.
-9. Re-read and return the authenticated user's current state after commit rather
-   than constructing a response from uncommitted client input.
-10. Password Reset uses one conditional `users` update to change the login
-    password and consume the recovery password together. It must match the
-    verified account state. This is a single-document update, not a
-    multi-document transaction.
-
-Current account locking updates `users.status` and its timestamp. Existing
-sessions are denied using the current account state. The additional
-`adminActions` audit insert remains planned.
-
-## Sitemap persistence decision
-
-The Sitemap does not need its own MongoDB collection because it combines
-static links with current content when the page is rendered.
-
-- Static navigation and account links are defined in `views/sitemap.ejs`.
-- `showSitemap()` queries MongoDB for Discussions where `deletedAt` is `null`.
-- It also queries Replies where `deletedAt` is `null` and the parent Discussion
-  is active.
-- The current active Blog data and Review data are passed from their existing
-  runtime stores.
-- Each active Discussion is displayed with its title and link. Its active
-  Replies are displayed underneath with links to their positions on the detail
-  page.
-- The Sitemap EJS view builds the clickable HTML response for each request.
-
-Persisting a separate Sitemap document would duplicate existing route and
-content data and could become outdated.
-
-## Assessment 2 to Assessment 3 persistence mapping
-
-| Assessment 2 or runtime structure | Assessment 3 destination or status | Migration note |
-| --- | --- | --- |
-| Account users in `modules/account/src/data.js` | Shared `users`, partly migrated | Login reads MongoDB credentials and status. Email/password and lock/deactivation changes persist. A matching runtime User through `studentId` is still required; other Profile edits remain in memory. |
-| Password recovery | Fields in `users` plus current in-memory session | Recovery hash, setup time, and failed-attempt state persist. Reset access lasts 10 minutes in the session. No `passwordResetTokens` collection is used. |
-| Discussion and Reply arrays in `forum-data.js` | `discussions` and `replies` | Migration completed with ObjectId references, image paths, timestamps, and soft deletion. `forum-data.js` remains only for the temporary Account user adapter. |
-| Product template/`products` array | Planned `products` | Convert string IDs to slugs/ObjectIds and treat seeded statistics as a cache only. |
-| `wishlist` array | Planned `wishlistEntries` | Preserve unique User-Product ownership and timestamps. |
-| `cart` array | Planned `cartItems` | Add bounded quantity, validated selected options, and a configuration key. |
-| `purchases` array | Planned `purchases` and `purchaseItems` | Expand the current one-product history into immutable order snapshots. |
-| Express `MemoryStore` | Still in use; MongoDB `sessions` planned | A Node restart clears Login sessions and Reset access. A durable compatible session store with TTL expiry requires separate implementation. |
-| No current event history | Planned `productActivityEvents` | Required for accurate all-time add, cart, and purchase statistics. |
-| Blog runtime data | Planned `blogPosts` and `blogComments` | Confirm the final fields and migration with the Blog module owner. |
-| Review runtime data | Planned `reviews` | Confirm the final fields and migration with the Review module owner. |
-| Dynamic Sitemap inputs | No collection required | Read active Discussions and their active Replies from MongoDB, then combine them with static EJS links and the current Blog and Review data. |
-
-The existing Forum page and form routes were retained while Discussion and
-Reply persistence moved from arrays to Mongoose models. Other modules can use
-the same staged approach after their owners confirm the final fields and
-relationships.
-
-## Remaining assumptions requiring team confirmation
-
-- The partial Account migration and recovery-password design in this review
-  branch require the shared Account owner's review before merging into the
-  team branch. They do not complete migration of the remaining Account data.
-- The final storage method for Product, Blog, and Review images requires
-  confirmation from the relevant module owners. The Forum currently stores
-  uploaded files in `public/uploads` and saves their public paths in MongoDB.
-- Blog comments are planned for persistence because the detail view displays
-  them, but the Blog module owner must confirm the final fields and CRUD scope.
-- Reviews may use purchase history or another documented entitlement to verify
-  product use. The Review module owner must confirm the final rule.
-- One active Review per User-Product pair is optional. The team must decide and
-  document that policy before adding a unique index.
+This document must be updated in the same change as any model/index change. A
+diagram that describes a more ambitious system than the implemented database
+would not satisfy rubric requirement 5.

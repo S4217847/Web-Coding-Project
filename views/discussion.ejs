@@ -45,6 +45,8 @@
         <form
           id="post-form"
           class="postbox postbox-hidden"
+          data-user-id="<%= currentUserId %>"
+          data-clear-draft="<%= clearDiscussionDraft %>"
           method="post"
           action="/discussions"
           enctype="multipart/form-data"

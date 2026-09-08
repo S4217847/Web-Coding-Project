@@ -385,7 +385,7 @@ function makeWishlistItem(
 
                 attributes: {
                     href:
-                        `wishlist-add.html#item-${
+                        `/wishlist/add#item-${
                             slugify(
                                 product.id
                             )
@@ -632,7 +632,7 @@ function makePurchasedItem(entry) {
 
                 attributes: {
                     href:
-                        `wishlist-add.html#item-${
+                        `/wishlist/add#item-${
                             slugify(
                                 product.id
                             )
