@@ -1,11 +1,25 @@
+require("dotenv").config();
+
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { after, before, test } = require("node:test");
+const { after, before, beforeEach, test } = require("node:test");
+const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 
 const { Discussion } = require("../models/discussion");
 const { Reply } = require("../models/reply");
+const { User } = require("../models/user");
+
+const testDatabaseName = "rmit_connect_a3_test";
+const testDatabaseUri = process.env.MONGODB_TEST_URI;
+
+if (!testDatabaseUri) {
+  throw new Error("MONGODB_TEST_URI is required for integration tests.");
+}
+
+process.env.MONGODB_URI = testDatabaseUri;
+
 const { startServer } = require("../index");
 
 let server;
@@ -72,9 +86,54 @@ function removeForumTestImage(imagePath) {
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }
 
+async function clearForumTestData() {
+  if (mongoose.connection.name !== testDatabaseName) {
+    throw new Error("Forum test cleanup was blocked outside the test database.");
+  }
+
+  await Reply.deleteMany({});
+  await Discussion.deleteMany({});
+  await User.deleteMany({});
+}
+
+async function prepareForumTestUsers() {
+  const datPasswordHash = await bcrypt.hash("ConnectDemo!26", 10);
+  const jayPasswordHash = await bcrypt.hash("StudentDemo!26", 10);
+
+  await User.create([
+    {
+      username: "dat.pham",
+      studentId: "S4221230",
+      name: "Dat Pham",
+      email: "s4221230@rmit.edu.vn",
+      passwordHash: datPasswordHash,
+      description: "Test administrator for the Discussion Forum.",
+      role: "admin",
+      status: "active",
+    },
+    {
+      username: "jay.nguyen",
+      studentId: "S4217847",
+      name: "Jay Nguyen",
+      email: "s4217847@rmit.edu.vn",
+      passwordHash: jayPasswordHash,
+      description: "Test member for the Discussion Forum.",
+      role: "member",
+      status: "active",
+    },
+  ]);
+}
+
 before(async () => {
   server = await startServer(0);
+  assert.equal(mongoose.connection.name, testDatabaseName);
+  await clearForumTestData();
+  await prepareForumTestUsers();
   baseUrl = `http://127.0.0.1:${server.address().port}`;
+});
+
+beforeEach(() => {
+  assert.equal(mongoose.connection.name, testDatabaseName);
 });
 
 after(async () => {
@@ -82,6 +141,10 @@ after(async () => {
     await new Promise((resolve, reject) => {
       server.close((error) => (error ? reject(error) : resolve()));
     });
+  }
+
+  if (mongoose.connection.name === testDatabaseName) {
+    await clearForumTestData();
   }
 
   await mongoose.disconnect();
@@ -131,7 +194,10 @@ test("shared pages, compatibility routes, and security headers are available", a
 
 test("a port collision fails cleanly instead of throwing from server.address()", async () => {
   const occupiedPort = Number(new URL(baseUrl).port);
-  await assert.rejects(startServer(occupiedPort), (error) => error?.code === "EADDRINUSE");
+  await assert.rejects(
+    startServer(occupiedPort),
+    (error) => error?.code === "EADDRINUSE",
+  );
 });
 
 test("malformed and oversized JSON return controlled API errors", async () => {
@@ -154,8 +220,29 @@ test("malformed and oversized JSON return controlled API errors", async () => {
 
 test("one shared session authenticates every module and logout clears it", async () => {
   const dat = new BrowserSession();
+
+  for (const route of ["/", "/sitemap"]) {
+    const response = await dat.request(route);
+    assert.equal(response.status, 200, route);
+    assert.match(
+      await response.text(),
+      /class="globalSessionLink" href="\/login.html">Log in<\/a>/,
+      route,
+    );
+  }
+
   const login = await dat.login("dat.pham", "ConnectDemo!26");
   assert.equal(login.data.user.id, "user-dat");
+
+  for (const route of ["/", "/sitemap"]) {
+    const response = await dat.request(route);
+    assert.equal(response.status, 200, route);
+    assert.match(
+      await response.text(),
+      /class="globalSessionLink" href="\/logout">Log out<\/a>/,
+      route,
+    );
+  }
 
   for (const route of ["/api/current-user", "/api/products", "/api/wishlist", "/api/profile"] ) {
     const response = await dat.request(route);
@@ -170,6 +257,16 @@ test("one shared session authenticates every module and logout clears it", async
 
   const state = await dat.request("/api/session");
   assert.equal((await state.json()).data.authenticated, false);
+
+  for (const route of ["/", "/sitemap"]) {
+    const response = await dat.request(route);
+    assert.equal(response.status, 200, route);
+    assert.match(
+      await response.text(),
+      /class="globalSessionLink" href="\/login.html">Log in<\/a>/,
+      route,
+    );
+  }
 });
 
 test("Blog supports validated, owned CRUD, comments, and documented image sizes", async () => {

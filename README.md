@@ -1,15 +1,18 @@
-# RMIT Connect — Assessment 3
+# RMIT Connect - Assessment 3
 
 RMIT Connect is an RMIT student-community web application developed for
-COSC3060 Web Programming Studio. The final application builds on the team's
-Assessment 1 HTML/CSS pages and Assessment 2 dynamic prototype with an
-Express/Node.js server, shared user authentication and sessions, server-side
-validation, CRUD workflows, image uploads, and persistent data stored in
-MongoDB Atlas.
+COSC3060 Web Programming Studio. It builds on the team's Assessment 1 HTML/CSS
+pages and Assessment 2 dynamic prototype. The current integration includes an
+Express/Node.js server, shared authentication and sessions, server-side
+validation, CRUD workflows, and image uploads. The Discussion Forum and part
+of the shared Account module use MongoDB Atlas. Other module data still uses
+in-memory stores, so Assessment 3 integration is not complete.
 
 The active integration branch is `integrated-draft`. It should be tested through
 the Node server; opening HTML files directly or using VS Code Live Server will
 not run the EJS templates or APIs.
+
+GitHub repository: [Web-Coding-Project](https://github.com/S4217847/Web-Coding-Project).
 
 ## Team responsibilities
 
@@ -22,7 +25,7 @@ not run the EJS templates or APIs.
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 20.19.0 or newer, as required by the Mongoose version in `package-lock.json`
 - npm, included with Node.js
 - A modern browser such as Chrome, Edge, or Firefox
 - Access to the approved MongoDB Atlas database
@@ -142,8 +145,8 @@ does not accept a client-selected user ID as authority.
 
 - **Discussion Forum:** MongoDB-backed Discussions and Replies, author-only
   editing and soft deletion, required JPEG and PNG image uploads, live form
-  validation, title and content filtering, newest and oldest sorting, and local
-  draft restoration.
+  validation, browser-side title and content filtering, newest and oldest
+  sorting, and local draft restoration.
 - **Blog:** dynamic posts and comments, owner-only editing/deletion, live
   validation, category filtering, full-text search, sorting, per-user drafts,
   and optional image data.
@@ -154,8 +157,8 @@ does not accept a client-selected user ID as authority.
   search/filter/sort, duplicate prevention, adding, cart transitions,
   purchasing, deletion, and per-user summary counts.
 - **Shared account:** `bcryptjs` password verification, signed session cookies,
-  profile editing, password changes, account locking, logout, reset workflow,
-  and administrator-only account management.
+  profile editing, password changes, account locking, logout, recovery-password
+  reset workflow, account deactivation, and administrator-only account management.
 
 ## Data model
 
@@ -174,37 +177,120 @@ through `studentId`. Creating, editing, or deleting a Discussion or Reply update
 that User's `lastActiveAt` and `updatedAt` values. The dynamic Sitemap reads
 active Discussion records from MongoDB.
 
-Shared Account functions and some other team modules currently continue using
-their existing runtime data stores. Restarting Node does not remove MongoDB
-Discussion Forum data, but it resets in-memory sessions and module data.
+Shared Account persistence is partly implemented. Login reads the MongoDB
+credentials and account status. Profile email, login password, recovery password,
+and lock/deactivation changes are saved to the shared `users` collection.
+Account routes still need a matching runtime user with the same `studentId`.
+Other Profile edits, such as name, description, and avatar, remain in memory.
+Restarting Node preserves MongoDB data but clears in-memory sessions and the
+runtime data used by the remaining modules. This is not a full Account migration.
+
+Blog posts and comments, Reviews, products, Wishlist entries, cart state, and
+purchase history still use in-memory stores. Their MongoDB migration is not
+implemented in this branch.
+
+See [the database schema](modules/account/docs/database-schema.md) for the
+implemented collections, shared User fields, relationships, and planned indexes.
+
+## Integration status and remaining work
+
+- **Forum queries:** title/content filtering and newest/oldest sorting work in
+  the browser. The server currently loads all active Discussions and their
+  active Replies for the list. Database-side filtering/sorting and additional
+  Forum compound indexes are not implemented yet.
+- **Forum ownership and deletion:** edit/delete database updates include the
+  author and active-record conditions. Replies under deleted Discussions are
+  hidden, and Reply routes check that the parent Discussion is active.
+  The parent check and Reply write are separate operations. Simultaneous
+  Discussion deletion and Reply writes still need concurrency review.
+- **Shared Account:** registration is unfinished. Complete the remaining
+  Account persistence and align shared changes with the Account module owner.
+- **Other modules:** migrate Blog, Reviews, and Wishlist data to MongoDB and
+  test them through the shared application.
+- **Atlas access:** confirm individual team access and database permissions.
+  Keep development, test, and deployment configuration separate. Do not share
+  personal Atlas logins or put connection credentials in the repository.
+
+## Hosting status
+
+- **Live website URL:** not available yet. Add the confirmed URL after deployment.
+- **Planned provider:** Render. Repository access and the hosting plan still
+  need to be confirmed with the team and repository owner.
+- **Uploaded images:** files currently use the local `public/uploads` directory.
+  Durable storage must be configured and verified on the host. Saving image
+  paths in MongoDB does not store the image files themselves.
+- **Hosted verification:** test Login, all modules, uploads, password recovery,
+  deactivation, and persistence after a server restart or redeployment.
 
 ## Testing
 
-Run the complete release gate from the project root:
+### Test setup and data safety
+
+Install dependencies with `npm ci`. Add `MONGODB_TEST_URI` to the local `.env`
+file and allow the test computer through Atlas Network Access:
+
+```text
+MONGODB_TEST_URI=your_authorized_connection_string_for_rmit_connect_a3_test
+```
+
+The database name in that connection string must be exactly
+`rmit_connect_a3_test`. Use a dedicated, empty, disposable test database.
+Never use a development or production database connection string for tests.
+
+**Warning:** the root integration suite deletes all documents in the test
+database's `users`, `discussions`, and `replies` collections before and after
+running. It also removes the uploaded files it creates. Do not put work that
+must be kept in this database. Do not run these suites in parallel or share the
+same test database with another person's running tests.
+
+Recovery and Deactivation tests create their own temporary Users and remove
+only those User IDs. All three root suites select `MONGODB_TEST_URI` rather
+than the development `MONGODB_URI`.
+
+### Commands
+
+Run the complete release gate from the project root. It runs static checks,
+shared integration, Recovery, Deactivation, and Account tests in that order:
 
 ```powershell
 npm run check
 ```
 
-Or run its stages separately:
+To run all four test suites without the static checks:
 
 ```powershell
 npm test
-node tests/static-check.js
-npm --prefix modules/account test
 ```
 
-The root integration suite checks installation-facing routes, shared sessions,
-security headers, controlled JSON errors, Blog/Review/Forum/Wishlist workflows,
-validation, ownership, images, and legacy Review redirects. The nested account
-suite checks authentication, Wishlist, Profile, and Administration in greater
-detail.
+Run an individual stage when checking a specific area:
 
-Forum integration tests require the configured MongoDB connection, Atlas
-Network Access, and the seeded Dat and Jay User documents. The tests create
-temporary Discussions, Replies, and uploaded image files, then remove them
-after the checks finish. The latest verified result is 8 shared integration
-tests and 10 Account tests passed.
+| Command | Checks |
+| --- | --- |
+| `node tests/static-check.js` | Page, JavaScript, and CSS checks. |
+| `node --test tests/integration.test.js` | 8 tests covering routes, shared sessions, security headers, controlled JSON errors, module workflows, validation, ownership, images, and legacy Review redirects. |
+| `npm run test:recovery` | 1 end-to-end test covering Profile setup, current email, password rules, single-use Reset access, failed-attempt blocking, stale sessions, concurrent changes, database errors, and persistence. |
+| `npm run test:deactivation` | 1 end-to-end test covering confirmation, password checks, deactivated/locked account restrictions, stale sessions, persistence, and controlled database errors. |
+| `npm --prefix modules/account test` | 10 Account tests covering authentication, Wishlist, Profile, and Administration. |
+
+The Recovery and Deactivation commands use `--require dotenv/config` to load
+the local `.env` before checking `MONGODB_TEST_URI`. They use the existing
+`dotenv` dependency and do not need a separate helper file. A successful full
+run reports 20 tests in total across the four suites. `npm test` runs them
+sequentially and stops if a suite fails.
+
+### Manual browser checks
+
+For password recovery, use a disposable active account:
+
+1. Login, open Edit Profile, and set a recovery password after confirming the
+   current login password.
+2. Logout, open Forgot Password, and enter the current email and recovery password.
+3. Set a different login password through Reset Password within 10 minutes.
+4. Check that the new login password works and the old login password fails.
+   The consumed recovery password must not grant Reset access again.
+5. Set a new recovery password, restart Node, and confirm that it is still
+   available through Forgot Password. Reset access granted before the restart
+   must no longer work because it was stored in the old in-memory session.
 
 Manual browser verification should include:
 
@@ -217,7 +303,7 @@ Manual browser verification should include:
 ## Security and prototype boundaries
 
 - Session cookies are HTTP-only and use `SameSite=Lax`.
-- A non-default `SESSION_SECRET` is required in production mode.
+- Production startup requires `SESSION_SECRET` in the environment.
 - API responses are marked `Cache-Control: no-store`.
 - Common browser security headers are applied before module routes.
 - Server validation is authoritative; browser validation provides immediate
@@ -246,7 +332,7 @@ and for accurately declaring their own AI use under the course requirements.
 
 **Individual Module: Discussion Forum**
 
-**Shared User Account contribution: Forgot Pasword, Reset Password, Logout, Account Deactivation.**
+**Shared User Account contribution: Forgot Password, Reset Password, Logout, Account Deactivation.**
 
 **Discussion Forum features**
 
@@ -260,8 +346,47 @@ and for accurately declaring their own AI use under the course requirements.
 - Allow active logged-in authors to edit or delete only their own content.
 - Open the compact post form from the Start a discussion button.
 - Keep the Reply composer visible near the bottom of the Discussion detail page.
-- Open the hidden Reply image input through the plus icon.
+- Select a Reply image through the visible file input or the plus icon.
 - Show `Post deleted successfully.` after a Discussion is deleted.
+- Keep the Reply controls usable on narrow screens and show the correct
+  Login or Logout link on Home and Sitemap for the current session.
+
+**Password recovery features**
+
+- A logged-in user can set or replace a recovery password from Edit Profile
+  after confirming the current login password.
+- The recovery password is stored only as a bcrypt hash in MongoDB.
+- `POST /forgot-password` checks the account's current email and pre-set
+  recovery password. It does not send an email.
+- Successful verification creates server-side Reset access for 10 minutes.
+  The browser does not choose the target user ID.
+- `POST /reset-password` changes the MongoDB login password and consumes the
+  recovery password in one conditional database update.
+- A password, recovery password, lock, or deactivation change made after
+  verification invalidates the earlier Reset access.
+- Five failed recovery checks start a 15-minute recovery-only block stored in
+  MongoDB. This does not change the account's `status` or lock normal Login.
+- New login passwords use 8–64 printable ASCII characters without spaces.
+  Recovery passwords use 12–64. Both require uppercase and lowercase letters
+  and a number, keeping new bcrypt inputs below 72 bytes.
+- Users who did not set a recovery password, or who forgot it, cannot use this
+  recovery flow. The application does not provide an identity-check bypass.
+- Relevant User fields are `passwordHash`, `passwordChangedAt`,
+  `recoveryPasswordHash`, `recoveryPasswordSetAt`,
+  `recoveryFailedAttempts`, `recoveryAttemptWindowStartedAt`, and
+  `recoveryBlockedUntil`. Plain-text passwords are not stored.
+
+**Logout and Account Deactivation features**
+
+- Logout ends the shared session used by all modules.
+- An active member can confirm account deactivation. Administrator accounts
+  cannot use this action.
+- Deactivation saves `status: "locked"`, `lockedAt`, and `deactivatedAt` in
+  MongoDB, then ends the current session. It does not delete the User document.
+- Login and protected routes reject the inactive account and older sessions.
+  Restarting Node does not undo the saved deactivation.
+- The success view is rendered after a successful deactivation. Opening
+  `/deactivated-success` directly redirects to Login.
 
 **Key routes**
 
@@ -274,6 +399,7 @@ and for accurately declaring their own AI use under the course requirements.
 - `POST /discussions/:id/replies/:replyId/delete`
 - `GET/POST /forgot-password`
 - `GET/POST /reset-password`
+- `PATCH /api/profile` for setting or changing the recovery password.
 - `GET /logout`
 - `GET/POST /deactivate-account`
 - `GET /deactivated-success`
@@ -283,6 +409,10 @@ and for accurately declaring their own AI use under the course requirements.
 - `database.js` for the MongoDB connection.
 - `upload.js` for JPEG and PNG upload validation.
 - `models/user.js`
+- `modules/account/src/app.js` for MongoDB-backed Login and Profile changes.
+- `modules/account/src/validation.js` for server-side password validation.
+- `modules/account/public/editprofile.html`
+- `modules/account/public/js/profile.js`
 - `models/discussion.js`
 - `models/reply.js`
 - `scripts/seed.js`
@@ -306,8 +436,17 @@ and for accurately declaring their own AI use under the course requirements.
 - `public/js/deactivate.js`
 - `public/images/icons/plus.png`
 - `public/uploads/.gitkeep`
+- `tests/integration.test.js`
+- `tests/recovery-password-review.test.js`
+- `tests/deactivation-review.test.js`
 
 ### AI assistance acknowledgement
+
+Password recovery idea:
+OpenAI Codex suggested using a recovery password set in advance instead of an email reset link.
+
+OpenAI Codex also helped update the recovery database documentation and test
+commands. These review-branch updates still require team review before merging.
 
 - **Review and code inspection:** Spelling and grammar review, code review, and comment suggestions.
 - **Debugging assistance:** Help with interpreting error messages and providing conceptual debugging guidance.
@@ -318,29 +457,37 @@ and for accurately declaring their own AI use under the course requirements.
 
 ### Nguyen Dac Gia Hung (s4217847)
 
-**Indiviual Module: Ratings and Review**
+**Individual Module: Ratings and Reviews**
 
 **Shared User Account contribution: Account Creation (Unfinished)**
 
 **Ratings and Reviews Features**
+
 - Create, view, edit and delete review posts
-- Search and filter reviews in the browser 
+- Search, filter, and sort reviews in the browser
 - Allow active logged-in users to edit or delete only their own ratings
+- Store Reviews in memory for now. MongoDB persistence is unfinished.
 
 **Key Routes**
-- `POST /reviews`
+
+- `GET /reviews`
+- `GET /reviews/browse`
 - `GET /reviews/:id`
 - `GET /reviews/:id/edit`
-- `POST /reviews/:id/edit`
-- `POST /reviews/:id/delete`
+- `GET/POST /api/reviews`
+- `GET/PUT/DELETE /api/reviews/:id`
 
 **Main Files**
+
 - `index.js`
 - `review-data.js`
 - `views/review.ejs`
 - `views/review-detail.ejs`
 - `views/review-edit.ejs`
-- `views/reviews-browse.ejs`
+- `views/review-browse.ejs`
+- `public/css/review.css`
+- `public/js/review.js`
+- `tests/integration.test.js`
 
 ### AI assistance acknowledgement
 
@@ -356,32 +503,34 @@ and for accurately declaring their own AI use under the course requirements.
 **Individual Module: Blog**
 
 **Blog module features**
+
 - Create, view blog list and blog post
 - Edit and delete blogs (For author)
 - Comment on a blog
 - Search, filter, and sort posts on the blog list page
 - Save and restore a blog draft using Web Storage
+- Store Blog posts and comments in memory for now. MongoDB persistence is unfinished.
 
 **Key routes**
-- GET /blogs
-- GET /blogs/:id
-- GET /api/current-user
-- GET /api/blogs
-- POST /api/blogs
-- GET /api/blogs/:id
-- PUT /api/blogs/:id
-- DELETE /api/blogs/:id
-- POST /api/blogs/:id/comments
+
+- `GET /blogs`
+- `GET /blogs/:id`
+- `GET /api/current-user`
+- `GET/POST /api/blogs`
+- `GET/PUT/DELETE /api/blogs/:id`
+- `POST /api/blogs/:id/comments`
 
 **Main files**
-- Blog/blog.html
-- Blog/blog_details.html
-- Blog/styles.css
-- Blog/blog.js
-- routes/blog-routes.js
-- routes/register-blog-api.js
-- test/blog-api.test.js
-- dev-server.js
+
+- `index.js`
+- `blog-data.js`
+- `views/blog.ejs`
+- `views/blog-details.ejs`
+- `public/css/blog.css`
+- `public/js/blog.js`
+- `routes/blog-routes.js`
+- `routes/register-blog-api.js`
+- `tests/integration.test.js`
 
 ### AI assistance acknowledgement:
 - Review and code inspection: HTML, CSS, and JavaScript review, including spelling, grammar, code structure, and comment suggestions.

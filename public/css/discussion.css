@@ -354,7 +354,7 @@
 .discussion-detail {
   display: grid;
   gap: 12px;
-  padding-bottom: 220px;
+  padding-bottom: 420px;
 }
 
 .back-link {
@@ -481,19 +481,27 @@
 
 .reply-box-footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
+.reply-box-footer .postbtn {
+  margin-left: auto;
+}
+
 .reply-image-area {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  max-width: 100%;
 }
 
 .reply-image-input {
-  display: none;
+  display: block;
+  max-width: 100%;
 }
 
 .reply-image-button {
@@ -520,6 +528,8 @@
 #reply-image-name {
   color: #555555;
   font-size: 13px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .reply-image-area .error {
@@ -528,7 +538,7 @@
 
 /* ------------------ Responsive ------------------ */
 
-@media (max-width: 800px) {
+@media (max-width: 1050px) {
   .page {
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -557,10 +567,6 @@
   .discussion-post-footer {
     flex-wrap: wrap;
     gap: 8px;
-  }
-
-  .discussion-detail {
-    padding-bottom: 240px;
   }
 
   .reply-card {

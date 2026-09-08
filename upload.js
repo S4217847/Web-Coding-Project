@@ -6,7 +6,7 @@ const storage = multer.diskStorage({
     callback(null, path.join(__dirname, "public", "uploads"));
   },
   filename: function (_request, file, callback) {
-    const extension = path.extname(file.originalname);
+    const extension = file.mimetype === "image/png" ? ".png" : ".jpg";
     const uniqueName =
       Date.now() + "-" + Math.round(Math.random() * 1E9) + extension;
 

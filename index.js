@@ -1,6 +1,7 @@
 const express = require("express");
 const session = require("express-session");
 const multer = require("multer");
+const fs = require("node:fs/promises");
 const path = require("node:path");
 const { connectDatabase } = require("./database");
 const { User } = require("./models/user");
@@ -15,8 +16,13 @@ let reviews = reviewData.reviews;
 const getReviewId = reviewData.getReviewId;
 let loginStore = null;
 let createPasswordHash = null;
+let verifyPassword = null;
 const app = express();
 let accountAppMounted = false;
+const PASSWORD_RESET_ACCESS_MS = 10 * 60 * 1000;
+const RECOVERY_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+const MAX_RECOVERY_ATTEMPTS = 5;
+const ASCII_SECRET_PATTERN = /^[\x21-\x7e]+$/;
 // Uses the PORT environment variable when provided. Otherwise, it uses port 3000.
 const port = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === "production";
@@ -89,12 +95,28 @@ app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 // Makes files inside public available to the browser, such as CSS and JavaScript.
 app.use(express.static(path.join(__dirname, "public")));
 
-function showHome(request, response) {
-  response.render("index", { pageTitle: "RMIT Connect" });
+async function showHome(request, response) {
+  const currentUser = await getCurrentUser(request);
+
+  response.render("index", {
+    pageTitle: "RMIT Connect",
+    sessionAction: currentUser ? "logout" : "login",
+  });
 }
 
 async function showSitemap(request, response) {
+  const currentUser = await getCurrentUser(request);
   const activeDiscussions = await Discussion.find({
+    deletedAt: null,
+  });
+  const activeDiscussionIds = [];
+
+  for (let i = 0; i < activeDiscussions.length; i += 1) {
+    activeDiscussionIds.push(activeDiscussions[i]._id);
+  }
+
+  const activeReplies = await Reply.find({
+    discussionId: { $in: activeDiscussionIds },
     deletedAt: null,
   });
   const activeBlogs = [];
@@ -107,7 +129,9 @@ async function showSitemap(request, response) {
 
   response.render("sitemap", {
     pageTitle: "Site Map",
+    sessionAction: currentUser ? "logout" : "login",
     discussions: activeDiscussions,
+    replies: activeReplies,
     blogs: activeBlogs,
     reviews: reviews,
   });
@@ -115,6 +139,78 @@ async function showSitemap(request, response) {
 
 function redirectForumLogin(response) {
   response.redirect("/login.html?returnTo=discussions");
+}
+
+function getTrimmedFormText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+async function removeUploadedForumImage(uploadedFile) {
+  if (!uploadedFile) {
+    return;
+  }
+
+  await fs.unlink(uploadedFile.path);
+}
+
+async function requireForumLogin(request, response, next) {
+  try {
+    const currentUser = await getCurrentUser(request);
+
+    if (!currentUser) {
+      redirectForumLogin(response);
+      return;
+    }
+
+    const forumUser = await getForumDatabaseUser(currentUser);
+
+    if (!forumUser) {
+      response.status(403).send("Forum user not found.");
+      return;
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+function isValidDatabaseId(databaseId) {
+  return (
+    typeof databaseId === "string" && /^[0-9a-f]{24}$/i.test(databaseId)
+  );
+}
+
+async function findActiveDiscussion(discussionId) {
+  if (!isValidDatabaseId(discussionId)) {
+    return null;
+  }
+
+  const discussion = await Discussion.findById(discussionId);
+
+  if (!discussion || discussion.deletedAt !== null) {
+    return null;
+  }
+
+  return discussion;
+}
+
+async function findActiveReply(replyId, discussionId) {
+  if (!isValidDatabaseId(replyId)) {
+    return null;
+  }
+
+  const reply = await Reply.findById(replyId);
+
+  if (
+    !reply ||
+    reply.deletedAt !== null ||
+    String(reply.discussionId) !== String(discussionId)
+  ) {
+    return null;
+  }
+
+  return reply;
 }
 
 // Show all active discussions.
@@ -126,6 +222,13 @@ async function showDiscussions(request, response) {
     return;
   }
 
+  const forumUser = await getForumDatabaseUser(currentUser);
+
+  if (!forumUser) {
+    response.status(403).send("Forum user not found.");
+    return;
+  }
+
   const discussionMessage = request.session.discussionMessage || "";
   request.session.discussionMessage = "";
 
@@ -133,11 +236,22 @@ async function showDiscussions(request, response) {
     deletedAt: null,
   });
 
+  const discussionIds = [];
+  const discussionAuthorIds = [];
+
+  for (let i = 0; i < activeDiscussions.length; i += 1) {
+    discussionIds.push(activeDiscussions[i]._id);
+    discussionAuthorIds.push(activeDiscussions[i].authorId);
+  }
+
   const activeReplies = await Reply.find({
+    discussionId: { $in: discussionIds },
     deletedAt: null,
   });
 
-  const forumUsers = await User.find({});
+  const forumUsers = await User.find({
+    _id: { $in: discussionAuthorIds },
+  });
 
   const replyCounts = [];
   const authors = [];
@@ -218,24 +332,28 @@ async function showDiscussionDetail(request, response) {
     return;
   }
 
-  const activeDiscussions = await Discussion.find({
-    deletedAt: null,
-  });
-
-  let discussion = null;
-
-  for (let i = 0; i < activeDiscussions.length; i += 1) {
-    if (String(activeDiscussions[i]._id) === request.params.id) {
-      discussion = activeDiscussions[i];
-    }
-  }
+  const discussion = await findActiveDiscussion(request.params.id);
 
   if (!discussion) {
     response.status(404).send("Discussion not found.");
     return;
   }
 
-  const forumUsers = await User.find({});
+  const discussionReplies = await Reply.find({
+    discussionId: discussion._id,
+    deletedAt: null,
+  });
+
+  const forumUserIds = [discussion.authorId];
+
+  for (let i = 0; i < discussionReplies.length; i += 1) {
+    forumUserIds.push(discussionReplies[i].authorId);
+  }
+
+  const forumUsers = await User.find({
+    _id: { $in: forumUserIds },
+  });
+
   let author = {
     username: "Unknown user",
     profileImage: "/images/user_icon.png",
@@ -253,42 +371,32 @@ async function showDiscussionDetail(request, response) {
   }
 
   const isAuthor = String(discussion.authorId) === String(forumUser._id);
-  const activeReplies = await Reply.find({
-    deletedAt: null,
-  });
-  const discussionReplies = [];
   const replyAuthors = [];
   const isMyReply = [];
 
-  for (let i = 0; i < activeReplies.length; i += 1) {
-    if (
-      String(activeReplies[i].discussionId) === String(discussion._id)
-    ) {
-      let replyAuthor = {
-        username: "Unknown user",
-        profileImage: "/images/user_icon.png",
-        course: "",
-      };
+  for (let i = 0; i < discussionReplies.length; i += 1) {
+    let replyAuthor = {
+      username: "Unknown user",
+      profileImage: "/images/user_icon.png",
+      course: "",
+    };
 
-      for (let j = 0; j < forumUsers.length; j += 1) {
-        if (
-          String(forumUsers[j]._id) === String(activeReplies[i].authorId)
-        ) {
-          replyAuthor = {
-            username: forumUsers[j].name,
-            profileImage:
-              forumUsers[j].avatarUrl || "/images/user_icon.png",
-            course: forumUsers[j].course,
-          };
-        }
+    for (let j = 0; j < forumUsers.length; j += 1) {
+      if (
+        String(forumUsers[j]._id) === String(discussionReplies[i].authorId)
+      ) {
+        replyAuthor = {
+          username: forumUsers[j].name,
+          profileImage: forumUsers[j].avatarUrl || "/images/user_icon.png",
+          course: forumUsers[j].course,
+        };
       }
-
-      discussionReplies.push(activeReplies[i]);
-      replyAuthors.push(replyAuthor);
-      isMyReply.push(
-        String(activeReplies[i].authorId) === String(forumUser._id),
-      );
     }
+
+    replyAuthors.push(replyAuthor);
+    isMyReply.push(
+      String(discussionReplies[i].authorId) === String(forumUser._id),
+    );
   }
 
   response.render("discussion-detail", {
@@ -318,17 +426,7 @@ async function showEditDiscussion(request, response) {
     return;
   }
 
-  const activeDiscussions = await Discussion.find({
-    deletedAt: null,
-  });
-
-  let discussion = null;
-
-  for (let i = 0; i < activeDiscussions.length; i += 1) {
-    if (String(activeDiscussions[i]._id) === request.params.id) {
-      discussion = activeDiscussions[i];
-    }
-  }
+  const discussion = await findActiveDiscussion(request.params.id);
 
   if (!discussion) {
     response.status(404).send("Discussion not found.");
@@ -370,6 +468,151 @@ function makeCurrentUser(loginUser) {
   return currentUser;
 }
 
+function accountStateFromDatabaseUser(databaseUser) {
+  if (!databaseUser) {
+    return null;
+  }
+
+  return {
+    username: databaseUser.username,
+    studentId: databaseUser.studentId,
+    email: databaseUser.email,
+    passwordHash: databaseUser.passwordHash,
+    status: databaseUser.status,
+    lockedAt: databaseUser.lockedAt,
+    deactivatedAt: databaseUser.deactivatedAt,
+    passwordChangedAt: databaseUser.passwordChangedAt,
+    recoveryPasswordHash: databaseUser.recoveryPasswordHash,
+    recoveryConfigured: Boolean(
+      databaseUser.recoveryPasswordHash,
+    ),
+  };
+}
+
+async function findDatabaseAccountState(studentId) {
+  const databaseUser = await User.findOne({ studentId: studentId });
+  return accountStateFromDatabaseUser(databaseUser);
+}
+
+async function findDatabaseAccountByIdentifier(identifier) {
+  const databaseUser = await User.findOne({
+    $or: [{ username: identifier }, { email: identifier }],
+  });
+
+  return accountStateFromDatabaseUser(databaseUser);
+}
+
+async function updateDatabaseProfile(
+  studentId,
+  accountUpdate,
+  expectedPasswordHash,
+  expectedRecoveryPasswordHash,
+) {
+  const accountFilter = {
+    studentId: studentId,
+    status: "active",
+    passwordHash: expectedPasswordHash,
+  };
+
+  if (expectedRecoveryPasswordHash !== undefined) {
+    accountFilter.recoveryPasswordHash =
+      expectedRecoveryPasswordHash || null;
+  }
+
+  const databaseUser = await User.findOneAndUpdate(
+    accountFilter,
+    {
+      $set: {
+        ...accountUpdate,
+        updatedAt: new Date(),
+      },
+    },
+    {
+      new: true,
+      runValidators: true,
+    },
+  );
+
+  return accountStateFromDatabaseUser(databaseUser);
+}
+
+async function updateDatabaseAccountStatus(studentId, status) {
+  const now = new Date();
+  const update = {
+    status: status,
+    updatedAt: now,
+  };
+
+  if (status === "locked") {
+    update.lockedAt = now;
+  }
+
+  /*
+   * lockedAt and deactivatedAt remain as historical invalidation times after
+   * an administrator unlocks an account. A new login is newer than these
+   * values, while a session created before the lock stays invalid.
+   */
+  const databaseUser = await User.findOneAndUpdate(
+    { studentId: studentId },
+    { $set: update },
+  );
+
+  if (!databaseUser) {
+    return null;
+  }
+
+  return findDatabaseAccountState(studentId);
+}
+
+async function deactivateDatabaseAccount(studentId) {
+  const now = new Date();
+
+  const databaseUser = await User.findOneAndUpdate(
+    {
+      studentId: studentId,
+      status: "active",
+    },
+    {
+      $set: {
+        status: "locked",
+        lockedAt: now,
+        deactivatedAt: now,
+        updatedAt: now,
+      },
+    },
+  );
+
+  if (!databaseUser) {
+    return null;
+  }
+
+  return findDatabaseAccountState(studentId);
+}
+
+function isSessionNewerThanAccountBlocks(request, accountState) {
+  const blockTimes = [
+    accountState.lockedAt,
+    accountState.deactivatedAt,
+    accountState.passwordChangedAt,
+  ]
+    .filter((value) => value)
+    .map((value) => new Date(value).getTime())
+    .filter((value) => Number.isFinite(value));
+
+  if (blockTimes.length === 0) {
+    return true;
+  }
+
+  const authenticatedAt = new Date(
+    request.session.authenticatedAt,
+  ).getTime();
+
+  return (
+    Number.isFinite(authenticatedAt) &&
+    authenticatedAt > Math.max(...blockTimes)
+  );
+}
+
 // Gets the user stored in the shared Login session.
 async function getCurrentUser(request) {
   if (!request.session || !request.session.userId || !loginStore) {
@@ -384,9 +627,26 @@ async function getCurrentUser(request) {
     }
   }
 
-  if (!loginUser || loginUser.status !== "active") {
+  if (!loginUser) {
     return null;
   }
+
+  const accountState = await findDatabaseAccountState(loginUser.studentId);
+
+  if (
+    !accountState ||
+    accountState.status !== "active" ||
+    !isSessionNewerThanAccountBlocks(request, accountState)
+  ) {
+    request.session.destroy(() => {});
+    return null;
+  }
+
+  loginUser.status = accountState.status;
+  loginUser.email = accountState.email;
+  loginUser.passwordHash = accountState.passwordHash;
+  loginUser.passwordChangedAt = accountState.passwordChangedAt;
+  loginUser.recoveryConfigured = accountState.recoveryConfigured;
 
   return makeCurrentUser(loginUser);
 }
@@ -421,13 +681,15 @@ async function getBlogCurrentUser(request) {
 
 // Save a new discussion post from the Discussion Forum form.
 async function createDiscussion(request, response) {
-  const postTitle = (request.body.postTitle || "").trim();
-  const postContent = (request.body.postContent || "").trim();
+  const postTitle = getTrimmedFormText(request.body.postTitle);
+  const postContent = getTrimmedFormText(request.body.postContent);
   const postImage = request.file
     ? "/uploads/" + request.file.filename
     : null;
 
   if (postTitle === "" || postTitle.length > 100) {
+    await removeUploadedForumImage(request.file);
+
     response
       .status(400)
       .send("Please enter a title with 100 characters or less.");
@@ -435,6 +697,8 @@ async function createDiscussion(request, response) {
   }
 
   if (postContent === "" || postContent.length > 1000) {
+    await removeUploadedForumImage(request.file);
+
     response
       .status(400)
       .send("Please enter content with 1000 characters or less.");
@@ -502,17 +766,7 @@ async function updateDiscussion(request, response) {
     return;
   }
 
-  const activeDiscussions = await Discussion.find({
-    deletedAt: null,
-  });
-
-  let discussion = null;
-
-  for (let i = 0; i < activeDiscussions.length; i += 1) {
-    if (String(activeDiscussions[i]._id) === request.params.id) {
-      discussion = activeDiscussions[i];
-    }
-  }
+  const discussion = await findActiveDiscussion(request.params.id);
 
   if (!discussion) {
     response.status(404).send("Discussion not found.");
@@ -524,8 +778,8 @@ async function updateDiscussion(request, response) {
     return;
   }
 
-  const postTitle = (request.body.postTitle || "").trim();
-  const postContent = (request.body.postContent || "").trim();
+  const postTitle = getTrimmedFormText(request.body.postTitle);
+  const postContent = getTrimmedFormText(request.body.postContent);
   let postImage = discussion.image;
 
   if (request.file) {
@@ -533,6 +787,8 @@ async function updateDiscussion(request, response) {
   }
 
   if (postTitle === "" || postTitle.length > 100) {
+    await removeUploadedForumImage(request.file);
+
     response
       .status(400)
       .send("Please enter a title with 100 characters or less.");
@@ -540,6 +796,8 @@ async function updateDiscussion(request, response) {
   }
 
   if (postContent === "" || postContent.length > 1000) {
+    await removeUploadedForumImage(request.file);
+
     response
       .status(400)
       .send("Please enter content with 1000 characters or less.");
@@ -553,8 +811,12 @@ async function updateDiscussion(request, response) {
 
   const now = new Date();
 
-  await Discussion.updateOne(
-    { _id: discussion._id },
+  const discussionUpdate = await Discussion.updateOne(
+    {
+      _id: discussion._id,
+      authorId: forumUser._id,
+      deletedAt: null,
+    },
     {
       title: postTitle,
       content: postContent,
@@ -562,6 +824,11 @@ async function updateDiscussion(request, response) {
       updatedAt: now,
     },
   );
+
+  if (discussionUpdate.matchedCount === 0) {
+    response.status(404).send("Discussion not found.");
+    return;
+  }
 
   await User.updateOne(
     { _id: forumUser._id },
@@ -590,17 +857,7 @@ async function deleteDiscussion(request, response) {
     return;
   }
 
-  const activeDiscussions = await Discussion.find({
-    deletedAt: null,
-  });
-
-  let discussion = null;
-
-  for (let i = 0; i < activeDiscussions.length; i += 1) {
-    if (String(activeDiscussions[i]._id) === request.params.id) {
-      discussion = activeDiscussions[i];
-    }
-  }
+  const discussion = await findActiveDiscussion(request.params.id);
 
   if (!discussion) {
     response.status(404).send("Discussion not found.");
@@ -614,14 +871,23 @@ async function deleteDiscussion(request, response) {
 
   const now = new Date();
 
-  await Discussion.updateOne(
-    { _id: discussion._id },
+  const discussionUpdate = await Discussion.updateOne(
+    {
+      _id: discussion._id,
+      authorId: forumUser._id,
+      deletedAt: null,
+    },
     {
       deletedAt: now,
       deletedBy: forumUser._id,
       updatedAt: now,
     },
   );
+
+  if (discussionUpdate.matchedCount === 0) {
+    response.status(404).send("Discussion not found.");
+    return;
+  }
 
   await User.updateOne(
     { _id: forumUser._id },
@@ -651,20 +917,10 @@ async function showEditReply(request, response) {
     return;
   }
 
-  const activeReplies = await Reply.find({
-    deletedAt: null,
-  });
-
-  let reply = null;
-
-  for (let i = 0; i < activeReplies.length; i += 1) {
-    if (
-      String(activeReplies[i]._id) === request.params.replyId &&
-      String(activeReplies[i].discussionId) === request.params.id
-    ) {
-      reply = activeReplies[i];
-    }
-  }
+  const reply = await findActiveReply(
+    request.params.replyId,
+    request.params.id,
+  );
 
   if (!reply) {
     response.status(404).send("Reply not found.");
@@ -676,17 +932,7 @@ async function showEditReply(request, response) {
     return;
   }
 
-  const activeDiscussions = await Discussion.find({
-    deletedAt: null,
-  });
-
-  let discussion = null;
-
-  for (let i = 0; i < activeDiscussions.length; i += 1) {
-    if (String(activeDiscussions[i]._id) === request.params.id) {
-      discussion = activeDiscussions[i];
-    }
-  }
+  const discussion = await findActiveDiscussion(request.params.id);
 
   if (!discussion) {
     response.status(404).send("Discussion not found.");
@@ -702,13 +948,15 @@ async function showEditReply(request, response) {
 
 // Save new reply for the selected discussion post
 async function createReply(request, response) {
-  const replyTitle = (request.body.replyTitle || "").trim();
-  const replyContent = (request.body.replyContent || "").trim();
+  const replyTitle = getTrimmedFormText(request.body.replyTitle);
+  const replyContent = getTrimmedFormText(request.body.replyContent);
   const replyImage = request.file
     ? "/uploads/" + request.file.filename
     : null;
 
   if (replyTitle === "" || replyTitle.length > 100) {
+    await removeUploadedForumImage(request.file);
+
     response
       .status(400)
       .send("Please enter a reply title with 100 characters or less.");
@@ -716,6 +964,8 @@ async function createReply(request, response) {
   }
 
   if (replyContent === "" || replyContent.length > 1000) {
+    await removeUploadedForumImage(request.file);
+
     response
       .status(400)
       .send("Please enter reply content with 1000 characters or less.");
@@ -741,17 +991,7 @@ async function createReply(request, response) {
     return;
   }
 
-  const activeDiscussions = await Discussion.find({
-    deletedAt: null,
-  });
-
-  let discussion = null;
-
-  for (let i = 0; i < activeDiscussions.length; i += 1) {
-    if (String(activeDiscussions[i]._id) === request.params.id) {
-      discussion = activeDiscussions[i];
-    }
-  }
+  const discussion = await findActiveDiscussion(request.params.id);
 
   if (!discussion) {
     response.status(404).send("Discussion not found.");
@@ -788,10 +1028,12 @@ async function createReply(request, response) {
 
 // Save changes to a reply written by the current user.
 async function updateReply(request, response) {
-  const replyTitle = (request.body.replyTitle || "").trim();
-  const replyContent = (request.body.replyContent || "").trim();
+  const replyTitle = getTrimmedFormText(request.body.replyTitle);
+  const replyContent = getTrimmedFormText(request.body.replyContent);
 
   if (replyTitle === "" || replyTitle.length > 100) {
+    await removeUploadedForumImage(request.file);
+
     response
       .status(400)
       .send("Please enter a reply title with 100 characters or less.");
@@ -799,6 +1041,8 @@ async function updateReply(request, response) {
   }
 
   if (replyContent === "" || replyContent.length > 1000) {
+    await removeUploadedForumImage(request.file);
+
     response
       .status(400)
       .send("Please enter reply content with 1000 characters or less.");
@@ -819,20 +1063,17 @@ async function updateReply(request, response) {
     return;
   }
 
-  const activeReplies = await Reply.find({
-    deletedAt: null,
-  });
+  const discussion = await findActiveDiscussion(request.params.id);
 
-  let reply = null;
-
-  for (let i = 0; i < activeReplies.length; i += 1) {
-    if (
-      String(activeReplies[i]._id) === request.params.replyId &&
-      String(activeReplies[i].discussionId) === request.params.id
-    ) {
-      reply = activeReplies[i];
-    }
+  if (!discussion) {
+    response.status(404).send("Discussion not found.");
+    return;
   }
+
+  const reply = await findActiveReply(
+    request.params.replyId,
+    discussion._id,
+  );
 
   if (!reply) {
     response.status(404).send("Reply not found.");
@@ -857,8 +1098,13 @@ async function updateReply(request, response) {
 
   const now = new Date();
 
-  await Reply.updateOne(
-    { _id: reply._id },
+  const replyUpdate = await Reply.updateOne(
+    {
+      _id: reply._id,
+      discussionId: discussion._id,
+      authorId: forumUser._id,
+      deletedAt: null,
+    },
     {
       title: replyTitle,
       content: replyContent,
@@ -866,6 +1112,11 @@ async function updateReply(request, response) {
       updatedAt: now,
     },
   );
+
+  if (replyUpdate.matchedCount === 0) {
+    response.status(404).send("Reply not found.");
+    return;
+  }
 
   // Save the user's last activity time
   await User.updateOne(
@@ -895,20 +1146,17 @@ async function deleteReply(request, response) {
     return;
   }
 
-  const activeReplies = await Reply.find({
-    deletedAt: null,
-  });
+  const discussion = await findActiveDiscussion(request.params.id);
 
-  let reply = null;
-
-  for (let i = 0; i < activeReplies.length; i += 1) {
-    if (
-      String(activeReplies[i]._id) === request.params.replyId &&
-      String(activeReplies[i].discussionId) === request.params.id
-    ) {
-      reply = activeReplies[i];
-    }
+  if (!discussion) {
+    response.status(404).send("Discussion not found.");
+    return;
   }
+
+  const reply = await findActiveReply(
+    request.params.replyId,
+    discussion._id,
+  );
 
   if (!reply) {
     response.status(404).send("Reply not found.");
@@ -922,14 +1170,24 @@ async function deleteReply(request, response) {
 
   const now = new Date();
 
-  await Reply.updateOne(
-    { _id: reply._id },
+  const replyUpdate = await Reply.updateOne(
+    {
+      _id: reply._id,
+      discussionId: discussion._id,
+      authorId: forumUser._id,
+      deletedAt: null,
+    },
     {
       deletedAt: now,
       deletedBy: forumUser._id,
       updatedAt: now,
     },
   );
+
+  if (replyUpdate.matchedCount === 0) {
+    response.status(404).send("Reply not found.");
+    return;
+  }
 
   // Save the user's last activity time
   await User.updateOne(
@@ -1173,18 +1431,239 @@ function showWishlistAdd(request, response) {
   response.render("wishlist-add", { pageTitle: "Browes Items" });
 }
 
-// Shows the page where a student enters an RMIT email address.
-function showForgotPassword(request, response) {
-  response.render("forgotpassword", {
+function newPasswordValidationError(password) {
+  if (password.length < 8 || password.length > 64) {
+    return "Password must contain 8 to 64 characters.";
+  }
+
+  if (!ASCII_SECRET_PATTERN.test(password)) {
+    return "Password must use ASCII letters, numbers, or symbols without spaces.";
+  }
+
+  if (
+    !/[a-z]/.test(password) ||
+    !/[A-Z]/.test(password) ||
+    !/\d/.test(password)
+  ) {
+    return "Password must include uppercase and lowercase letters and a number.";
+  }
+
+  return "";
+}
+
+function recoveryPasswordValidationError(password) {
+  if (password.length < 12 || password.length > 64) {
+    return "Recovery password must contain 12 to 64 characters.";
+  }
+
+  if (!ASCII_SECRET_PATTERN.test(password)) {
+    return "Recovery password must use ASCII letters, numbers, or symbols without spaces.";
+  }
+
+  if (
+    !/[a-z]/.test(password) ||
+    !/[A-Z]/.test(password) ||
+    !/\d/.test(password)
+  ) {
+    return "Recovery password must include uppercase and lowercase letters and a number.";
+  }
+
+  return "";
+}
+
+function renderForgotPassword(response, options = {}) {
+  return response.status(options.status || 200).render("forgotpassword", {
     pageTitle: "Forgot Password",
-    emailError: "",
+    emailValue: options.emailValue || "",
+    emailError: options.emailError || "",
+    recoveryPasswordError: options.recoveryPasswordError || "",
+    formError: options.formError || "",
+    resetMessage: options.resetMessage || "",
   });
 }
 
-// Shows the page where a student chooses a new password.
-function showResetPassword(request, response) {
-  if (!request.session || !request.session.resetUserId) {
-    response.redirect("/forgot-password");
+function resetSnapshotDate(value) {
+  if (value === null) {
+    return null;
+  }
+
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date : undefined;
+}
+
+function passwordResetAccountFilter(authorisation) {
+  if (
+    !authorisation ||
+    typeof authorisation.studentId !== "string" ||
+    typeof authorisation.email !== "string" ||
+    typeof authorisation.passwordHash !== "string"
+  ) {
+    return null;
+  }
+
+  const recoveryPasswordSetAt = resetSnapshotDate(
+    authorisation.recoveryPasswordSetAt,
+  );
+  const passwordChangedAt = resetSnapshotDate(
+    authorisation.passwordChangedAt,
+  );
+  const lockedAt = resetSnapshotDate(authorisation.lockedAt);
+  const deactivatedAt = resetSnapshotDate(authorisation.deactivatedAt);
+
+  if (
+    recoveryPasswordSetAt === undefined ||
+    passwordChangedAt === undefined ||
+    lockedAt === undefined ||
+    deactivatedAt === undefined
+  ) {
+    return null;
+  }
+
+  return {
+    studentId: authorisation.studentId,
+    email: authorisation.email,
+    status: "active",
+    passwordHash: authorisation.passwordHash,
+    passwordChangedAt: passwordChangedAt,
+    recoveryPasswordHash: { $type: "string" },
+    recoveryPasswordSetAt: recoveryPasswordSetAt,
+    lockedAt: lockedAt,
+    deactivatedAt: deactivatedAt,
+  };
+}
+
+function getPasswordResetAuthorisation(request) {
+  const authorisation = request.session.passwordResetAuthorisation;
+
+  if (
+    !authorisation ||
+    !Number.isFinite(authorisation.expiresAt) ||
+    authorisation.expiresAt <= Date.now() ||
+    !passwordResetAccountFilter(authorisation)
+  ) {
+    delete request.session.passwordResetAuthorisation;
+    return null;
+  }
+
+  return authorisation;
+}
+
+function recoveryAttemptIsBlocked(databaseUser, now) {
+  const blockedUntil = databaseUser.recoveryBlockedUntil
+    ? new Date(databaseUser.recoveryBlockedUntil).getTime()
+    : 0;
+  const windowStartedAt = databaseUser.recoveryAttemptWindowStartedAt
+    ? new Date(databaseUser.recoveryAttemptWindowStartedAt).getTime()
+    : 0;
+  const windowIsCurrent =
+    windowStartedAt > now.getTime() - RECOVERY_ATTEMPT_WINDOW_MS;
+
+  return (
+    blockedUntil > now.getTime() ||
+    (windowIsCurrent && databaseUser.recoveryFailedAttempts >= MAX_RECOVERY_ATTEMPTS)
+  );
+}
+
+async function refreshRecoveryAttemptWindow(databaseUser, now) {
+  const expiredBefore = new Date(
+    now.getTime() - RECOVERY_ATTEMPT_WINDOW_MS,
+  );
+
+  await User.updateOne(
+    {
+      _id: databaseUser._id,
+      $and: [
+        {
+          $or: [
+            { recoveryAttemptWindowStartedAt: null },
+            { recoveryAttemptWindowStartedAt: { $lte: expiredBefore } },
+          ],
+        },
+        {
+          $or: [
+            { recoveryBlockedUntil: null },
+            { recoveryBlockedUntil: { $lte: now } },
+          ],
+        },
+      ],
+    },
+    {
+      $set: {
+        recoveryFailedAttempts: 0,
+        recoveryAttemptWindowStartedAt: now,
+        recoveryBlockedUntil: null,
+      },
+    },
+  );
+
+  return User.findOne({ _id: databaseUser._id });
+}
+
+async function recordRecoveryFailure(databaseUser, now) {
+  const expiredBefore = new Date(
+    now.getTime() - RECOVERY_ATTEMPT_WINDOW_MS,
+  );
+  const updatedUser = await User.findOneAndUpdate(
+    {
+      _id: databaseUser._id,
+      status: "active",
+      recoveryAttemptWindowStartedAt: { $gt: expiredBefore },
+      recoveryFailedAttempts: { $lt: MAX_RECOVERY_ATTEMPTS },
+      $or: [
+        { recoveryBlockedUntil: null },
+        { recoveryBlockedUntil: { $lte: now } },
+      ],
+    },
+    {
+      $inc: { recoveryFailedAttempts: 1 },
+      $set: { updatedAt: now },
+    },
+    { new: true },
+  );
+
+  if (
+    updatedUser &&
+    updatedUser.recoveryFailedAttempts >= MAX_RECOVERY_ATTEMPTS
+  ) {
+    await User.updateOne(
+      {
+        _id: updatedUser._id,
+        recoveryAttemptWindowStartedAt:
+          updatedUser.recoveryAttemptWindowStartedAt,
+        recoveryFailedAttempts: { $gte: MAX_RECOVERY_ATTEMPTS },
+      },
+      {
+        $set: {
+          recoveryBlockedUntil: new Date(
+            now.getTime() + RECOVERY_ATTEMPT_WINDOW_MS,
+          ),
+        },
+      },
+    );
+  }
+}
+
+// Shows the recovery form without revealing whether an account exists.
+function showForgotPassword(request, response) {
+  const resetMessage =
+    request.query.reset === "expired"
+      ? "Your password reset access is missing, expired, or no longer valid."
+      : "";
+
+  return renderForgotPassword(response, { resetMessage: resetMessage });
+}
+
+// Only a current, server-stored recovery authorisation can open this page.
+async function showResetPassword(request, response) {
+  const authorisation = getPasswordResetAuthorisation(request);
+  const accountFilter = passwordResetAccountFilter(authorisation);
+  const databaseUser = accountFilter
+    ? await User.findOne(accountFilter)
+    : null;
+
+  if (!databaseUser) {
+    delete request.session.passwordResetAuthorisation;
+    response.redirect("/forgot-password?reset=expired");
     return;
   }
 
@@ -1215,42 +1694,148 @@ function showLogout(request, response) {
   });
 }
 
-// Checks the email on the server before showing the reset form.
-function sendResetLink(request, response) {
-  const email = (request.body["reset-email"] || "").trim().toLowerCase();
-  const emailFormat = /^[^\s@]+@rmit\.edu\.vn$/;
+// Verifies the email and pre-set recovery password without sending email.
+async function verifyRecoveryPassword(request, response, next) {
+  delete request.session.passwordResetAuthorisation;
 
-  if (email === "" || emailFormat.test(email) === false) {
-    response.render("forgotpassword", {
-      pageTitle: "Forgot Password",
-      emailError: "Please enter a valid RMIT email address.",
+  const email = getTrimmedFormText(
+    request.body["reset-email"],
+  ).toLowerCase();
+  const recoveryPassword =
+    typeof request.body["recovery-password"] === "string"
+      ? request.body["recovery-password"]
+      : "";
+  const emailFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  let emailError = "";
+
+  if (email === "") {
+    emailError = "Please enter your email address.";
+  } else if (email.length > 120 || emailFormat.test(email) === false) {
+    emailError = "Please enter a valid email address.";
+  }
+  const recoveryPasswordError = recoveryPasswordValidationError(
+    recoveryPassword,
+  );
+
+  if (emailError || recoveryPasswordError) {
+    renderForgotPassword(response, {
+      status: 422,
+      emailValue: email,
+      emailError: emailError,
+      recoveryPasswordError: recoveryPasswordError,
     });
-
     return;
   }
 
-  let loginUser = null;
+  const now = new Date();
+  let databaseUser = await User.findOne({ email: email });
 
-  for (let i = 0; i < loginStore.users.length; i += 1) {
-    if (loginStore.users[i].email.toLowerCase() === email) {
-      loginUser = loginStore.users[i];
+  if (databaseUser && databaseUser.status === "active") {
+    databaseUser = await refreshRecoveryAttemptWindow(databaseUser, now);
+  }
+
+  const recoveryIsBlocked =
+    !databaseUser ||
+    databaseUser.status !== "active" ||
+    recoveryAttemptIsBlocked(databaseUser, now);
+  const recoveryPasswordMatches =
+    !recoveryIsBlocked &&
+    databaseUser.recoveryPasswordSetAt &&
+    verifyPassword(
+      recoveryPassword,
+      databaseUser.recoveryPasswordHash,
+    );
+
+  if (!recoveryPasswordMatches) {
+    if (
+      databaseUser &&
+      databaseUser.status === "active" &&
+      !recoveryAttemptIsBlocked(databaseUser, now)
+    ) {
+      await recordRecoveryFailure(databaseUser, now);
     }
-  }
 
-  if (!loginUser || loginUser.status !== "active") {
-    response.render("forgotpassword", {
-      pageTitle: "Forgot Password",
-      emailError: "No active account was found with this email address.",
+    renderForgotPassword(response, {
+      status: 401,
+      emailValue: email,
+      formError:
+        "Recovery could not be verified or is temporarily unavailable.",
     });
     return;
   }
 
-  request.session.resetUserId = loginUser.id;
-  response.redirect("/reset-password");
+  const confirmedUser = await User.findOneAndUpdate(
+    {
+      _id: databaseUser._id,
+      status: "active",
+      passwordHash: databaseUser.passwordHash,
+      passwordChangedAt: databaseUser.passwordChangedAt || null,
+      recoveryPasswordHash: databaseUser.recoveryPasswordHash,
+      recoveryPasswordSetAt: databaseUser.recoveryPasswordSetAt,
+      lockedAt: databaseUser.lockedAt || null,
+      deactivatedAt: databaseUser.deactivatedAt || null,
+      recoveryFailedAttempts: databaseUser.recoveryFailedAttempts,
+      recoveryAttemptWindowStartedAt:
+        databaseUser.recoveryAttemptWindowStartedAt || null,
+      recoveryBlockedUntil: databaseUser.recoveryBlockedUntil || null,
+    },
+    {
+      $set: {
+        recoveryFailedAttempts: 0,
+        recoveryAttemptWindowStartedAt: null,
+        recoveryBlockedUntil: null,
+        updatedAt: now,
+      },
+    },
+    { new: true },
+  );
+
+  if (!confirmedUser) {
+    renderForgotPassword(response, {
+      status: 401,
+      emailValue: email,
+      formError:
+        "Recovery could not be verified or is temporarily unavailable.",
+    });
+    return;
+  }
+
+  const sessionDate = (value) =>
+    value ? new Date(value).toISOString() : null;
+
+  request.session.passwordResetAuthorisation = {
+    studentId: confirmedUser.studentId,
+    email: confirmedUser.email,
+    passwordHash: confirmedUser.passwordHash,
+    passwordChangedAt: sessionDate(confirmedUser.passwordChangedAt),
+    recoveryPasswordSetAt: sessionDate(
+      confirmedUser.recoveryPasswordSetAt,
+    ),
+    lockedAt: sessionDate(confirmedUser.lockedAt),
+    deactivatedAt: sessionDate(confirmedUser.deactivatedAt),
+    expiresAt: Date.now() + PASSWORD_RESET_ACCESS_MS,
+  };
+
+  request.session.save((error) => {
+    if (error) {
+      next(error);
+      return;
+    }
+
+    response.redirect("/reset-password");
+  });
 }
 
-// Checks and saves the new password for the reset account.
-function resetPassword(request, response) {
+// Atomically changes the password only while the approved account is unchanged.
+async function resetPassword(request, response) {
+  const authorisation = getPasswordResetAuthorisation(request);
+  const accountFilter = passwordResetAccountFilter(authorisation);
+
+  if (!accountFilter) {
+    response.redirect("/forgot-password?reset=expired");
+    return;
+  }
+
   const newPassword =
     typeof request.body["new-password"] === "string"
       ? request.body["new-password"]
@@ -1259,48 +1844,33 @@ function resetPassword(request, response) {
     typeof request.body["confirm-password"] === "string"
       ? request.body["confirm-password"]
       : "";
-
-  if (!request.session || !request.session.resetUserId) {
-    response.redirect("/forgot-password");
-    return;
-  }
-
-  let loginUser = null;
-
-  for (let i = 0; i < loginStore.users.length; i += 1) {
-    if (loginStore.users[i].id === request.session.resetUserId) {
-      loginUser = loginStore.users[i];
-    }
-  }
-
-  if (!loginUser || loginUser.status !== "active") {
-    request.session.resetUserId = null;
-    response.redirect("/forgot-password");
-    return;
-  }
-
-  let newPasswordError = "";
+  let newPasswordError = newPasswordValidationError(newPassword);
   let confirmPasswordError = "";
-
-  if (newPassword.length < 8 || newPassword.length > 128) {
-    newPasswordError = "Password must contain 8 to 128 characters.";
-  } else if (
-    !/[a-z]/.test(newPassword) ||
-    !/[A-Z]/.test(newPassword) ||
-    !/\d/.test(newPassword)
-  ) {
-    newPasswordError =
-      "Password must include uppercase and lowercase letters and a number.";
-  }
 
   if (confirmPassword === "") {
     confirmPasswordError = "Please confirm your new password.";
-  } else if (newPassword !== confirmPassword) {
+  } else if (confirmPassword !== newPassword) {
     confirmPasswordError = "Passwords do not match.";
   }
 
-  if (newPasswordError !== "" || confirmPasswordError !== "") {
-    response.render("resetpassword", {
+  const databaseUser = await User.findOne(accountFilter);
+
+  if (!databaseUser) {
+    delete request.session.passwordResetAuthorisation;
+    response.redirect("/forgot-password?reset=expired");
+    return;
+  }
+
+  if (
+    !newPasswordError &&
+    verifyPassword(newPassword, databaseUser.recoveryPasswordHash)
+  ) {
+    newPasswordError =
+      "Choose a login password that is different from the recovery password.";
+  }
+
+  if (newPasswordError || confirmPasswordError) {
+    response.status(422).render("resetpassword", {
       pageTitle: "Reset Password",
       resetComplete: false,
       newPasswordError: newPasswordError,
@@ -1309,9 +1879,37 @@ function resetPassword(request, response) {
     return;
   }
 
-  loginUser.passwordHash = createPasswordHash(newPassword);
-  request.session.resetUserId = null;
+  const newPasswordHash = createPasswordHash(newPassword);
+  const changedAt = new Date();
+  const updatedUser = await User.findOneAndUpdate(
+    {
+      ...accountFilter,
+      recoveryPasswordHash: databaseUser.recoveryPasswordHash,
+    },
+    {
+      $set: {
+        passwordHash: newPasswordHash,
+        passwordChangedAt: changedAt,
+        recoveryFailedAttempts: 0,
+        recoveryAttemptWindowStartedAt: null,
+        recoveryBlockedUntil: null,
+        updatedAt: changedAt,
+      },
+      $unset: {
+        recoveryPasswordHash: 1,
+        recoveryPasswordSetAt: 1,
+      },
+    },
+    { new: true },
+  );
 
+  if (!updatedUser) {
+    delete request.session.passwordResetAuthorisation;
+    response.redirect("/forgot-password?reset=expired");
+    return;
+  }
+
+  delete request.session.passwordResetAuthorisation;
   response.render("resetpassword", {
     pageTitle: "Password Reset Complete",
     resetComplete: true,
@@ -1335,31 +1933,26 @@ async function showDeactivateAccount(request, response) {
   });
 }
 
-// Shows the message after an account is deactivated.
+// The success view is shown only by a completed deactivation POST request.
 function showDeactivatedSuccess(request, response) {
-  response.render("deactivated-success", {
-    pageTitle: "Account Deactivated",
-  });
+  response.redirect("/login.html");
 }
 
-// Checks the confirmation checkbox and updates the current user's account status.
+// Checks confirmation, saves the inactive state, and then ends the session.
 async function deactivateAccount(request, response) {
+  const currentUser = await getCurrentUser(request);
+
+  if (!currentUser) {
+    response.redirect("/login.html");
+    return;
+  }
+
   const accountConfirm = request.body["deactivate-id-confirm"];
 
   if (accountConfirm !== "confirmed") {
     response.render("deactivate-id", {
       pageTitle: "Deactivate Account",
       deactivateError: "Please confirm that you understand this action.",
-    });
-    return;
-  }
-
-  const currentUser = await getCurrentUser(request);
-
-  if (!currentUser) {
-    response.render("deactivate-id", {
-      pageTitle: "Deactivate Account",
-      deactivateError: "Current user not found.",
     });
     return;
   }
@@ -1380,7 +1973,37 @@ async function deactivateAccount(request, response) {
     return;
   }
 
-  loginUser.status = "locked";
+  if (loginUser.role === "admin") {
+    response.status(409).render("deactivate-id", {
+      pageTitle: "Deactivate Account",
+      deactivateError:
+        "Administrator accounts cannot be deactivated. Use a member account instead.",
+    });
+    return;
+  }
+
+  let accountState;
+
+  try {
+    accountState = await deactivateDatabaseAccount(currentUser.studentId);
+  } catch (error) {
+    console.error(error);
+    response.status(500).render("deactivate-id", {
+      pageTitle: "Deactivate Account",
+      deactivateError: "Could not deactivate the account. Please try again.",
+    });
+    return;
+  }
+
+  if (!accountState) {
+    response.status(409).render("deactivate-id", {
+      pageTitle: "Deactivate Account",
+      deactivateError: "This account is not available for deactivation.",
+    });
+    return;
+  }
+
+  loginUser.status = accountState.status;
 
   request.session.destroy(function (error) {
     if (error) {
@@ -1395,7 +2018,9 @@ async function deactivateAccount(request, response) {
       secure: isProduction,
     });
 
-    response.redirect("/deactivated-success");
+    response.render("deactivated-success", {
+      pageTitle: "Account Deactivated",
+    });
   });
 }
 
@@ -1411,19 +2036,27 @@ app.get("/discussions", showDiscussions);
 app.get("/discussions/:id/edit", showEditDiscussion);
 app.get("/discussions/:id/replies/:replyId/edit", showEditReply);
 app.get("/discussions/:id", showDiscussionDetail);
-app.post("/discussions", upload.single("postImage"), createDiscussion);
+app.post(
+  "/discussions",
+  requireForumLogin,
+  upload.single("postImage"),
+  createDiscussion,
+);
 app.post(
   "/discussions/:id/edit",
+  requireForumLogin,
   upload.single("postImage"),
   updateDiscussion,
 );
 app.post(
   "/discussions/:id/replies",
+  requireForumLogin,
   upload.single("replyImage"),
   createReply,
 );
 app.post(
   "/discussions/:id/replies/:replyId/edit",
+  requireForumLogin,
   upload.single("replyImage"),
   updateReply,
 );
@@ -1486,7 +2119,7 @@ app.get("/wishlist/login.html", (request, response) => {
 // Shared User Account routes.
 app.get("/forgot-password", showForgotPassword);
 app.get("/reset-password", showResetPassword);
-app.post("/forgot-password", sendResetLink);
+app.post("/forgot-password", verifyRecoveryPassword);
 app.post("/reset-password", resetPassword);
 app.get("/logout", showLogout);
 app.get("/deactivate-account", showDeactivateAccount);
@@ -1535,7 +2168,18 @@ async function prepareApp() {
 
   loginStore = dataStore;
   createPasswordHash = passwordModule.createPasswordHash;
-  app.use(createApp({ sessionSecret }));
+  verifyPassword = passwordModule.verifyPassword;
+  app.use(
+    createApp({
+      sessionSecret: sessionSecret,
+      accountStatusStore: {
+        findByStudentId: findDatabaseAccountState,
+        findByIdentifier: findDatabaseAccountByIdentifier,
+        updateProfile: updateDatabaseProfile,
+        updateStatus: updateDatabaseAccountStatus,
+      },
+    }),
+  );
   app.use(handleRootError);
   accountAppMounted = true;
 

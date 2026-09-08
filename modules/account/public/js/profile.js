@@ -34,6 +34,8 @@ const ACCEPTED_AVATAR_TYPES = new Set([
 
 const EMAIL_PATTERN =
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ASCII_SECRET_PATTERN =
+    /^[\x21-\x7e]+$/;
 
 const form = byId("profileForm");
 const nameInput = byId("profileName");
@@ -46,6 +48,10 @@ const newPasswordInput =
     byId("profilePassword");
 const confirmPasswordInput =
     byId("confirmPassword");
+const recoveryPasswordInput =
+    byId("recoveryPassword");
+const confirmRecoveryPasswordInput =
+    byId("confirmRecoveryPassword");
 const avatarInput =
     byId("profilePicture");
 
@@ -54,6 +60,8 @@ const avatarPreview =
 const previewName = byId("previewName");
 const previewEmail = byId("previewEmail");
 const profileStatus = byId("profileStatus");
+const recoveryPasswordStatus =
+    byId("recoveryPasswordStatus");
 const descriptionCount =
     byId("descriptionCount");
 const formMessage = byId("profileMessage");
@@ -70,7 +78,9 @@ const textInputs = [
 const passwordInputs = [
     currentPasswordInput,
     newPasswordInput,
-    confirmPasswordInput
+    confirmPasswordInput,
+    recoveryPasswordInput,
+    confirmRecoveryPasswordInput
 ];
 
 /*
@@ -198,8 +208,27 @@ function saveDraft() {
 }
 
 function passwordChangeRequested() {
-    return passwordInputs.some(
+    return [
+        newPasswordInput,
+        confirmPasswordInput
+    ].some(
         (input) => input.value !== ""
+    );
+}
+
+function recoveryPasswordChangeRequested() {
+    return [
+        recoveryPasswordInput,
+        confirmRecoveryPasswordInput
+    ].some(
+        (input) => input.value !== ""
+    );
+}
+
+function sensitiveChangeRequested() {
+    return (
+        passwordChangeRequested() ||
+        recoveryPasswordChangeRequested()
     );
 }
 
@@ -249,12 +278,12 @@ const validators = {
     },
 
     currentPassword(value) {
-        if (!passwordChangeRequested()) {
+        if (!sensitiveChangeRequested()) {
             return "";
         }
 
         if (!value) {
-            return "Enter your current password before choosing a new one.";
+            return "Enter your current login password before changing a password.";
         }
 
         if (value.length > 200) {
@@ -275,9 +304,13 @@ const validators = {
 
         if (
             value.length < 8 ||
-            value.length > 128
+            value.length > 64
         ) {
-            return "Use between 8 and 128 characters.";
+            return "Use between 8 and 64 characters.";
+        }
+
+        if (!ASCII_SECRET_PATTERN.test(value)) {
+            return "Use ASCII letters, numbers, or symbols without spaces.";
         }
 
         if (
@@ -305,6 +338,56 @@ const validators = {
         }
 
         return "";
+    },
+
+    recoveryPassword(value) {
+        if (!recoveryPasswordChangeRequested()) {
+            return "";
+        }
+
+        if (
+            value.length < 12 ||
+            value.length > 64
+        ) {
+            return "Use between 12 and 64 characters.";
+        }
+
+        if (!ASCII_SECRET_PATTERN.test(value)) {
+            return "Use ASCII letters, numbers, or symbols without spaces.";
+        }
+
+        if (
+            !/[a-z]/.test(value) ||
+            !/[A-Z]/.test(value) ||
+            !/\d/.test(value)
+        ) {
+            return "Include an uppercase letter, a lowercase letter, and a number.";
+        }
+
+        if (
+            value === currentPasswordInput.value ||
+            value === newPasswordInput.value
+        ) {
+            return "Choose a different secret from your current or new login password.";
+        }
+
+        return "";
+    },
+
+    confirmRecoveryPassword(value) {
+        if (!recoveryPasswordChangeRequested()) {
+            return "";
+        }
+
+        if (!value) {
+            return "Confirm your recovery password.";
+        }
+
+        if (value !== recoveryPasswordInput.value) {
+            return "Enter the same recovery password again.";
+        }
+
+        return "";
     }
 };
 
@@ -317,7 +400,11 @@ const fieldValidators = new Map([
     [newPasswordInput,
         validators.newPassword],
     [confirmPasswordInput,
-        validators.confirmPassword]
+        validators.confirmPassword],
+    [recoveryPasswordInput,
+        validators.recoveryPassword],
+    [confirmRecoveryPasswordInput,
+        validators.confirmRecoveryPassword]
 ]);
 
 function validateField(input) {
@@ -569,6 +656,13 @@ function populateForm(
     currentPasswordInput.value = "";
     newPasswordInput.value = "";
     confirmPasswordInput.value = "";
+    recoveryPasswordInput.value = "";
+    confirmRecoveryPasswordInput.value = "";
+
+    recoveryPasswordStatus.textContent =
+        profile.recoveryConfigured
+            ? "A recovery password is set. Enter a new one to replace it."
+            : "No recovery password is set. Forgot Password cannot be used until you set one.";
 
     avatarErrorMessage = "";
     touchedFields.clear();
@@ -648,7 +742,7 @@ for (const input of passwordInputs) {
             }
         }
 
-        if (!passwordChangeRequested()) {
+        if (!sensitiveChangeRequested()) {
             for (
                 const relatedInput of
                 passwordInputs
@@ -888,11 +982,21 @@ form.addEventListener(
                 descriptionInput.value.trim()
         };
 
-        if (passwordChangeRequested()) {
+        if (sensitiveChangeRequested()) {
             payload.currentPassword =
                 currentPasswordInput.value;
+        }
+
+        if (passwordChangeRequested()) {
             payload.newPassword =
                 newPasswordInput.value;
+        }
+
+        if (recoveryPasswordChangeRequested()) {
+            payload.recoveryPassword =
+                recoveryPasswordInput.value;
+            payload.confirmRecoveryPassword =
+                confirmRecoveryPasswordInput.value;
         }
 
         if (selectedAvatarDataUrl) {

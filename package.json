@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "test": "node --test tests/integration.test.js && npm --prefix modules/account test",
+    "test": "node --test tests/integration.test.js && npm run test:recovery && npm run test:deactivation && npm --prefix modules/account test",
+    "test:recovery": "node --require dotenv/config --test tests/recovery-password-review.test.js",
+    "test:deactivation": "node --require dotenv/config --test tests/deactivation-review.test.js",
     "check": "node tests/static-check.js && npm test"
   },
   "repository": {

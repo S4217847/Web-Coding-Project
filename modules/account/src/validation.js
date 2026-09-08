@@ -11,6 +11,55 @@ const EMAIL_PATTERN =
 const USERNAME_PATTERN =
     /^[a-zA-Z0-9._-]{3,50}$/;
 
+const ASCII_SECRET_PATTERN =
+    /^[\x21-\x7e]+$/;
+
+function newPasswordError(password) {
+    if (
+        password.length < 8 ||
+        password.length > 64
+    ) {
+        return "New password must contain 8 to 64 characters.";
+    }
+
+    if (!ASCII_SECRET_PATTERN.test(password)) {
+        return "New password must use ASCII letters, numbers, or symbols without spaces.";
+    }
+
+    if (
+        !/[a-z]/.test(password) ||
+        !/[A-Z]/.test(password) ||
+        !/\d/.test(password)
+    ) {
+        return "New password must include uppercase and lowercase letters and a number.";
+    }
+
+    return "";
+}
+
+function recoveryPasswordError(password) {
+    if (
+        password.length < 12 ||
+        password.length > 64
+    ) {
+        return "Recovery password must contain 12 to 64 characters.";
+    }
+
+    if (!ASCII_SECRET_PATTERN.test(password)) {
+        return "Recovery password must use ASCII letters, numbers, or symbols without spaces.";
+    }
+
+    if (
+        !/[a-z]/.test(password) ||
+        !/[A-Z]/.test(password) ||
+        !/\d/.test(password)
+    ) {
+        return "Recovery password must include uppercase and lowercase letters and a number.";
+    }
+
+    return "";
+}
+
 export function isPlainObject(value) {
     return (
         value !== null &&
@@ -87,7 +136,9 @@ export function validateProfilePatch(body) {
         "avatarUrl",
         "avatarDataUrl",
         "currentPassword",
-        "newPassword"
+        "newPassword",
+        "recoveryPassword",
+        "confirmRecoveryPassword"
     ]);
 
     const suppliedFields =
@@ -186,20 +237,26 @@ export function validateProfilePatch(body) {
     const hasNewPassword =
         Object.hasOwn(body, "newPassword");
 
-    if (hasCurrentPassword || hasNewPassword) {
+    const hasRecoveryPassword =
+        Object.hasOwn(body, "recoveryPassword") ||
+        Object.hasOwn(
+            body,
+            "confirmRecoveryPassword"
+        );
+
+    if (
+        hasCurrentPassword ||
+        hasNewPassword ||
+        hasRecoveryPassword
+    ) {
         values.currentPassword =
             typeof body.currentPassword === "string"
                 ? body.currentPassword
                 : "";
 
-        values.newPassword =
-            typeof body.newPassword === "string"
-                ? body.newPassword
-                : "";
-
         if (!values.currentPassword) {
             details.currentPassword =
-                "Enter the current password before choosing a new one.";
+                "Enter the current login password before changing a password.";
         } else if (
             values.currentPassword.length > 200
         ) {
@@ -207,19 +264,54 @@ export function validateProfilePatch(body) {
                 "The current password is too long.";
         }
 
-        if (
-            values.newPassword.length < 8 ||
-            values.newPassword.length > 128
-        ) {
-            details.newPassword =
-                "New password must contain 8 to 128 characters.";
-        } else if (
-            !/[a-z]/.test(values.newPassword) ||
-            !/[A-Z]/.test(values.newPassword) ||
-            !/\d/.test(values.newPassword)
-        ) {
-            details.newPassword =
-                "New password must include uppercase and lowercase letters and a number.";
+        if (hasNewPassword) {
+            values.newPassword =
+                typeof body.newPassword === "string"
+                    ? body.newPassword
+                    : "";
+
+            const passwordError =
+                newPasswordError(
+                    values.newPassword
+                );
+
+            if (passwordError) {
+                details.newPassword =
+                    passwordError;
+            }
+        }
+
+        if (hasRecoveryPassword) {
+            values.recoveryPassword =
+                typeof body.recoveryPassword === "string"
+                    ? body.recoveryPassword
+                    : "";
+
+            values.confirmRecoveryPassword =
+                typeof body.confirmRecoveryPassword === "string"
+                    ? body.confirmRecoveryPassword
+                    : "";
+
+            const passwordError =
+                recoveryPasswordError(
+                    values.recoveryPassword
+                );
+
+            if (passwordError) {
+                details.recoveryPassword =
+                    passwordError;
+            }
+
+            if (!values.confirmRecoveryPassword) {
+                details.confirmRecoveryPassword =
+                    "Confirm the recovery password.";
+            } else if (
+                values.confirmRecoveryPassword !==
+                values.recoveryPassword
+            ) {
+                details.confirmRecoveryPassword =
+                    "Enter the same recovery password again.";
+            }
         }
     }
 

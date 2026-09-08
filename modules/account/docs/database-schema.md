@@ -8,12 +8,13 @@ module data that still uses runtime stores and collections that remain planned.
 
 | Area | Current implementation | MongoDB Atlas status or future direction |
 | --- | --- | --- |
-| Accounts, login, profile, and administration | Account users and sessions remain in memory. Passwords use one bcrypt `passwordHash` string. | The shared `users` collection exists, but Account routes have not been migrated. `sessions`, `passwordResetTokens`, and `adminActions` remain planned. |
+| Accounts, login, profile, and administration | Login reads MongoDB credentials and status. Profile email/password changes and lock/deactivation changes persist in `users`. Matching runtime users and other Profile edits remain in memory. | Partial migration through `studentId`, not a full Account migration. MongoDB `sessions` and `adminActions` remain planned. |
+| Password recovery | A pre-set recovery password is hashed in `users`. Successful verification grants 10-minute Reset access in the server session. No email is sent. | Implemented with User fields and the current in-memory session. The earlier `passwordResetTokens` collection design is not used. |
 | Catalogue, wishlist, cart hand-off, and purchase history | Products and user-owned relations remain in memory. | `products`, `wishlistEntries`, `cartItems`, `purchases`, `purchaseItems`, and `productActivityEvents` remain planned. |
 | Discussion Forum | Implemented with MongoDB `users`, `discussions`, and `replies`, ObjectId references, image paths, ownership checks, and soft deletion. | Implemented and tested. |
 | Blog and comments | Posts and comments currently remain in memory. | `blogPosts` and `blogComments` remain planned. |
 | Course reviews and ratings | Reviews currently remain in memory and are linked to the signed-in user and course code. | A `reviews` collection linked to Users and courses remains planned. |
-| Sitemap | Generated from registered routes, active MongoDB Discussions, and the current Blog and Review data. | Implemented as a derived view. It does not require its own collection. |
+| Sitemap | Static navigation and account links are defined in `views/sitemap.ejs`. Active MongoDB Discussions and Replies, plus the current Blog and Review data, are added when the page is rendered. | Implemented as a derived view. It does not require its own collection. |
 
 The implemented Mongoose models and current collections are documented
 separately from the future-facing collection designs below. Planned collections
@@ -21,10 +22,13 @@ must be confirmed with the relevant module owner before implementation.
 
 ## Full-team relationship diagram
 
+The diagram combines implemented collections with the planned collections
+listed above. Recovery adds fields to `USER`, not a separate token collection.
+`SESSION` and `ADMIN_ACTION` represent planned MongoDB collections.
+
 ```mermaid
 erDiagram
     USER ||--o{ SESSION : authenticates
-    USER ||--o{ PASSWORD_RESET_TOKEN : requests
     USER ||--o{ ADMIN_ACTION : performs
     USER ||--o{ ADMIN_ACTION : is_target_of
 
@@ -56,6 +60,12 @@ erDiagram
         string name
         string email UK
         string passwordHash
+        date passwordChangedAt
+        string recoveryPasswordHash
+        date recoveryPasswordSetAt
+        int recoveryFailedAttempts
+        date recoveryAttemptWindowStartedAt
+        date recoveryBlockedUntil
         string description
         string avatarUrl
         string course
@@ -199,14 +209,6 @@ erDiagram
         date expiresAt
     }
 
-    PASSWORD_RESET_TOKEN {
-        ObjectId _id PK
-        ObjectId userId FK
-        string tokenHash UK
-        date expiresAt
-        date usedAt
-    }
-
     ADMIN_ACTION {
         ObjectId _id PK
         ObjectId actorUserId FK
@@ -236,31 +238,81 @@ record, ownership rule, and account status.
 - `lastActiveAt` records the User's latest Forum create, edit, or delete action.
 - The profile stores `name`, `description`, `email`, `avatarUrl`, and `course`.
   MongoDB stores the avatar path rather than the image file.
-- Passwords are hashed with `bcryptjs` and stored as one `passwordHash` string.
-  Plain-text passwords and `passwordHash` values are never returned by an API.
+- The login password uses `passwordHash`. A pre-set recovery password uses a
+  separate `recoveryPasswordHash`. Both are hashed with `bcryptjs`.
+  APIs never return either hash or plain-text password. Profile responses expose
+  only the boolean `recoveryConfigured` to show whether recovery is available.
 - `createdAt` and `updatedAt` are stored in the User document. Current update
   routes set `updatedAt` explicitly.
-- Account routes currently remain in memory and match the Forum's MongoDB User
-  through `studentId`.
+- Login reads MongoDB credentials and status. Profile email, login password,
+  recovery password, and account status changes persist in this collection.
+  Account routes still require a matching runtime User through `studentId`.
+  Other Profile edits, including name, description, and avatar, remain in memory.
+  Storing these fields in the schema does not mean all Profile edits are migrated.
 
-#### `sessions`
+The following fields support password changes and recovery in `models/user.js`:
 
-- Use a MongoDB-compatible Express session store rather than the development
-  `MemoryStore`.
-- A session identifies its user and has `createdAt`, `lastSeenAt`, and
-  `expiresAt`. A TTL index removes expired sessions.
-- Every protected request still reads the current user status. Locking,
-  deactivating, or deleting an account must invalidate or reject existing
-  sessions immediately.
+| Field | Mongoose type and initial default | Purpose |
+| --- | --- | --- |
+| `passwordChangedAt` | `Date`, `null` | Records a login password change so older sessions and Reset access can be rejected. |
+| `recoveryPasswordHash` | `String`, `null` | Stores the bcrypt hash of the pre-set recovery password. |
+| `recoveryPasswordSetAt` | `Date`, `null` | Records when recovery was configured. Reset access must match this value. |
+| `recoveryFailedAttempts` | `Number`, `0`, minimum `0` | Counts failed recovery checks in the current attempt window. |
+| `recoveryAttemptWindowStartedAt` | `Date`, `null` | Marks the start of the 15-minute attempt window. |
+| `recoveryBlockedUntil` | `Date`, `null` | Blocks recovery checks until this time without locking normal Login. |
 
-#### `passwordResetTokens`
+After a successful Reset, `recoveryPasswordHash` and `recoveryPasswordSetAt`
+are removed with `$unset`. They can therefore be absent as well as `null`.
+The counter returns to `0`, and its window and block timestamps return to `null`.
 
-- Store only a cryptographic hash of the one-use reset token, never the token
-  sent to the user.
-- `expiresAt` supports automatic expiry and `usedAt` prevents replay.
-- Issuing a newer token invalidates older unused tokens for that user.
+New login passwords use 8–64 printable ASCII characters without spaces.
+Recovery passwords use 12–64. Both require uppercase and lowercase letters and
+a number. Existing legacy passwords can still be used to Login; these new-input
+rules do not retroactively reject them.
 
-#### `adminActions`
+#### `sessions` (planned MongoDB collection)
+
+- Current sessions use Express `MemoryStore`, not a MongoDB collection.
+  `passwordResetAuthorisation` is session data that grants Reset access for
+  10 minutes. The server checks its expiry and account-state snapshot.
+- Restarting Node clears Login sessions and any unused Reset access. User
+  passwords, recovery configuration, and failed-attempt blocks remain in MongoDB.
+- Protected requests check the current account status and relevant timestamps.
+  Locking, deactivation, or a login password change rejects older access.
+- A future MongoDB-compatible session store could persist sessions with
+  `createdAt`, `lastSeenAt`, and `expiresAt`. Its TTL index is planned, not part
+  of the current implementation.
+
+#### Password recovery workflow (implemented)
+
+1. A logged-in user sets or replaces a recovery password through
+   `PATCH /api/profile` after confirming the current login password. The
+   recovery password must differ from the login password.
+2. `POST /forgot-password` checks the current MongoDB email and the pre-set
+   recovery password for an active account. No email or email reset link is sent.
+3. Successful verification stores the target User and account-state snapshot in
+   the server session for 10 minutes. The browser cannot choose a target User ID.
+4. `POST /reset-password` requires that session and a new login password that
+   differs from both the current login password and the recovery password.
+   One conditional User update changes `passwordHash`, sets `passwordChangedAt`,
+   removes the recovery hash and setup time, and clears failed-attempt state.
+   A second request cannot consume the same recovery password again.
+5. A login password, email, recovery password, lock, or deactivation change
+   invalidates Reset access issued against the earlier account state.
+
+Five failed recovery checks for an eligible account within a 15-minute window
+start a 15-minute recovery-only block in MongoDB. This does not change
+`users.status` or lock normal Login. Successful recovery verification clears
+the failed-attempt state. A Node restart does not clear a stored block.
+
+Users who never configured recovery, or who forgot their recovery password,
+cannot use this flow. There is no identity-check bypass.
+
+The earlier `passwordResetTokens` design used `tokenHash`, `expiresAt`, and
+`usedAt` for an email-link approach. It is not used by the current recovery
+routes and does not require a collection or indexes for this implementation.
+
+#### `adminActions` (planned MongoDB collection)
 
 - Records security-sensitive actions such as `lock_user`, `unlock_user`, and
   `deactivate_user`, including actor, target, reason, and timestamp.
@@ -405,6 +457,10 @@ collections use MongoDB's default `_id` indexes. Other index commands in this
 section are planned designs until the relevant module owner implements and
 verifies them in MongoDB Atlas.
 
+Recovery uses the existing User identity indexes and the default `_id` index.
+It does not add a token index or TTL index. The server checks the recovery
+timestamps stored on the User and the expiry of the in-memory Reset access.
+
 Each collection may have only one MongoDB text index, so related searchable
 fields must be combined when a text index is added.
 
@@ -416,9 +472,6 @@ db.users.createIndex({ role: 1, status: 1, name: 1 });
 
 db.sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 db.sessions.createIndex({ userId: 1 });
-db.passwordResetTokens.createIndex({ tokenHash: 1 }, { unique: true });
-db.passwordResetTokens.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-db.passwordResetTokens.createIndex({ userId: 1, usedAt: 1 });
 db.adminActions.createIndex({ actorUserId: 1, createdAt: -1 });
 db.adminActions.createIndex({ targetUserId: 1, createdAt: -1 });
 
@@ -488,7 +541,7 @@ The values are illustrative. Real password hashes, reset tokens, session IDs,
 and payment secrets must not appear in source control.
 
 ```javascript
-// users - implemented MongoDB collection; Account routes still use runtime data
+// users - implemented collection; Account persistence is partly migrated
 {
     _id: ObjectId("66aa00000000000000000001"),
     username: "dat.pham",
@@ -496,6 +549,12 @@ and payment secrets must not appear in source control.
     name: "Dat Pham",
     email: "s4221230@rmit.edu.vn",
     passwordHash: "<bcrypt-password-hash>",
+    passwordChangedAt: null,
+    recoveryPasswordHash: null,
+    recoveryPasswordSetAt: null,
+    recoveryFailedAttempts: 0,
+    recoveryAttemptWindowStartedAt: null,
+    recoveryBlockedUntil: null,
     description: "RMIT Connect administrator and student community organiser.",
     avatarUrl: "/images/user_icon.png",
     course: "Bachelor of Business",
@@ -673,29 +732,39 @@ and payment secrets must not appear in source control.
    Reply inserts one document into `replies` with its `discussionId`. Soft
    deletion updates `deletedAt` and `deletedBy`. The related User activity update
    is currently a separate operation, not a MongoDB transaction.
-7. Current Forum routes derive the User from the authenticated session and
-   compare `authorId` before an edit or delete. A future repository update may
-   include both `_id` and `authorId` in the write predicate. Blog and Review
-   authorization must follow each module owner's confirmed implementation.
+7. Current Forum routes derive the User from the authenticated session.
+   Discussion write predicates include `_id`, `authorId`, and `deletedAt: null`.
+   Reply changes first require an active parent Discussion, and their write
+   predicates also include `discussionId`. A write that matches no active owned
+   document returns `404` before the related User activity is updated. Blog and
+   Review authorization must follow each module owner's confirmed implementation.
 8. Use `operationKey` or an equivalent idempotency token for retried transitions,
    then commit. Abort the transaction if any operation fails.
 9. Re-read and return the authenticated user's current state after commit rather
    than constructing a response from uncommitted client input.
+10. Password Reset uses one conditional `users` update to change the login
+    password and consume the recovery password together. It must match the
+    verified account state. This is a single-document update, not a
+    multi-document transaction.
 
-Locking an account is a `users` state update plus an `adminActions` audit insert.
-All active sessions for the target are removed or denied as part of that change.
+Current account locking updates `users.status` and its timestamp. Existing
+sessions are denied using the current account state. The additional
+`adminActions` audit insert remains planned.
 
 ## Sitemap persistence decision
 
-The Sitemap does not need its own MongoDB collection because it is generated
-from existing routes and content.
+The Sitemap does not need its own MongoDB collection because it combines
+static links with current content when the page is rendered.
 
 - Static navigation and account links are defined in `views/sitemap.ejs`.
 - `showSitemap()` queries MongoDB for Discussions where `deletedAt` is `null`.
+- It also queries Replies where `deletedAt` is `null` and the parent Discussion
+  is active.
 - The current active Blog data and Review data are passed from their existing
   runtime stores.
-- Each active Discussion is displayed with its title and a link using its
-  MongoDB `_id`.
+- Each active Discussion is displayed with its title and link. Its active
+  Replies are displayed underneath with links to their positions on the detail
+  page.
 - The Sitemap EJS view builds the clickable HTML response for each request.
 
 Persisting a separate Sitemap document would duplicate existing route and
@@ -705,17 +774,18 @@ content data and could become outdated.
 
 | Assessment 2 or runtime structure | Assessment 3 destination or status | Migration note |
 | --- | --- | --- |
-| Account users in `modules/account/src/data.js` | Shared `users` collection implemented for Forum use | Both stores use bcrypt `passwordHash`. Account routes still require migration and currently match the MongoDB User through `studentId`. |
+| Account users in `modules/account/src/data.js` | Shared `users`, partly migrated | Login reads MongoDB credentials and status. Email/password and lock/deactivation changes persist. A matching runtime User through `studentId` is still required; other Profile edits remain in memory. |
+| Password recovery | Fields in `users` plus current in-memory session | Recovery hash, setup time, and failed-attempt state persist. Reset access lasts 10 minutes in the session. No `passwordResetTokens` collection is used. |
 | Discussion and Reply arrays in `forum-data.js` | `discussions` and `replies` | Migration completed with ObjectId references, image paths, timestamps, and soft deletion. `forum-data.js` remains only for the temporary Account user adapter. |
 | Product template/`products` array | Planned `products` | Convert string IDs to slugs/ObjectIds and treat seeded statistics as a cache only. |
 | `wishlist` array | Planned `wishlistEntries` | Preserve unique User-Product ownership and timestamps. |
 | `cart` array | Planned `cartItems` | Add bounded quantity, validated selected options, and a configuration key. |
 | `purchases` array | Planned `purchases` and `purchaseItems` | Expand the current one-product history into immutable order snapshots. |
-| Express `MemoryStore` | Planned `sessions` | Use a durable compatible session store with TTL expiry. |
+| Express `MemoryStore` | Still in use; MongoDB `sessions` planned | A Node restart clears Login sessions and Reset access. A durable compatible session store with TTL expiry requires separate implementation. |
 | No current event history | Planned `productActivityEvents` | Required for accurate all-time add, cart, and purchase statistics. |
 | Blog runtime data | Planned `blogPosts` and `blogComments` | Confirm the final fields and migration with the Blog module owner. |
 | Review runtime data | Planned `reviews` | Confirm the final fields and migration with the Review module owner. |
-| Dynamic Sitemap inputs | No collection required | Read active Discussions from MongoDB and combine them with current route and module data. |
+| Dynamic Sitemap inputs | No collection required | Read active Discussions and their active Replies from MongoDB, then combine them with static EJS links and the current Blog and Review data. |
 
 The existing Forum page and form routes were retained while Discussion and
 Reply persistence moved from arrays to Mongoose models. Other modules can use
@@ -724,6 +794,9 @@ relationships.
 
 ## Remaining assumptions requiring team confirmation
 
+- The partial Account migration and recovery-password design in this review
+  branch require the shared Account owner's review before merging into the
+  team branch. They do not complete migration of the remaining Account data.
 - The final storage method for Product, Blog, and Review images requires
   confirmation from the relevant module owners. The Forum currently stores
   uploaded files in `public/uploads` and saves their public paths in MongoDB.

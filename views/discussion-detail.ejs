@@ -78,7 +78,7 @@
             <h2>Replies</h2>
 
             <% replies.forEach(function(reply, i) { %>
-              <article class="reply-card">
+              <article id="reply-<%= reply._id %>" class="reply-card">
                 <p class="reply-type-label">Reply</p>
                 <div class="reply-header">
                   <div class="user-info">
