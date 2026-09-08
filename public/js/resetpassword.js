@@ -10,12 +10,16 @@ const confirmPasswordErrorText = document.getElementById(
 
 resetPasswordForm.noValidate = true;
 
+function utf8ByteLength(value) {
+  return new TextEncoder().encode(value).length;
+}
+
 function checkNewPassword() {
   const newPassword = newPasswordInput.value;
 
-  if (newPassword.length < 8 || newPassword.length > 128) {
+  if (newPassword.length < 8 || utf8ByteLength(newPassword) > 72) {
     newPasswordErrorText.textContent =
-      "Password must contain 8 to 128 characters.";
+      "Password must contain at least 8 characters and no more than 72 UTF-8 bytes.";
     return false;
   }
 

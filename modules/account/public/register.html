@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Account | RMIT Connect</title>
+    <link rel="stylesheet" href="css/account.css">
+    <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="/css/navigation.css">
+    <script type="module" src="js/register.js"></script>
+</head>
+
+<body id="top">
+    <a class="skipLink" href="#main-content">Skip to main content</a>
+
+    <header class="siteHeader globalHeader">
+        <a class="globalLogo" href="/">RMIT CONNECT</a>
+
+        <nav class="mainNav globalNav" aria-label="Main navigation">
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/discussions">Discussions</a></li>
+                <li><a href="/blogs">Blogs</a></li>
+                <li><a href="/reviews/browse">Reviews</a></li>
+                <li><a href="/wishlist">Wishlist</a></li>
+                <li><a href="/register.html" aria-current="page">Register</a></li>
+                <li><a href="/login.html">Log in</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main id="main-content">
+        <section class="pageBanner">
+            <div class="pageBannerInner">
+                <div>
+                    <h1>Join RMIT Connect</h1>
+                    <p>Create one account for every campus community module.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="accountSection" aria-labelledby="register-heading">
+            <div class="loginLayout">
+                <div class="formCard">
+                    <h2 id="register-heading">Create Account</h2>
+                    <p class="cardIntro">All fields marked required are checked before your account is created.</p>
+
+                    <div id="registerMessage"
+                         class="notice"
+                         role="status"
+                         aria-live="polite"
+                         aria-atomic="true"
+                         hidden></div>
+
+                    <form id="registerForm" class="accountForm" novalidate>
+                        <div class="formField">
+                            <label for="registerUsername">Username</label>
+                            <input id="registerUsername" name="username" type="text"
+                                   autocomplete="username" minlength="3" maxlength="50"
+                                   pattern="(?=.{3,50}$)[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])" required
+                                   aria-describedby="registerUsernameError">
+                            <small id="registerUsernameError" class="fieldError"
+                                   data-error-for="username" hidden></small>
+                        </div>
+
+                        <div class="formField">
+                            <label for="registerStudentId">Student ID</label>
+                            <input id="registerStudentId" name="studentId" type="text"
+                                   autocomplete="off" maxlength="8" pattern="[Ss][0-9]{7}"
+                                   placeholder="S4221230" required
+                                   aria-describedby="registerStudentIdError">
+                            <small id="registerStudentIdError" class="fieldError"
+                                   data-error-for="studentId" hidden></small>
+                        </div>
+
+                        <div class="formField">
+                            <label for="registerName">Full Name</label>
+                            <input id="registerName" name="name" type="text"
+                                   autocomplete="name" minlength="2" maxlength="80" required
+                                   aria-describedby="registerNameError">
+                            <small id="registerNameError" class="fieldError"
+                                   data-error-for="name" hidden></small>
+                        </div>
+
+                        <div class="formField">
+                            <label for="registerEmail">Email Address</label>
+                            <input id="registerEmail" name="email" type="email"
+                                   autocomplete="email" maxlength="120" required
+                                   aria-describedby="registerEmailError">
+                            <small id="registerEmailError" class="fieldError"
+                                   data-error-for="email" hidden></small>
+                        </div>
+
+                        <div class="formField">
+                            <label for="registerDescription">Short Description</label>
+                            <textarea id="registerDescription" name="description" rows="4"
+                                      maxlength="300"
+                                      aria-describedby="registerDescriptionError"></textarea>
+                            <small id="registerDescriptionError" class="fieldError"
+                                   data-error-for="description" hidden></small>
+                        </div>
+
+                        <div class="formField">
+                            <label for="registerPassword">Password</label>
+                            <input id="registerPassword" name="password" type="password"
+                                   autocomplete="new-password" minlength="8" maxlength="72"
+                                   required aria-describedby="registerPasswordHint registerPasswordError">
+                            <small id="registerPasswordHint">Use uppercase, lowercase, and a number.</small>
+                            <small id="registerPasswordError" class="fieldError"
+                                   data-error-for="password" hidden></small>
+                        </div>
+
+                        <div class="formField">
+                            <label for="registerConfirmPassword">Confirm Password</label>
+                            <input id="registerConfirmPassword" name="confirmPassword" type="password"
+                                   autocomplete="new-password" minlength="8" maxlength="72"
+                                   required aria-describedby="registerConfirmPasswordError">
+                            <small id="registerConfirmPasswordError" class="fieldError"
+                                   data-error-for="confirmPassword" hidden></small>
+                        </div>
+
+                        <button id="registerSubmit" class="primaryButton fullButton" type="submit">
+                            Create Account
+                        </button>
+                    </form>
+
+                    <p class="formPrompt">Already registered? <a href="/login.html">Log in</a>.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="siteFooter">
+        <div class="footerInner">
+            <div class="footerBrand">
+                <strong>RMIT CONNECT</strong>
+                <p>A full-stack student community demo.</p>
+            </div>
+            <nav class="footerNav" aria-label="Footer navigation">
+                <a href="/">Home</a>
+                <a href="/sitemap">Site Map</a>
+                <a href="/login.html">Log In</a>
+                <a href="#top">Back to Top</a>
+            </nav>
+            <div class="aiAcknowledgement">
+                <strong>AI Use Acknowledgement</strong>
+                <p>
+                    OpenAI Codex assisted with implementation guidance, debugging, documentation, and testing.
+                    Dat Pham developed, reviewed, understood, and verified the final implementation.
+                </p>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>

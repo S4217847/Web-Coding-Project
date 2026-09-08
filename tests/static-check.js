@@ -19,6 +19,10 @@ function read(relativePath) {
   return fs.readFileSync(absolutePath, "utf8");
 }
 
+function normaliseLineEndings(source) {
+  return source.replace(/\r\n?/g, "\n");
+}
+
 const requiredFiles = [
   "index.js",
   "README.md",
@@ -35,7 +39,24 @@ const requiredFiles = [
   "views/wishlist-add.ejs",
   "views/partials/global-navigation.ejs",
   "public/css/navigation.css",
+  ".env.example",
+  "models/index.js",
+  "models/password-reset-token.js",
+  "models/product.js",
+  "models/purchase.js",
+  "models/wishlist-entry.js",
+  "modules/account/docs/api-reference.md",
+  "modules/account/docs/architecture.md",
+  "modules/account/docs/database-diagram.mmd",
   "modules/account/docs/database-schema.md",
+  "modules/account/docs/sample-data.md",
+  "modules/account/public/profile.html",
+  "modules/account/public/register.html",
+  "modules/account/public/js/profile-view.js",
+  "modules/account/src/mongo-repository.js",
+  "modules/account/src/mongo-routes.js",
+  "scripts/seed.js",
+  "scripts/start-local.js",
 ];
 requiredFiles.forEach(read);
 
@@ -72,7 +93,7 @@ const canonicalTargets = [
   'href="/blogs"',
   'href="/reviews/browse"',
   'href="/wishlist"',
-  'href="/editprofile.html"',
+  'href="/profile.html"',
 ];
 
 const navigationPartial = read("views/partials/global-navigation.ejs");
@@ -110,6 +131,16 @@ for (const fragment of [
   if (!indexSource.includes(fragment)) fail(`index.js: missing ${fragment}`);
 }
 
+if (
+  normaliseLineEndings(read("public/js/wishlist.js")) !==
+  normaliseLineEndings(read("modules/account/public/js/wishlist.js"))
+) {
+  fail(
+    "The integrated and standalone Wishlist controllers have diverged; " +
+      "keep both served copies identical.",
+  );
+}
+
 const packageJson = JSON.parse(read("package.json"));
 if (!packageJson.scripts?.test || /Error: no test specified/.test(packageJson.scripts.test)) {
   fail("package.json: root test script is still a placeholder");
@@ -117,9 +148,34 @@ if (!packageJson.scripts?.test || /Error: no test specified/.test(packageJson.sc
 if (!packageJson.scripts?.check) fail("package.json: missing check script");
 
 const loginController = read("modules/account/public/js/login.js");
-for (const fragment of ["/reviews/browse", "/blogs", "allowedDynamicPath"]) {
+for (const fragment of [
+  "/reviews/browse",
+  "/blogs",
+  "/profile.html",
+  "/deactivate-account",
+  "allowedDynamicPath",
+]) {
   if (!loginController.includes(fragment)) {
     fail(`modules/account/public/js/login.js: missing safe return support for ${fragment}`);
+  }
+}
+
+const profilePage = read("modules/account/public/profile.html");
+for (const fragment of [
+  'src="js/profile-view.js"',
+  'id="profileView"',
+  'id="profileViewMessage"',
+  'href="/editprofile.html"',
+]) {
+  if (!profilePage.includes(fragment)) {
+    fail(`modules/account/public/profile.html: missing profile-page contract ${fragment}`);
+  }
+}
+
+const profileViewController = read("modules/account/public/js/profile-view.js");
+for (const fragment of ["initialiseShell", 'apiRequest("/api/profile")', "textContent"]) {
+  if (!profileViewController.includes(fragment)) {
+    fail(`modules/account/public/js/profile-view.js: missing profile-client contract ${fragment}`);
   }
 }
 
@@ -152,6 +208,17 @@ const serverScripts = [
   "review-data.js",
   "routes/blog-routes.js",
   "routes/register-blog-api.js",
+  "database.js",
+  "models/index.js",
+  "models/password-reset-token.js",
+  "models/product.js",
+  "models/purchase.js",
+  "models/user.js",
+  "models/wishlist-entry.js",
+  "modules/account/src/mongo-repository.js",
+  "modules/account/src/mongo-routes.js",
+  "scripts/seed.js",
+  "scripts/start-local.js",
 ];
 
 for (const relativePath of serverScripts) {

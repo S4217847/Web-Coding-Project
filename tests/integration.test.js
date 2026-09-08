@@ -3,13 +3,17 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { after, before, test } = require("node:test");
 const mongoose = require("mongoose");
+const { MongoMemoryReplSet } = require("mongodb-memory-server");
 
 const { Discussion } = require("../models/discussion");
 const { Reply } = require("../models/reply");
-const { startServer } = require("../index");
+const { connectDatabase } = require("../database");
+const { seedDatabase } = require("../scripts/seed");
 
 let server;
 let baseUrl;
+let mongoServer;
+let startServer;
 
 class BrowserSession {
   constructor() {
@@ -73,6 +77,17 @@ function removeForumTestImage(imagePath) {
 }
 
 before(async () => {
+  mongoServer = await MongoMemoryReplSet.create({
+    replSet: { count: 1, storageEngine: "wiredTiger" },
+  });
+  process.env.MONGODB_URI = mongoServer.getUri();
+  process.env.MONGODB_DB_NAME = "rmit_connect_integration_test";
+  process.env.SESSION_SECRET = "integration-test-session-secret-2026";
+
+  /* index.js reads configuration when imported, after the test URI is ready. */
+  ({ startServer } = require("../index"));
+  await connectDatabase();
+  await seedDatabase({ connect: false });
   server = await startServer(0);
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
@@ -85,6 +100,7 @@ after(async () => {
   }
 
   await mongoose.disconnect();
+  if (mongoServer) await mongoServer.stop();
 });
 
 test("shared pages, compatibility routes, and security headers are available", async () => {
@@ -100,6 +116,8 @@ test("shared pages, compatibility routes, and security headers are available", a
     "/wishlist",
     "/wishlist/add",
     "/login.html",
+    "/register.html",
+    "/profile.html",
     "/editprofile.html",
     "/admin.html",
     "/forgot-password",
@@ -143,6 +161,39 @@ test("malformed and oversized JSON return controlled API errors", async () => {
   assert.equal(malformed.status, 400);
   assert.equal((await malformed.json()).code, "INVALID_JSON");
 
+  const malformedAccount = await fetch(baseUrl + "/api/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{also not valid json",
+  });
+  assert.equal(malformedAccount.status, 400);
+  assert.equal(
+    (await malformedAccount.json()).error.code,
+    "INVALID_JSON",
+  );
+
+  const mixedCaseAccount = await fetch(baseUrl + "/API/SESSION", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{still not valid json",
+  });
+  assert.equal(mixedCaseAccount.status, 400);
+  assert.equal(
+    (await mixedCaseAccount.json()).error.code,
+    "INVALID_JSON",
+  );
+
+  const oversizedAccount = await fetch(baseUrl + "/api/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: "x".repeat(1.6 * 1024 * 1024) }),
+  });
+  assert.equal(oversizedAccount.status, 413);
+  assert.equal(
+    (await oversizedAccount.json()).error.code,
+    "PAYLOAD_TOO_LARGE",
+  );
+
   const oversized = await fetch(baseUrl + "/api/blogs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -155,15 +206,16 @@ test("malformed and oversized JSON return controlled API errors", async () => {
 test("one shared session authenticates every module and logout clears it", async () => {
   const dat = new BrowserSession();
   const login = await dat.login("dat.pham", "ConnectDemo!26");
-  assert.equal(login.data.user.id, "user-dat");
+  assert.match(login.data.user.id, /^[a-f\d]{24}$/i);
 
   for (const route of ["/api/current-user", "/api/products", "/api/wishlist", "/api/profile"] ) {
     const response = await dat.request(route);
     assert.equal(response.status, 200, route);
   }
 
-  const forum = await dat.request("/discussions");
+  const forum = await dat.request("/discussions", { redirect: "manual" });
   assert.equal(forum.status, 200);
+  assert.match(await forum.text(), /Discussion Forum/i);
 
   const logout = await dat.request("/logout");
   assert.equal(logout.status, 200);
@@ -174,7 +226,7 @@ test("one shared session authenticates every module and logout clears it", async
 
 test("Blog supports validated, owned CRUD, comments, and documented image sizes", async () => {
   const dat = new BrowserSession();
-  await dat.login("dat.pham", "ConnectDemo!26");
+  const login = await dat.login("dat.pham", "ConnectDemo!26");
 
   const unsupportedCategory = await dat.request(
     "/api/blogs",
@@ -202,7 +254,7 @@ test("Blog supports validated, owned CRUD, comments, and documented image sizes"
   );
   assert.equal(createdResponse.status, 201);
   const created = await createdResponse.json();
-  assert.equal(created.authorId, "user-dat");
+  assert.equal(created.authorId, login.data.user.id);
   assert.equal(created.image, mediumImage);
 
   const update = await dat.request(
@@ -242,7 +294,7 @@ test("Blog supports validated, owned CRUD, comments, and documented image sizes"
 test("Reviews derive identity and support validated course, image, and owned CRUD", async () => {
   const dat = new BrowserSession();
   const jay = new BrowserSession();
-  await dat.login("dat.pham", "ConnectDemo!26");
+  const datLogin = await dat.login("dat.pham", "ConnectDemo!26");
   await jay.login("jay.nguyen", "StudentDemo!26");
 
   const fractional = await dat.request(
@@ -271,7 +323,7 @@ test("Reviews derive identity and support validated course, image, and owned CRU
   );
   assert.equal(createdResponse.status, 201);
   const created = await createdResponse.json();
-  assert.equal(created.userId, "user-dat");
+  assert.equal(created.userId, datLogin.data.user.id);
   assert.equal(created.reviewerName, "Dat Pham");
   assert.equal(created.courseCode, "COSC3060");
   assert.equal(created.imageUrl, imageUrl);
@@ -507,4 +559,138 @@ test("Wishlist duplicate prevention and state transitions work through shared lo
     method: "DELETE",
   });
   assert.equal(remove.status, 200);
+});
+
+test("password reset and account deactivation persist through the root page controllers", async () => {
+  const account = new BrowserSession();
+  const oldPassword = "TemporaryPass9A";
+  const newPassword = "ReplacementPass9B";
+
+  const registration = await account.request(
+    "/api/users",
+    jsonRequest("POST", {
+      username: "root.e2e",
+      studentId: "S4999999",
+      name: "Root Controller Test",
+      email: "root.e2e@rmit.edu.vn",
+      description: "Temporary account for reset and deactivation testing.",
+      password: oldPassword,
+      confirmPassword: oldPassword,
+    }),
+  );
+  assert.equal(registration.status, 201);
+
+  const dormantSession = new BrowserSession();
+  await dormantSession.login("root.e2e", oldPassword);
+
+  const malformedEmailShape = await account.request("/forgot-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "reset-email%5Bnested%5D=not-an-email",
+  });
+  assert.equal(malformedEmailShape.status, 200);
+  assert.match(await malformedEmailShape.text(), /valid email address/i);
+
+  const forgot = await account.request("/forgot-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ "reset-email": "root.e2e@rmit.edu.vn" }),
+  });
+  assert.equal(forgot.status, 200);
+  const forgotPage = await forgot.text();
+  const resetToken = forgotPage.match(
+    /\/reset-password\?token=([a-f0-9]{64})/i,
+  )?.[1];
+  assert.ok(resetToken, "local mode should expose one demonstration reset link");
+
+  const resetPage = await account.request(
+    `/reset-password?token=${resetToken}`,
+  );
+  assert.equal(resetPage.status, 200);
+
+  const reset = await account.request("/reset-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      "new-password": newPassword,
+      "confirm-password": newPassword,
+    }),
+  });
+  assert.equal(reset.status, 200);
+  assert.match(await reset.text(), /Password Reset Complete/i);
+
+  const revokedDormantSession = await dormantSession.request("/api/profile");
+  assert.equal(revokedDormantSession.status, 401);
+  assert.equal(
+    (await revokedDormantSession.json()).error.code,
+    "SESSION_INVALID",
+  );
+
+  const oldLogin = await new BrowserSession().request(
+    "/api/session",
+    jsonRequest("POST", { identity: "root.e2e", password: oldPassword }),
+  );
+  assert.equal(oldLogin.status, 401);
+
+  const activeSession = new BrowserSession();
+  await activeSession.login("root.e2e", newPassword);
+
+  const anonymousDeactivatePage = await new BrowserSession().request(
+    "/deactivate-account",
+    { redirect: "manual" },
+  );
+  assert.equal(anonymousDeactivatePage.status, 302);
+  assert.equal(
+    anonymousDeactivatePage.headers.get("location"),
+    "/login.html?returnTo=%2Fdeactivate-account",
+  );
+
+  const anonymousDeactivate = await new BrowserSession().request(
+    "/deactivate-account",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({}),
+      redirect: "manual",
+    },
+  );
+  assert.equal(anonymousDeactivate.status, 302);
+  assert.equal(
+    anonymousDeactivate.headers.get("location"),
+    "/login.html?returnTo=%2Fdeactivate-account",
+  );
+
+  const replay = new BrowserSession();
+  assert.equal(
+    (await replay.request(`/reset-password?token=${resetToken}`)).status,
+    200,
+  );
+  const replayResult = await replay.request("/reset-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      "new-password": "ReplayAttempt9C",
+      "confirm-password": "ReplayAttempt9C",
+    }),
+  });
+  assert.equal(replayResult.status, 400);
+  assert.match(await replayResult.text(), /invalid or has expired/i);
+
+  const deactivate = await activeSession.request("/deactivate-account", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ "deactivate-id-confirm": "confirmed" }),
+    redirect: "manual",
+  });
+  assert.equal(deactivate.status, 302);
+  assert.equal(deactivate.headers.get("location"), "/deactivated-success");
+
+  const clearedSession = await activeSession.request("/api/session");
+  assert.equal((await clearedSession.json()).data.authenticated, false);
+
+  const deactivatedLogin = await new BrowserSession().request(
+    "/api/session",
+    jsonRequest("POST", { identity: "root.e2e", password: newPassword }),
+  );
+  assert.equal(deactivatedLogin.status, 403);
 });

@@ -1,29 +1,39 @@
 /**
- * MongoDB persistence for the shared Account module.
+ * MongoDB persistence for the shared Account and Wishlist module.
  *
- * Routes deal with HTTP requests and sessions. This repository deals with
- * database queries and converts Mongoose records into plain client objects.
+ * Routes remain responsible for HTTP concerns (request validation, sessions,
+ * and response status codes). This repository owns database queries, turns
+ * Mongoose documents into stable client objects, and makes every personal-data
+ * query include the authenticated user's id.
  */
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 
 const PUBLIC_USER_FIELDS = [
-	"username",
-	"studentId",
-	"name",
-	"email",
-	"description",
-	"avatarUrl",
-	"course",
-	"role",
-	"status",
-	"lastActiveAt",
-	"lockedAt",
-	"deactivatedAt",
-	"createdAt",
-	"updatedAt",
+    "username",
+    "studentId",
+    "name",
+    "email",
+    "description",
+    "avatarUrl",
+    "course",
+    "role",
+    "status",
+    "lastActiveAt",
+    "lockedAt",
+    "deactivatedAt",
+    "createdAt",
+    "updatedAt"
 ];
+
+const PROFILE_FIELDS = new Set([
+    "name",
+    "email",
+    "description",
+    "avatarUrl",
+    "passwordHash"
+]);
 
 const PRODUCT_SORTS = {
     "name-asc": { name: 1, slug: 1 },
@@ -48,136 +58,143 @@ const PRODUCT_SORTS = {
     }
 };
 
-/** A predictable error format that Express routes can later turn into JSON. */
+/** A predictable error contract that the Express adapter can map to JSON. */
 export class RepositoryError extends Error {
-	constructor(
-		code,
-		message,
-		{
-			status = 500,
-			fields,
-			cause,
-		} = {},
-	) {
-		super(message, cause ? { cause } : undefined);
+    constructor(
+        code,
+        message,
+        {
+            status = 500,
+            fields,
+            cause
+        } = {}
+    ) {
+        super(message, cause ? { cause } : undefined);
 
-		this.name = "RepositoryError";
-		this.code = code;
-		this.status = status;
-		this.statusCode = status;
+        this.name = "RepositoryError";
+        this.code = code;
+        this.status = status;
+        this.statusCode = status;
 
-		if (fields && Object.keys(fields).length > 0) {
-			this.fields = fields;
-		}
-	}
+        if (fields && Object.keys(fields).length > 0) {
+            this.fields = fields;
+        }
+    }
 }
 
 function loadDefaultModels() {
-	const {
-		User,
-		Product,
-		WishlistEntry,
-		Purchase,
-		PasswordResetToken,
-	} = require("../../../models/index.js");
+    const { User } =
+        require("../../../models/user.js");
 
-	return {
-		User,
-		Product,
-		WishlistEntry,
-		Purchase,
-		PasswordResetToken,
-	};
+    const { Product } =
+        require("../../../models/product.js");
+
+    const { WishlistEntry } =
+        require("../../../models/wishlist-entry.js");
+
+    const { Purchase } =
+        require("../../../models/purchase.js");
+
+    const { PasswordResetToken } =
+        require("../../../models/password-reset-token.js");
+
+    return {
+        User,
+        Product,
+        WishlistEntry,
+        Purchase,
+        PasswordResetToken
+    };
 }
 
 function cleanString(value) {
-	return typeof value === "string"
-		? value.trim()
-		: "";
+    return typeof value === "string"
+        ? value.trim()
+        : "";
 }
 
 function dateString(value) {
-	if (!value) {
-		return null;
-	}
+    if (!value) {
+        return null;
+    }
 
-	const date = value instanceof Date
-		? value
-		: new Date(value);
+    const date = value instanceof Date
+        ? value
+        : new Date(value);
 
-	return Number.isNaN(date.getTime())
-		? null
-		: date.toISOString();
+    return Number.isNaN(date.getTime())
+        ? null
+        : date.toISOString();
 }
 
 function plainRecord(value) {
-	if (!value) {
-		return value;
-	}
+    if (!value) {
+        return value;
+    }
 
-	return typeof value.toObject === "function"
-		? value.toObject({ virtuals: false })
-		: value;
+    return typeof value.toObject === "function"
+        ? value.toObject({ virtuals: false })
+        : value;
 }
 
 function stringId(value) {
-	if (value === null || value === undefined) {
-		return "";
-	}
+    if (value === null || value === undefined) {
+        return "";
+    }
 
-	if (value._id) {
-		return String(value._id);
-	}
+    if (value._id) {
+        return String(value._id);
+    }
 
-	return String(value);
+    return String(value);
 }
 
 function castId(Model, value) {
-	try {
-		return Model.schema.path("_id").cast(value);
-	} catch {
-		return null;
-	}
+    try {
+        return Model.schema.path("_id").cast(value);
+    } catch {
+        return null;
+    }
 }
 
 function publicUser(record) {
-	const user = plainRecord(record);
+    const user = plainRecord(record);
 
-	if (!user) {
-		return null;
-	}
+    if (!user) {
+        return null;
+    }
 
-	const output = {
-		id: stringId(user._id ?? user.id),
-	};
+    const output = {
+        id: stringId(user._id ?? user.id)
+    };
 
-	for (const field of PUBLIC_USER_FIELDS) {
-		if (field.endsWith("At")) {
-			output[field] = dateString(user[field]);
-		} else if (user[field] !== undefined) {
-			output[field] = user[field];
-		}
-	}
+    for (const field of PUBLIC_USER_FIELDS) {
+        if (field.endsWith("At")) {
+            output[field] = dateString(user[field]);
+        } else if (user[field] !== undefined) {
+            output[field] = user[field];
+        }
+    }
 
-	/* Assessment 2's profile client still checks this transport-only field. */
-	output.avatarDataUrl = "";
+    /* A2 clients still check this transport-only property. */
+    output.avatarDataUrl = "";
 
-	return output;
+    return output;
 }
 
 function internalUser(record) {
-	const output = publicUser(record);
-	const source = plainRecord(record);
+    const user = publicUser(record);
+    const source = plainRecord(record);
 
-	if (output && source?.passwordHash) {
-		output.passwordHash = source.passwordHash;
-	}
+    if (user && source?.passwordHash) {
+        user.passwordHash = source.passwordHash;
+    }
 
-	if (output) {
-		output.authVersion = source?.authVersion ?? 0;
-	}
+    if (user) {
+        user.authVersion = source?.authVersion ?? 0;
+    }
 
-	return output;
+    return user;
 }
 
 function productFromAggregation(record) {
@@ -273,42 +290,42 @@ function summaryFromCounts(saved, cart, purchased) {
 }
 
 function validationFields(error) {
-	return Object.fromEntries(
-		Object.entries(error.errors ?? {}).map(
-			([field, detail]) => [
-				field,
-				detail?.message ?? "This value is invalid.",
-			],
-		),
-	);
+    return Object.fromEntries(
+        Object.entries(error.errors ?? {}).map(
+            ([field, detail]) => [
+                field,
+                detail?.message ?? "This value is invalid."
+            ]
+        )
+    );
 }
 
 function duplicateFields(error) {
-	const keys = Object.keys(
-		error.keyPattern ?? error.keyValue ?? {},
-	);
+    const keys = Object.keys(
+        error.keyPattern ?? error.keyValue ?? {}
+    );
 
-	if (keys.length > 0) {
-		return keys;
-	}
+    if (keys.length > 0) {
+        return keys;
+    }
 
-	const match = cleanString(error.message).match(
-		/index:\s+([^\s]+)\s+dup key/i,
-	);
+    const match = cleanString(error.message).match(
+        /index:\s+([^\s]+)\s+dup key/i
+    );
 
-	return match?.[1]
-		?.split("_")
-		.filter((part) => !/^\d+$/.test(part)) ?? [];
+    return match?.[1]
+        ?.split("_")
+        .filter((part) => !/^\d+$/.test(part)) ?? [];
 }
 
 function translateDatabaseError(error) {
-	if (error instanceof RepositoryError) {
-		return error;
-	}
+    if (error instanceof RepositoryError) {
+        return error;
+    }
 
-	if (error?.code === 11000) {
-		const fields = duplicateFields(error);
-		const field = fields[0] ?? "";
+    if (error?.code === 11000) {
+        const fields = duplicateFields(error);
+        const field = fields[0] ?? "";
 
         if (
             fields.includes("userId") &&
@@ -319,90 +336,99 @@ function translateDatabaseError(error) {
                 "This item is already in your wishlist.",
                 {
                     status: 409,
-                    cause: error,
-                },
+                    cause: error
+                }
             );
         }
 
-		const duplicates = {
-			username: [
-				"USERNAME_IN_USE",
-				"That username is already registered.",
-			],
-			email: [
-				"EMAIL_IN_USE",
-				"That email address is already registered.",
-			],
-			studentId: [
-				"STUDENT_ID_IN_USE",
-				"That student ID is already registered.",
-			],
-		};
+        const duplicates = {
+            username: [
+                "USERNAME_IN_USE",
+                "That username is already registered."
+            ],
+            email: [
+                "EMAIL_IN_USE",
+                "That email address is already registered."
+            ],
+            studentId: [
+                "STUDENT_ID_IN_USE",
+                "That student ID is already registered."
+            ],
+            tokenHash: [
+                "RESET_TOKEN_CONFLICT",
+                "Please request a new password reset link."
+            ],
+            userId: [
+                "RESET_TOKEN_CONFLICT",
+                "Please request a new password reset link."
+            ]
+        };
 
-		const [code, message] =
-			duplicates[field] ?? [
-				"DUPLICATE_RECORD",
-				"A record with these details already exists.",
-			];
+        const [code, message] =
+            duplicates[field] ?? [
+                "DUPLICATE_RECORD",
+                "A record with these details already exists."
+            ];
 
-		return new RepositoryError(
-			code,
-			message,
-			{
-				status: 409,
-				fields: field
-					? { [field]: message }
-					: undefined,
-				cause: error,
-			},
-		);
-	}
+        return new RepositoryError(
+            code,
+            message,
+            {
+                status: 409,
+                fields: field
+                    ? { [field]: message }
+                    : undefined,
+                cause: error
+            }
+        );
+    }
 
-	if (error?.name === "ValidationError") {
-		return new RepositoryError(
-			"VALIDATION_ERROR",
-			"Correct the highlighted fields.",
-			{
-				status: 422,
-				fields: validationFields(error),
-				cause: error,
-			},
-		);
-	}
+    if (error?.name === "ValidationError") {
+        return new RepositoryError(
+            "VALIDATION_ERROR",
+            "Correct the highlighted fields.",
+            {
+                status: 422,
+                fields: validationFields(error),
+                cause: error
+            }
+        );
+    }
 
-	if (error?.name === "CastError") {
-		return new RepositoryError(
-			"INVALID_REFERENCE",
-			"The requested record identifier is invalid.",
-			{
-				status: 422,
-				cause: error,
-			},
-		);
-	}
+    if (error?.name === "CastError") {
+        return new RepositoryError(
+            "INVALID_REFERENCE",
+            "The requested record identifier is invalid.",
+            {
+                status: 422,
+                cause: error
+            }
+        );
+    }
 
-	return new RepositoryError(
-		"DATABASE_ERROR",
-		"The database operation could not be completed.",
-		{
-			status: 500,
-			cause: error,
-		},
-	);
+    return new RepositoryError(
+        "DATABASE_ERROR",
+        "The database operation could not be completed.",
+        {
+            status: 500,
+            cause: error
+        }
+    );
 }
 
 /**
- * Tests may inject models. The real application loads the shared root models.
+ * Create the production repository. Tests may inject models and a transaction
+ * runner, while production loads the shared Mongoose models by default.
  */
 export function createMongoAccountRepository(options = {}) {
-	const models = options.models ?? loadDefaultModels();
+    const models = options.models ?? loadDefaultModels();
 
     const {
         User,
         Product,
         WishlistEntry,
         Purchase,
-        PasswordResetToken,
+        PasswordResetToken
     } = models;
 
     const transactionRunner =
@@ -417,7 +443,7 @@ export function createMongoAccountRepository(options = {}) {
                 await session.withTransaction(
                     async () => {
                         result = await work(session);
-                    },
+                    }
                 );
 
                 return result;
@@ -432,19 +458,19 @@ export function createMongoAccountRepository(options = {}) {
             : query;
     }
 
-	function validOwnerId(userId) {
-		const id = castId(User, userId);
+    function validOwnerId(userId) {
+        const id = castId(User, userId);
 
-		if (!id) {
-			throw new RepositoryError(
-				"USER_NOT_FOUND",
-				"The requested user does not exist.",
-				{ status: 404 },
-			);
-		}
+        if (!id) {
+            throw new RepositoryError(
+                "USER_NOT_FOUND",
+                "The requested user does not exist.",
+                { status: 404 }
+            );
+        }
 
-		return id;
-	}
+        return id;
+    }
 
     async function productRecord(productId, options = {}) {
         const slug = cleanString(productId).toLowerCase();
@@ -697,93 +723,95 @@ export function createMongoAccountRepository(options = {}) {
         return product ?? null;
     }
 
-	async function findUserById(id) {
-		const userId = castId(User, id);
+    async function findUserById(id) {
+        const userId = castId(User, id);
 
-		if (!userId) {
-			return null;
-		}
+        if (!userId) {
+            return null;
+        }
 
-		try {
-			const user = await User
-				.findById(userId)
-				.select("+passwordHash")
-				.lean();
+        try {
+            const user = await User
+                .findById(userId)
+                .select("+passwordHash")
+                .lean();
 
-			return internalUser(user);
-		} catch (error) {
-			throw translateDatabaseError(error);
-		}
-	}
+            return internalUser(user);
+        } catch (error) {
+            throw translateDatabaseError(error);
+        }
+    }
 
-	async function findUserByIdentifier(identifier) {
-		const value = cleanString(identifier).toLowerCase();
+    async function findUserByIdentifier(identifier) {
+        const value = cleanString(identifier).toLowerCase();
 
-		if (!value) {
-			return null;
-		}
+        if (!value) {
+            return null;
+        }
 
-		try {
-			const user = await User
-				.findOne({
-					$or: [
-						{ username: value },
-						{ email: value },
-					],
-				})
-				.select("+passwordHash")
-				.lean();
+        try {
+            const user = await User
+                .findOne({
+                    $or: [
+                        { username: value },
+                        { email: value }
+                    ]
+                })
+                .select("+passwordHash")
+                .lean();
 
-			return internalUser(user);
-		} catch (error) {
-			throw translateDatabaseError(error);
-		}
-	}
+            return internalUser(user);
+        } catch (error) {
+            throw translateDatabaseError(error);
+        }
+    }
 
-	async function touchUser(id, expectedAuthVersion = 0) {
-		const userId = validOwnerId(id);
-		const version =
-			Number.isSafeInteger(expectedAuthVersion) &&
-			expectedAuthVersion >= 0
-				? expectedAuthVersion
-				: 0;
+    async function touchUser(id, expectedAuthVersion = 0) {
+        const userId = validOwnerId(id);
+        const version =
+            Number.isSafeInteger(expectedAuthVersion) &&
+            expectedAuthVersion >= 0
+                ? expectedAuthVersion
+                : 0;
 
-		/*
-		 * Change the timestamp only if the user is still active and their
-		 * password/status version has not changed since authentication.
-		 */
-		const versionFilter = version === 0
-			? { $in: [0, null] }
-			: version;
+        /*
+         * The password was verified against this authentication version. Do
+         * not establish a new session if a password/status change committed
+         * between verification and this atomic update. Older Atlas records may
+         * not have authVersion yet, so a missing value is equivalent to zero.
+         */
+        const versionFilter = version === 0
+            ? { $in: [0, null] }
+            : version;
 
-		try {
-			const user = await User
-				.findOneAndUpdate(
-					{
-						_id: userId,
-						status: "active",
-						authVersion: versionFilter,
-					},
-					{
-						$set: {
-							lastActiveAt: new Date(),
-							authVersion: version,
-						},
-					},
-					{
-						returnDocument: "after",
-						runValidators: true,
-					},
-				)
-				.select("+passwordHash")
-				.lean();
+        try {
+            const user = await User
+                .findOneAndUpdate(
+                    {
+                        _id: userId,
+                        status: "active",
+                        authVersion: versionFilter
+                    },
+                    {
+                        $set: {
+                            lastActiveAt: new Date(),
+                            authVersion: version
+                        }
+                    },
+                    {
+                        returnDocument: "after",
+                        runValidators: true
+                    }
+                )
+                .select("+passwordHash")
+                .lean();
 
-			return internalUser(user);
-		} catch (error) {
-			throw translateDatabaseError(error);
-		}
-	}
- 
+            return internalUser(user);
+        } catch (error) {
+            throw translateDatabaseError(error);
+        }
+    }
+
     async function findProduct(productId, userId = null) {
         try {
             return await productSnapshot(userId, productId);
@@ -1178,30 +1206,541 @@ export function createMongoAccountRepository(options = {}) {
         }
     }
 
-	async function registerUser(values) {
-		/* Public registration may never choose its own role or account status. */
-		const record = {
-			username: values.username,
-			studentId: values.studentId,
-			name: values.name,
-			email: values.email,
-			passwordHash: values.passwordHash,
-			description: values.description ?? "",
-			avatarUrl: values.avatarUrl ?? "/images/user_icon.png",
-			course: values.course ?? "",
-			role: "member",
-			status: "active",
-		};
+    async function updateUserProfile(
+        userId,
+        values = {},
+        expectedAuthVersion = 0
+    ) {
+        const ownerId = validOwnerId(userId);
+        const update = {};
+        const version =
+            Number.isSafeInteger(expectedAuthVersion) &&
+            expectedAuthVersion >= 0
+                ? expectedAuthVersion
+                : 0;
+        const versionFilter = version === 0
+            ? { $in: [0, null] }
+            : version;
 
-		try {
-			const user = await User.create(record);
-			return publicUser(user);
-		} catch (error) {
-			throw translateDatabaseError(error);
-		}
-	}
+        for (const [field, value] of Object.entries(values)) {
+            if (PROFILE_FIELDS.has(field)) {
+                update[field] = value;
+            }
+        }
 
-	return {
+        if (values.newPasswordHash) {
+            update.passwordHash = values.newPasswordHash;
+        }
+
+        /* Base64 is accepted only as upload input; it never enters MongoDB. */
+        delete update.avatarDataUrl;
+
+        if (Object.keys(update).length === 0) {
+            throw new RepositoryError(
+                "VALIDATION_ERROR",
+                "Provide at least one profile field to update.",
+                {
+                    status: 422,
+                    fields: {
+                        form:
+                            "Provide at least one profile field to update."
+                    }
+                }
+            );
+        }
+
+        try {
+            const applyProfileUpdate = async (session) => {
+                let updateQuery = User.findOneAndUpdate(
+                    {
+                        _id: ownerId,
+                        status: "active",
+                        authVersion: versionFilter
+                    },
+                    {
+                        $set: update,
+                        ...(update.passwordHash
+                            ? { $inc: { authVersion: 1 } }
+                            : {})
+                    },
+                    {
+                        returnDocument: "after",
+                        runValidators: true
+                    }
+                );
+
+                updateQuery = querySession(
+                    updateQuery,
+                    session
+                );
+
+                const updatedUser = await updateQuery.lean();
+
+                if (
+                    updatedUser &&
+                    update.passwordHash
+                ) {
+                    let resetTokenQuery =
+                        PasswordResetToken.deleteMany({
+                            userId: ownerId
+                        });
+
+                    resetTokenQuery = querySession(
+                        resetTokenQuery,
+                        session
+                    );
+
+                    await resetTokenQuery;
+                }
+
+                return updatedUser;
+            };
+
+            /* Password changes and reset-token invalidation commit together. */
+            const user = update.passwordHash
+                ? await transactionRunner(applyProfileUpdate)
+                : await applyProfileUpdate(null);
+
+            if (!user) {
+                throw new RepositoryError(
+                    "SESSION_INVALID",
+                    "This session is no longer valid. Sign in again.",
+                    { status: 401 }
+                );
+            }
+
+            return {
+                profile: publicUser(user),
+                authVersion: user.authVersion ?? 0
+            };
+        } catch (error) {
+            throw translateDatabaseError(error);
+        }
+    }
+
+    async function listPublicUsers(
+        {
+            search = "",
+            status = "all",
+            sort = ""
+        } = {}
+    ) {
+        const filter = {};
+        const cleanedStatus = cleanString(status).toLowerCase();
+
+        if (["active", "locked", "deactivated"].includes(cleanedStatus)) {
+            filter.status = cleanedStatus;
+        }
+
+        const cleanedSearch = cleanString(search).slice(0, 100);
+
+        if (cleanedSearch) {
+            /* User's text index covers all public identity fields. */
+            filter.$text = { $search: cleanedSearch };
+        }
+
+        const sortOptions = {
+            name: { name: 1, username: 1 },
+            "name-desc": { name: -1, username: 1 },
+            "last-active": { lastActiveAt: -1, name: 1 },
+            newest: { createdAt: -1, name: 1 }
+        };
+
+        try {
+            let userQuery = User.find(filter);
+
+            if (cleanedSearch && !cleanString(sort)) {
+                userQuery = userQuery.sort({
+                    searchScore: {
+                        $meta: "textScore"
+                    },
+                    name: 1
+                });
+            } else {
+                userQuery = userQuery.sort(
+                    sortOptions[sort] ??
+                    sortOptions.name
+                );
+            }
+
+            const [records, summary] = await Promise.all([
+                userQuery.lean(),
+                adminSummary()
+            ]);
+
+            return {
+                users: records.map(publicUser),
+                summary
+            };
+        } catch (error) {
+            throw translateDatabaseError(error);
+        }
+    }
+
+    async function setUserStatus(actorId, targetId, status) {
+        const administratorId = validOwnerId(actorId);
+        const userId = validOwnerId(targetId);
+        const nextStatus = cleanString(status).toLowerCase();
+
+        if (!["active", "locked"].includes(nextStatus)) {
+            throw new RepositoryError(
+                "VALIDATION_ERROR",
+                "Choose a valid account status.",
+                {
+                    status: 422,
+                    fields: {
+                        status:
+                            "Status must be active or locked."
+                    }
+                }
+            );
+        }
+
+        if (
+            String(administratorId) === String(userId) &&
+            nextStatus === "locked"
+        ) {
+            throw new RepositoryError(
+                "CANNOT_LOCK_SELF",
+                "You cannot lock your own administrator account.",
+                { status: 409 }
+            );
+        }
+
+        try {
+            const administrator = await User.exists({
+                _id: administratorId,
+                role: "admin",
+                status: "active"
+            });
+
+            if (!administrator) {
+                throw new RepositoryError(
+                    "ADMIN_REQUIRED",
+                    "Administrator access is required.",
+                    { status: 403 }
+                );
+            }
+
+            const changeStatus = async (session) => {
+                let currentQuery = User.findOne({
+                    _id: userId,
+                    status: { $ne: "deactivated" }
+                });
+
+                currentQuery = querySession(currentQuery, session);
+                const currentUser = await currentQuery.lean();
+
+                if (!currentUser) {
+                    return null;
+                }
+
+                /* Repeating the current status is a safe, session-preserving no-op. */
+                if (currentUser.status === nextStatus) {
+                    return currentUser;
+                }
+
+                const now = new Date();
+                let updateQuery = User.findOneAndUpdate(
+                    {
+                        _id: userId,
+                        status: currentUser.status
+                    },
+                    {
+                        $set: {
+                            status: nextStatus,
+                            lockedAt:
+                                nextStatus === "locked"
+                                    ? now
+                                    : null
+                        },
+                        $inc: { authVersion: 1 }
+                    },
+                    {
+                        returnDocument: "after",
+                        runValidators: true
+                    }
+                );
+
+                updateQuery = querySession(updateQuery, session);
+                const updatedUser = await updateQuery.lean();
+
+                if (!updatedUser) {
+                    throw new RepositoryError(
+                        "ACCOUNT_STATUS_CONFLICT",
+                        "The account status changed during this request. Refresh and try again.",
+                        { status: 409 }
+                    );
+                }
+
+                if (nextStatus === "locked") {
+                    let resetTokenQuery = PasswordResetToken.deleteMany({
+                        userId
+                    });
+
+                    resetTokenQuery = querySession(resetTokenQuery, session);
+                    await resetTokenQuery;
+                }
+
+                return updatedUser;
+            };
+
+            const user = await transactionRunner(changeStatus);
+
+            if (!user) {
+                throw new RepositoryError(
+                    "USER_NOT_FOUND",
+                    "The requested user does not exist.",
+                    { status: 404 }
+                );
+            }
+
+            return {
+                user: publicUser(user),
+                summary: await adminSummary()
+            };
+        } catch (error) {
+            throw translateDatabaseError(error);
+        }
+    }
+
+    async function registerUser(values) {
+        /* Never let a public registration request choose privileges or status. */
+        const record = {
+            username: values.username,
+            studentId: values.studentId,
+            name: values.name,
+            email: values.email,
+            passwordHash: values.passwordHash,
+            description: values.description ?? "",
+            avatarUrl: values.avatarUrl ?? "/images/user_icon.png",
+            course: values.course ?? "",
+            role: "member",
+            status: "active"
+        };
+
+        try {
+            const user = await User.create(record);
+            return publicUser(user);
+        } catch (error) {
+            throw translateDatabaseError(error);
+        }
+    }
+
+    async function createResetToken(
+        userId,
+        { tokenHash, expiresAt }
+    ) {
+        const ownerId = validOwnerId(userId);
+
+        try {
+            const ownerExists = await User.exists({
+                _id: ownerId,
+                status: "active"
+            });
+
+            if (!ownerExists) {
+                throw new RepositoryError(
+                    "USER_NOT_FOUND",
+                    "The requested user does not exist.",
+                    { status: 404 }
+                );
+            }
+
+            const token = await PasswordResetToken
+                .findOneAndUpdate(
+                    { userId: ownerId },
+                    {
+                        $set: {
+                            tokenHash,
+                            expiresAt,
+                            usedAt: null
+                        }
+                    },
+                    {
+                        returnDocument: "after",
+                        upsert: true,
+                        runValidators: true,
+                        setDefaultsOnInsert: true
+                    }
+                )
+                .lean();
+
+            return {
+                id: stringId(token._id),
+                userId: stringId(token.userId),
+                expiresAt: dateString(token.expiresAt),
+                usedAt: dateString(token.usedAt)
+            };
+        } catch (error) {
+            throw translateDatabaseError(error);
+        }
+    }
+
+    async function consumeResetToken(
+        {
+            tokenHash,
+            newPasswordHash,
+            now = new Date()
+        }
+    ) {
+        try {
+            const user = await transactionRunner(
+                async (session) => {
+                    let claimQuery =
+                        PasswordResetToken.findOneAndUpdate(
+                            {
+                                tokenHash,
+                                usedAt: null,
+                                expiresAt: { $gt: now }
+                            },
+                            { $set: { usedAt: now } },
+                            { returnDocument: "after" }
+                        );
+
+                    claimQuery = querySession(
+                        claimQuery,
+                        session
+                    );
+
+                    const claim = await claimQuery.lean();
+
+                    if (!claim) {
+                        throw new RepositoryError(
+                            "RESET_TOKEN_INVALID",
+                            "This password reset link is invalid or has expired.",
+                            { status: 400 }
+                        );
+                    }
+
+                    let updateQuery = User.findOneAndUpdate(
+                        {
+                            _id: claim.userId,
+                            status: "active"
+                        },
+                        {
+                            $set: {
+                                passwordHash: newPasswordHash
+                            },
+                            $inc: { authVersion: 1 }
+                        },
+                        {
+                            returnDocument: "after",
+                            runValidators: true
+                        }
+                    );
+
+                    updateQuery = querySession(
+                        updateQuery,
+                        session
+                    );
+
+                    const updatedUser =
+                        await updateQuery.lean();
+
+                    if (!updatedUser) {
+                        throw new RepositoryError(
+                            "RESET_TOKEN_INVALID",
+                            "This password reset link is invalid or has expired.",
+                            { status: 400 }
+                        );
+                    }
+
+                    return updatedUser;
+                }
+            );
+
+            return publicUser(user);
+        } catch (error) {
+            throw translateDatabaseError(error);
+        }
+    }
+
+    async function deactivateUser(userId) {
+        const ownerId = validOwnerId(userId);
+
+        try {
+            const existingUser = await User
+                .findById(ownerId)
+                .select("role status")
+                .lean();
+
+            if (!existingUser || existingUser.status === "deactivated") {
+                throw new RepositoryError(
+                    "USER_NOT_FOUND",
+                    "The requested user does not exist or is already deactivated.",
+                    { status: 404 }
+                );
+            }
+
+            if (existingUser.role === "admin") {
+                const anotherActiveAdministrator = await User.exists({
+                    _id: { $ne: ownerId },
+                    role: "admin",
+                    status: "active"
+                });
+
+                if (!anotherActiveAdministrator) {
+                    throw new RepositoryError(
+                        "LAST_ACTIVE_ADMIN",
+                        "Assign another active administrator before deactivating this account.",
+                        { status: 409 }
+                    );
+                }
+            }
+
+            const deactivate = async (session) => {
+                let updateQuery = User.findOneAndUpdate(
+                    {
+                        _id: ownerId,
+                        status: { $ne: "deactivated" }
+                    },
+                    {
+                        $set: {
+                            status: "deactivated",
+                            deactivatedAt: new Date(),
+                            lockedAt: null
+                        },
+                        $inc: { authVersion: 1 }
+                    },
+                    {
+                        returnDocument: "after",
+                        runValidators: true
+                    }
+                );
+
+                updateQuery = querySession(updateQuery, session);
+                const updatedUser = await updateQuery.lean();
+
+                if (updatedUser) {
+                    let resetTokenQuery = PasswordResetToken.deleteMany({
+                        userId: ownerId
+                    });
+
+                    resetTokenQuery = querySession(resetTokenQuery, session);
+                    await resetTokenQuery;
+                }
+
+                return updatedUser;
+            };
+
+            const user = await transactionRunner(deactivate);
+
+            if (!user) {
+                throw new RepositoryError(
+                    "USER_NOT_FOUND",
+                    "The requested user does not exist or is already deactivated.",
+                    { status: 404 }
+                );
+            }
+
+            return publicUser(user);
+        } catch (error) {
+            throw translateDatabaseError(error);
+        }
+    }
+
+    return {
         findUserById,
         findUserByIdentifier,
         touchUser,
@@ -1213,6 +1752,12 @@ export function createMongoAccountRepository(options = {}) {
         moveToCart,
         markPurchased,
         removeWishlistItem,
+        updateUserProfile,
+        listPublicUsers,
+        setUserStatus,
         registerUser,
+        createResetToken,
+        consumeResetToken,
+        deactivateUser
     };
 }

@@ -35,6 +35,10 @@ const ACCEPTED_AVATAR_TYPES = new Set([
 const EMAIL_PATTERN =
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function utf8ByteLength(value) {
+    return new TextEncoder().encode(value).length;
+}
+
 const form = byId("profileForm");
 const nameInput = byId("profileName");
 const emailInput = byId("profileEmail");
@@ -257,7 +261,7 @@ const validators = {
             return "Enter your current password before choosing a new one.";
         }
 
-        if (value.length > 200) {
+        if (utf8ByteLength(value) > 72) {
             return "The current password is too long.";
         }
 
@@ -275,9 +279,9 @@ const validators = {
 
         if (
             value.length < 8 ||
-            value.length > 128
+            utf8ByteLength(value) > 72
         ) {
-            return "Use between 8 and 128 characters.";
+            return "Use at least 8 characters and no more than 72 UTF-8 bytes.";
         }
 
         if (

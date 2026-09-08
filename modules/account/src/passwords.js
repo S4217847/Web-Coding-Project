@@ -30,3 +30,22 @@ export function verifyPassword(
         passwordHash
     );
 }
+
+/** Non-blocking variants used by live HTTP routes. */
+export function createPasswordHashAsync(password) {
+    return bcrypt.hash(password, SALT_ROUNDS);
+}
+
+export async function verifyPasswordAsync(
+    password,
+    passwordHash
+) {
+    if (
+        typeof passwordHash !== "string" ||
+        passwordHash === ""
+    ) {
+        return false;
+    }
+
+    return bcrypt.compare(password, passwordHash);
+}

@@ -1,25 +1,28 @@
 # Verification checklist
 
-Use this checklist after a fresh `npm install`. A clean server restart restores
-the documented seed before a demonstration.
+Use this checklist after a fresh `npm ci`. `npm run start:local` creates a new
+private disposable database and loads the documented demonstration seed; a
+normal `npm start` uses the configured Atlas database and preserves its data.
 
 ## Automated checks
 
 ```powershell
-npm test
 npm run check
 ```
 
-Expected result: every Node test passes and the static check reports five HTML
-pages, eight browser modules, and five server modules. Investigate every failure;
-do not hide or skip a test to obtain green output.
+Expected result: the static inventory and every Node test suite pass. The exact
+page, script, stylesheet, and test counts may grow during team integration, so
+use the command's current output rather than a historical hard-coded count.
+Investigate every failure; do not hide or skip a test to obtain green output.
 
-The integration suite binds an unused local port, so the normal development
-server may remain on port 3000. It resets its own data before every test.
+The integration suites bind unused local ports and use private temporary MongoDB
+instances. They do not read or alter the team Atlas database.
 
 ## Browser setup
 
-1. Run `npm start` and open <http://127.0.0.1:3000/login.html>.
+1. Run `npm run start:local` for a self-contained demonstration, or configure
+   `.env` and run `npm start` for Atlas. Then open
+   <http://127.0.0.1:3000/login.html>.
 2. Open browser developer tools. Keep Console and Network visible.
 3. Enable “Preserve log” only when following a redirect; otherwise clear old
    messages before each section.
@@ -71,7 +74,8 @@ server may remain on port 3000. It resets its own data before every test.
   password. No other changed field should persist after either failure.
 - Save valid text changes and refresh to confirm server persistence.
 - Save a valid password change, log out, and verify old credentials fail while
-  the new password succeeds. Restart afterward to restore the seed password.
+  the new password succeeds. Restart `npm run start:local` afterward if you need
+  a fresh disposable database with the documented seed password.
 - If testing a profile image, accept only a JPG/PNG below the stated limit.
 - Confirm text drafts may restore for the same account but never include password
   fields and never leak from Dat to Jay.

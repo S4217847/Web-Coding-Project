@@ -25,7 +25,7 @@
                 <li><a href="/blogs">Blogs</a></li>
                 <li><a href="/reviews/browse">Reviews</a></li>
                 <li><a href="/wishlist">Wishlist</a></li>
-                <li><a href="/editprofile.html">Profile</a></li>
+                <li><a href="/profile.html">Profile</a></li>
             </ul>
         </nav>
 
@@ -90,6 +90,11 @@
                     <strong id="summaryLockedUsers">0</strong>
                     <span>Locked accounts</span>
                 </div>
+
+                <div class="summaryCard">
+                    <strong id="summaryDeactivatedUsers">0</strong>
+                    <span>Deactivated accounts</span>
+                </div>
             </div>
 
             <div class="sectionCard">
@@ -124,6 +129,7 @@
                             <option value="all">All statuses</option>
                             <option value="active">Active</option>
                             <option value="locked">Locked</option>
+                            <option value="deactivated">Deactivated</option>
                         </select>
 
                         <button class="secondaryButton" type="submit">

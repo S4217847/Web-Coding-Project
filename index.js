@@ -1,20 +1,22 @@
 const express = require("express");
 const session = require("express-session");
+const { MongoStore } = require("connect-mongo");
 const multer = require("multer");
 const path = require("node:path");
+const crypto = require("node:crypto");
+const bcrypt = require("bcryptjs");
+const { rateLimit } = require("express-rate-limit");
 const { connectDatabase } = require("./database");
 const { User } = require("./models/user");
 const { Discussion } = require("./models/discussion");
 const { Reply } = require("./models/reply");
 const { upload } = require("./upload");
-const { users } = require("./forum-data");
 const { blogs } = require("./blog-data");
 const { registerBlogApi } = require("./routes/register-blog-api");
 const reviewData = require("./review-data");
 let reviews = reviewData.reviews;
 const getReviewId = reviewData.getReviewId;
-let loginStore = null;
-let createPasswordHash = null;
+let accountRepository = null;
 const app = express();
 let accountAppMounted = false;
 // Uses the PORT environment variable when provided. Otherwise, it uses port 3000.
@@ -22,6 +24,44 @@ const port = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === "production";
 const sessionSecret =
   process.env.SESSION_SECRET || "local-demo-change-this-secret";
+const accountApiPath =
+  /^\/api\/(?:users|session|products|wishlist|profile|admin)(?:\/|$)/i;
+const passwordHelpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  handler(request, response) {
+    if (request.path === "/forgot-password") {
+      response.status(429).render("forgotpassword", {
+        pageTitle: "Forgot Password",
+        emailError: "Too many requests. Please wait before trying again.",
+        resetMessage: "",
+        resetLink: "",
+      });
+      return;
+    }
+
+    response.status(429).render("resetpassword", {
+      pageTitle: "Reset Password",
+      resetComplete: false,
+      newPasswordError: "Too many requests. Please wait before trying again.",
+      confirmPasswordError: "",
+    });
+  },
+});
+
+/* Production sessions use Atlas too; local tests keep Express's MemoryStore. */
+const sessionStore =
+  isProduction && process.env.MONGODB_URI
+    ? MongoStore.create({
+        mongoUrl: process.env.MONGODB_URI,
+        dbName: process.env.MONGODB_DB_NAME || "rmit_connect",
+        collectionName: "sessions",
+        touchAfter: 15 * 60,
+        crypto: { secret: sessionSecret },
+      })
+    : undefined;
 
 if (isProduction && !process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET is required when NODE_ENV is production.");
@@ -64,6 +104,26 @@ app.use("/api", (_request, response, next) => {
   next();
 });
 
+/* Password-recovery pages can contain a short-lived local demonstration URL. */
+app.use(
+  ["/forgot-password", "/reset-password"],
+  (_request, response, next) => {
+    response.set("Cache-Control", "no-store");
+    next();
+  },
+);
+
+/*
+ * Account/Profile images are limited to 1 MiB, so their JSON transport does
+ * not need the larger Blog/Review allowance. Parsing these routes first also
+ * enforces the limit for chunked requests without a Content-Length header.
+ */
+const accountJsonParser = express.json({ limit: "1.5mb", strict: true });
+app.use((request, response, next) => {
+  if (!accountApiPath.test(request.path)) return next();
+  return accountJsonParser(request, response, next);
+});
+
 /*
  * Base64 expands a 4 MB image to roughly 5.4 MB. A 6 MB JSON limit therefore
  * supports the documented Blog and Review image ceiling without accepting
@@ -76,6 +136,7 @@ app.use(
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
+    ...(sessionStore ? { store: sessionStore } : {}),
     cookie: {
       httpOnly: true,
       sameSite: "lax",
@@ -347,44 +408,36 @@ async function showEditDiscussion(request, response) {
 }
 
 function makeCurrentUser(loginUser) {
-  const currentUser = {
+  return {
     _id: loginUser.id,
     username: loginUser.name,
     studentId: loginUser.studentId,
     email: loginUser.email,
     description: loginUser.description,
     profileImage: loginUser.avatarUrl || "/images/user_icon.png",
-    course: "RMIT student",
+    course: loginUser.course || "RMIT student",
     accountStatus: loginUser.status,
   };
-
-  for (let i = 0; i < users.length; i += 1) {
-    if (users[i]._id === currentUser._id) {
-      currentUser.course = users[i].course;
-      users[i] = currentUser;
-      return currentUser;
-    }
-  }
-
-  users.push(currentUser);
-  return currentUser;
 }
 
-// Gets the user stored in the shared Login session.
+// Resolves the shared Login session through the single MongoDB User source.
 async function getCurrentUser(request) {
-  if (!request.session || !request.session.userId || !loginStore) {
+  if (!request.session || !request.session.userId || !accountRepository) {
     return null;
   }
 
-  let loginUser = null;
+  const loginUser = await accountRepository.findUserById(
+    request.session.userId,
+  );
 
-  for (let i = 0; i < loginStore.users.length; i += 1) {
-    if (loginStore.users[i].id === request.session.userId) {
-      loginUser = loginStore.users[i];
-    }
-  }
-
-  if (!loginUser || loginUser.status !== "active") {
+  if (
+    !loginUser ||
+    loginUser.status !== "active" ||
+    request.session.authVersion !== (loginUser.authVersion ?? 0)
+  ) {
+    await new Promise((resolve) => {
+      request.session.destroy(() => resolve());
+    });
     return null;
   }
 
@@ -393,16 +446,10 @@ async function getCurrentUser(request) {
 
 // Finds the MongoDB User used by the Discussion Forum.
 async function getForumDatabaseUser(currentUser) {
-  const matchingUsers = await User.find({
-    studentId: currentUser.studentId,
+  return User.findOne({
+    _id: currentUser._id,
     status: "active",
   });
-
-  if (matchingUsers.length === 0) {
-    return null;
-  }
-
-  return matchingUsers[0];
 }
 
 async function getBlogCurrentUser(request) {
@@ -1170,7 +1217,7 @@ function showWishlist(request, response) {
 }
 
 function showWishlistAdd(request, response) {
-  response.render("wishlist-add", { pageTitle: "Browes Items" });
+  response.render("wishlist-add", { pageTitle: "Browse Items" });
 }
 
 // Shows the page where a student enters an RMIT email address.
@@ -1178,12 +1225,21 @@ function showForgotPassword(request, response) {
   response.render("forgotpassword", {
     pageTitle: "Forgot Password",
     emailError: "",
+    resetMessage: "",
+    resetLink: "",
   });
 }
 
 // Shows the page where a student chooses a new password.
 function showResetPassword(request, response) {
-  if (!request.session || !request.session.resetUserId) {
+  const suppliedToken =
+    typeof request.query.token === "string" ? request.query.token : "";
+
+  if (/^[a-f0-9]{64}$/i.test(suppliedToken)) {
+    request.session.resetToken = suppliedToken.toLowerCase();
+  }
+
+  if (!request.session || !request.session.resetToken) {
     response.redirect("/forgot-password");
     return;
   }
@@ -1215,42 +1271,66 @@ function showLogout(request, response) {
   });
 }
 
-// Checks the email on the server before showing the reset form.
-function sendResetLink(request, response) {
-  const email = (request.body["reset-email"] || "").trim().toLowerCase();
-  const emailFormat = /^[^\s@]+@rmit\.edu\.vn$/;
+// Creates a short-lived, one-time reset token without revealing account status.
+async function sendResetLink(request, response) {
+  const submittedEmail = request.body["reset-email"];
+  const email =
+    typeof submittedEmail === "string"
+      ? submittedEmail.trim().toLowerCase()
+      : "";
+  const emailFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  if (email === "" || emailFormat.test(email) === false) {
+  if (
+    email === "" ||
+    email.length > 120 ||
+    emailFormat.test(email) === false
+  ) {
     response.render("forgotpassword", {
       pageTitle: "Forgot Password",
-      emailError: "Please enter a valid RMIT email address.",
+      emailError: "Please enter a valid email address.",
+      resetMessage: "",
+      resetLink: "",
     });
 
     return;
   }
 
-  let loginUser = null;
+  let resetLink = "";
+  const loginUser = await accountRepository.findUserByIdentifier(email);
 
-  for (let i = 0; i < loginStore.users.length; i += 1) {
-    if (loginStore.users[i].email.toLowerCase() === email) {
-      loginUser = loginStore.users[i];
+  if (loginUser?.status === "active") {
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+
+    await accountRepository.createResetToken(loginUser.id, {
+      tokenHash,
+      expiresAt: new Date(Date.now() + 20 * 60 * 1000),
+    });
+
+    /*
+     * The classroom build shows the link locally because no email provider is
+     * required by the brief. A deployed build should deliver this URL through
+     * the team's private mail service and leave SHOW_DEMO_RESET_LINK unset.
+     */
+    if (!isProduction || process.env.SHOW_DEMO_RESET_LINK === "true") {
+      resetLink = `/reset-password?token=${rawToken}`;
     }
   }
 
-  if (!loginUser || loginUser.status !== "active") {
-    response.render("forgotpassword", {
-      pageTitle: "Forgot Password",
-      emailError: "No active account was found with this email address.",
-    });
-    return;
-  }
-
-  request.session.resetUserId = loginUser.id;
-  response.redirect("/reset-password");
+  response.render("forgotpassword", {
+    pageTitle: "Forgot Password",
+    emailError: "",
+    resetMessage:
+      "If an active account matches that email, a reset link has been prepared.",
+    resetLink,
+  });
 }
 
 // Checks and saves the new password for the reset account.
-function resetPassword(request, response) {
+async function resetPassword(request, response) {
   const newPassword =
     typeof request.body["new-password"] === "string"
       ? request.body["new-password"]
@@ -1260,21 +1340,7 @@ function resetPassword(request, response) {
       ? request.body["confirm-password"]
       : "";
 
-  if (!request.session || !request.session.resetUserId) {
-    response.redirect("/forgot-password");
-    return;
-  }
-
-  let loginUser = null;
-
-  for (let i = 0; i < loginStore.users.length; i += 1) {
-    if (loginStore.users[i].id === request.session.resetUserId) {
-      loginUser = loginStore.users[i];
-    }
-  }
-
-  if (!loginUser || loginUser.status !== "active") {
-    request.session.resetUserId = null;
+  if (!request.session || !request.session.resetToken) {
     response.redirect("/forgot-password");
     return;
   }
@@ -1282,8 +1348,12 @@ function resetPassword(request, response) {
   let newPasswordError = "";
   let confirmPasswordError = "";
 
-  if (newPassword.length < 8 || newPassword.length > 128) {
-    newPasswordError = "Password must contain 8 to 128 characters.";
+  if (
+    newPassword.length < 8 ||
+    Buffer.byteLength(newPassword, "utf8") > 72
+  ) {
+    newPasswordError =
+      "Password must contain at least 8 characters and no more than 72 UTF-8 bytes.";
   } else if (
     !/[a-z]/.test(newPassword) ||
     !/[A-Z]/.test(newPassword) ||
@@ -1309,8 +1379,28 @@ function resetPassword(request, response) {
     return;
   }
 
-  loginUser.passwordHash = createPasswordHash(newPassword);
-  request.session.resetUserId = null;
+  const tokenHash = crypto
+    .createHash("sha256")
+    .update(request.session.resetToken)
+    .digest("hex");
+
+  try {
+    await accountRepository.consumeResetToken({
+      tokenHash,
+      newPasswordHash: await bcrypt.hash(newPassword, 10),
+    });
+  } catch (error) {
+    request.session.resetToken = null;
+    response.status(error.statusCode || 400).render("resetpassword", {
+      pageTitle: "Reset Password",
+      resetComplete: false,
+      newPasswordError: error.message,
+      confirmPasswordError: "",
+    });
+    return;
+  }
+
+  request.session.resetToken = null;
 
   response.render("resetpassword", {
     pageTitle: "Password Reset Complete",
@@ -1325,7 +1415,9 @@ async function showDeactivateAccount(request, response) {
   const currentUser = await getCurrentUser(request);
 
   if (!currentUser) {
-    response.redirect("/login.html");
+    response.redirect(
+      "/login.html?returnTo=%2Fdeactivate-account",
+    );
     return;
   }
 
@@ -1344,6 +1436,15 @@ function showDeactivatedSuccess(request, response) {
 
 // Checks the confirmation checkbox and updates the current user's account status.
 async function deactivateAccount(request, response) {
+  const currentUser = await getCurrentUser(request);
+
+  if (!currentUser) {
+    response.redirect(
+      "/login.html?returnTo=%2Fdeactivate-account",
+    );
+    return;
+  }
+
   const accountConfirm = request.body["deactivate-id-confirm"];
 
   if (accountConfirm !== "confirmed") {
@@ -1354,38 +1455,24 @@ async function deactivateAccount(request, response) {
     return;
   }
 
-  const currentUser = await getCurrentUser(request);
-
-  if (!currentUser) {
-    response.render("deactivate-id", {
-      pageTitle: "Deactivate Account",
-      deactivateError: "Current user not found.",
-    });
-    return;
-  }
-
-  let loginUser = null;
-
-  for (let i = 0; i < loginStore.users.length; i += 1) {
-    if (loginStore.users[i].id === currentUser._id) {
-      loginUser = loginStore.users[i];
+  try {
+    await accountRepository.deactivateUser(currentUser._id);
+  } catch (error) {
+    if (error?.code === "LAST_ACTIVE_ADMIN") {
+      response.status(409).render("deactivate-id", {
+        pageTitle: "Deactivate Account",
+        deactivateError: error.message,
+      });
+      return;
     }
-  }
 
-  if (!loginUser) {
-    response.render("deactivate-id", {
-      pageTitle: "Deactivate Account",
-      deactivateError: "Current user not found.",
-    });
-    return;
+    throw error;
   }
-
-  loginUser.status = "locked";
 
   request.session.destroy(function (error) {
     if (error) {
-      response.status(500).send("Could not deactivate the account.");
-      return;
+      /* The database change already committed; auth checks still reject it. */
+      console.error("Could not destroy the deactivated account session.", error);
     }
 
     response.clearCookie("rmit.connect.sid", {
@@ -1486,15 +1573,27 @@ app.get("/wishlist/login.html", (request, response) => {
 // Shared User Account routes.
 app.get("/forgot-password", showForgotPassword);
 app.get("/reset-password", showResetPassword);
-app.post("/forgot-password", sendResetLink);
-app.post("/reset-password", resetPassword);
+app.post("/forgot-password", passwordHelpLimiter, sendResetLink);
+app.post("/reset-password", passwordHelpLimiter, resetPassword);
 app.get("/logout", showLogout);
 app.get("/deactivate-account", showDeactivateAccount);
 app.post("/deactivate-account", deactivateAccount);
 app.get("/deactivated-success", showDeactivatedSuccess);
 
 function handleRootError(error, request, response, _next) {
-  const isApiRequest = request.path.startsWith("/api/");
+  const isApiRequest = /^\/api(?:\/|$)/i.test(request.path);
+  const isAccountApiRequest = accountApiPath.test(request.path);
+
+  function sendApiError(status, code, message) {
+    if (isAccountApiRequest) {
+      return response.status(status).json({
+        success: false,
+        error: { code, message },
+      });
+    }
+
+    return response.status(status).json({ error: message, code });
+  }
 
   if (
     error instanceof multer.MulterError ||
@@ -1505,23 +1604,25 @@ function handleRootError(error, request, response, _next) {
   }
 
   if (error?.type === "entity.too.large" || error?.status === 413) {
-    const message = "Request body is larger than the 6 MB limit.";
+    const message = isAccountApiRequest
+      ? "Request body is larger than the 1.5 MB limit."
+      : "Request body is larger than the 6 MB limit.";
     return isApiRequest
-      ? response.status(413).json({ error: message, code: "PAYLOAD_TOO_LARGE" })
+      ? sendApiError(413, "PAYLOAD_TOO_LARGE", message)
       : response.status(413).type("text").send(message);
   }
 
   if (error instanceof SyntaxError && error.status === 400 && "body" in error) {
     const message = "Request body contains invalid JSON.";
     return isApiRequest
-      ? response.status(400).json({ error: message, code: "INVALID_JSON" })
+      ? sendApiError(400, "INVALID_JSON", message)
       : response.status(400).type("text").send(message);
   }
 
   console.error(error);
   const message = "Something went wrong on the server.";
   return isApiRequest
-    ? response.status(500).json({ error: message, code: "INTERNAL_ERROR" })
+    ? sendApiError(500, "INTERNAL_ERROR", message)
     : response.status(500).type("text").send(message);
 }
 
@@ -1529,13 +1630,19 @@ function handleRootError(error, request, response, _next) {
 async function prepareApp() {
   if (accountAppMounted) return app;
 
-  const { dataStore } = await import("./modules/account/src/data.js");
-  const passwordModule = await import("./modules/account/src/passwords.js");
   const { createApp } = await import("./modules/account/src/app.js");
+  const { createMongoAccountRepository } = await import(
+    "./modules/account/src/mongo-repository.js"
+  );
 
-  loginStore = dataStore;
-  createPasswordHash = passwordModule.createPasswordHash;
-  app.use(createApp({ sessionSecret }));
+  accountRepository = createMongoAccountRepository();
+  app.use(
+    createApp({
+      sessionSecret,
+      repository: accountRepository,
+      useExistingSession: true,
+    }),
+  );
   app.use(handleRootError);
   accountAppMounted = true;
 
@@ -1544,8 +1651,9 @@ async function prepareApp() {
 
 // Starts the local Express server after all routes are prepared.
 async function startServer(listenPort = port) {
-  await connectDatabase();
+  /* Load every model before connecting so database.js can await all indexes. */
   await prepareApp();
+  await connectDatabase();
 
   return new Promise((resolve, reject) => {
     let settled = false;

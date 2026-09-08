@@ -29,6 +29,10 @@ import {
     validateProfilePatch
 } from "./validation.js";
 
+import {
+    createMongoAccountRouter
+} from "./mongo-routes.js";
+
 const currentDirectory =
     path.dirname(
         fileURLToPath(import.meta.url)
@@ -376,6 +380,13 @@ export function createApp(options = {}) {
     const store =
         options.store ?? dataStore;
 
+    /*
+        Production injects the Mongo repository. The resettable A2 store remains
+        available only as a lightweight unit-test adapter.
+    */
+    const repository =
+        options.repository ?? null;
+
     const publicDirectory =
         options.publicDirectory ??
         defaultPublicDirectory;
@@ -440,19 +451,35 @@ export function createApp(options = {}) {
         production proxy. A persistent session store should replace MemoryStore
         when this demonstration application is deployed across processes.
     */
-    app.use(session({
-        name: "rmit.connect.sid",
-        secret: sessionSecret,
-        resave: false,
-        saveUninitialized: false,
-        cookie: {
-            httpOnly: true,
-            sameSite: "lax",
-            secure: isProduction,
-            maxAge:
-                2 * 60 * 60 * 1000
-        }
-    }));
+    /*
+        The standalone module owns its session middleware. When this app is
+        mounted inside the team server, the parent has already supplied the
+        shared session (and its production MongoStore), so installing another
+        store here would split authentication between modules.
+    */
+    if (!options.useExistingSession) {
+        app.use(session({
+            name: "rmit.connect.sid",
+            secret: sessionSecret,
+            resave: false,
+            saveUninitialized: false,
+            cookie: {
+                httpOnly: true,
+                sameSite: "lax",
+                secure: isProduction,
+                maxAge:
+                    2 * 60 * 60 * 1000
+            }
+        }));
+    }
+
+    if (repository) {
+        app.use(createMongoAccountRouter({
+            repository,
+            publicDirectory,
+            isProduction
+        }));
+    }
 
     // ---------- Health and session routes ----------
 

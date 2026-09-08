@@ -59,12 +59,16 @@ const activeSummary =
 const lockedSummary =
     byId("summaryLockedUsers");
 
+const deactivatedSummary =
+    byId("summaryDeactivatedUsers");
+
 let users = [];
 let currentUser = null;
 
 /*
-    User records live only in memory. sessionStorage contains filter preferences,
-    which are useful across navigation but never security-sensitive.
+    This array is only the browser's current view of records persisted in
+    MongoDB. sessionStorage contains filter preferences, which are useful across
+    navigation but never security-sensitive.
 */
 
 function optionExists(select, value) {
@@ -261,21 +265,27 @@ function makeRow(user) {
     const statusCell =
         createElement("td");
 
+    const statusClasses = {
+        active: "activeStatus",
+        locked: "lockedStatus",
+        deactivated: "deactivatedStatus"
+    };
+
+    const statusLabels = {
+        active: "Active",
+        locked: "Locked",
+        deactivated: "Deactivated"
+    };
+
     statusCell.append(
         createElement(
             "span",
             {
                 className:
-                    `statusBadge ${
-                        user.status === "locked"
-                            ? "lockedStatus"
-                            : "activeStatus"
-                    }`,
+                    `statusBadge ${statusClasses[user.status] || "activeStatus"}`,
 
                 text:
-                    user.status === "locked"
-                        ? "Locked"
-                        : "Active"
+                    statusLabels[user.status] || "Active"
             }
         )
     );
@@ -292,6 +302,16 @@ function makeRow(user) {
                         "currentUserLabel",
 
                     text: "Current user"
+                }
+            )
+        );
+    } else if (user.status === "deactivated") {
+        actionCell.append(
+            createElement(
+                "span",
+                {
+                    className: "currentUserLabel",
+                    text: "User deactivated"
                 }
             )
         );
@@ -422,9 +442,17 @@ function updateSummary(summary = {}) {
                 user.status === "locked"
         ).length;
 
+    const deactivated =
+        summary.deactivated ??
+        users.filter(
+            (user) =>
+                user.status === "deactivated"
+        ).length;
+
     totalSummary.textContent = total;
     activeSummary.textContent = active;
     lockedSummary.textContent = locked;
+    deactivatedSummary.textContent = deactivated;
 }
 
 /* PATCH requests change status; the server enforces roles and self-lock rules. */

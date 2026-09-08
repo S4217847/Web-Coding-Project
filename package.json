@@ -5,9 +5,11 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "start:local": "node scripts/start-local.js",
     "dev": "node --watch index.js",
     "test:repository": "node --test modules/account/tests/mongo-repository-auth.test.js",
-    "test": "node --test tests/integration.test.js && npm --prefix modules/account test",
+    "test:db": "node --test modules/account/tests/mongo-api.test.js",
+    "test": "node --test tests/integration.test.js && npm --prefix modules/account test && npm run test:db && npm run test:repository",
     "check": "node tests/static-check.js && npm test"
   },
   "repository": {

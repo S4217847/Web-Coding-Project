@@ -46,7 +46,7 @@ This route is intentionally public so a page can discover its state.
 {
   "authenticated": true,
   "user": {
-    "id": "user-dat",
+    "id": "68b9c70b7e6b0e79a49e8201",
     "username": "dat.pham",
     "studentId": "S4221230",
     "name": "Dat Pham",
@@ -57,7 +57,31 @@ This route is intentionally public so a page can discover its state.
 }
 ```
 
-Anonymous or locked sessions receive `authenticated: false` and `user: null`.
+Anonymous, locked, deactivated, or deleted-account sessions receive
+`authenticated: false` and `user: null`; an invalid existing session is
+destroyed rather than becoming valid again after a later status change.
+
+### `POST /users`
+
+Creates a normal member account; callers cannot choose `role` or `status`.
+
+```json
+{
+  "username": "new.student",
+  "studentId": "S4000002",
+  "name": "New Student",
+  "email": "new.student@rmit.edu.vn",
+  "description": "Interested in student activities.",
+  "password": "NewStudent9A",
+  "confirmPassword": "NewStudent9A"
+}
+```
+
+Returns `201` with a safe user. Values are normalized before MongoDB's unique
+indexes are reached; duplicate username, student ID, or email returns a
+field-specific `409`, and password hashes are never included in responses.
+Passwords require at least 8 characters, uppercase/lowercase letters and a
+number, and no more than 72 UTF-8 bytes.
 
 ### `POST /session`
 
@@ -74,6 +98,8 @@ the session and returns `201`. Relevant errors are:
 - `422 VALIDATION_ERROR` for malformed or missing fields.
 - `401 INVALID_CREDENTIALS` for an unknown identity or wrong password.
 - `423 ACCOUNT_LOCKED` for a locked account.
+- `403 ACCOUNT_DEACTIVATED` for a deactivated account.
+- `429 RATE_LIMITED` after repeated unsuccessful attempts.
 
 The wrong-credential response deliberately does not reveal whether the identity
 or password was responsible.
@@ -87,12 +113,15 @@ Destroys the server session, clears the cookie, and returns `200` with
 
 ### `GET /products`
 
-Requires an active session. Returns the complete five-product collection and a
-count. Each product includes its public catalogue fields, statistics, and
+Requires an active session. Returns active products and a count. Each product
+includes its public catalogue fields, relationship-derived statistics, and
 `isWishlisted` for the current user.
 
-Query parameters are intentionally ignored. Assessment filtering and sorting
-are performed on the retrieved collection in browser JavaScript.
+Optional `search`, `category`, and `sort` parameters are applied by the MongoDB
+repository. Text search covers name, description, and category. Sort values
+include `most-wishlisted`, `purchased`, `price-asc`, `price-desc`, `name-asc`,
+and `name-desc`; unknown/blank values fall back to name order. The browser also
+performs immediate presentation filtering on the returned collection.
 
 ## Wishlist and favourites
 
@@ -150,15 +179,17 @@ Mark an item from either Wishlist or cart as purchased:
 { "action": "mark-purchased" }
 ```
 
-The server moves/removes the relation, adjusts product counters, and returns the
-new item/purchase plus summary. Errors include `422 VALIDATION_ERROR`,
+The server moves the current relation atomically, or removes it and creates an
+immutable purchase-history record in a transaction. Counts are derived from
+relationship records rather than stored counters. The route returns the new
+item/purchase plus summary. Errors include `422 VALIDATION_ERROR`,
 `404 WISHLIST_ITEM_NOT_FOUND`, and `409 ALREADY_IN_CART`.
 
 ### `DELETE /wishlist/:productId`
 
-Removes the current user's Wishlist/cart relation and decrements the appropriate
-counter without allowing a negative value. Returns `removedProductId` and the
-new summary. A missing or another user's relation returns
+Removes the current user's Wishlist/cart relation and returns
+`removedProductId` plus the new relationship-derived summary. A missing or
+another user's relation returns
 `404 WISHLIST_ITEM_NOT_FOUND`.
 
 ## Profile
@@ -197,9 +228,11 @@ Profile rules:
 - Name: 2–80 characters.
 - Email: valid form, maximum 120 characters, unique without regard to case.
 - Description: maximum 300 characters.
-- New password: 8–128 characters with uppercase, lowercase, and a number; the
-  current password is mandatory.
-- Avatar: local `/images/`, HTTPS URL, or a bounded JPG/PNG Data URL where used.
+- New password: at least 8 characters, uppercase/lowercase letters and a
+  number, and no more than 72 UTF-8 bytes; the current password is mandatory.
+- Avatar: local `/images/`, HTTPS URL, or a genuine JPG/PNG Data URL smaller
+  than 1 MB. Uploaded bytes are written under the module's ignored upload
+  directory; MongoDB stores only the URL.
 
 Errors include `422 VALIDATION_ERROR`, `409 EMAIL_IN_USE`, and
 `422 INVALID_CURRENT_PASSWORD`. Validation and authorization complete before
@@ -211,9 +244,10 @@ These routes require both an active session and `role: "admin"`.
 
 ### `GET /admin/users`
 
-Returns users sorted by display name plus summary counts (`total`, `active`,
-`locked`, and `administrators`). User objects pass through the same safe
-presenter and do not contain the `passwordHash` field.
+Accepts optional `search`, `status`, and `sort` query parameters. It returns
+safe users plus summary counts (`total`, `active`, `locked`, `deactivated`, and
+`administrators`). Text search covers public identity fields. User objects do
+not contain `passwordHash`.
 
 A signed-in non-administrator receives `403 ADMIN_REQUIRED`.
 
@@ -231,7 +265,28 @@ and summary. Errors:
 - `409 CANNOT_LOCK_SELF` when an administrator tries to lock their own account.
 
 An already-authenticated user who becomes locked receives `423 ACCOUNT_LOCKED`
-on their next protected request. Unlocking permits a fresh login.
+on their next protected request. Locking removes outstanding reset challenges;
+unlocking permits a fresh login. A same-status update is a no-op and does not
+invalidate the administrator's session.
+
+Deactivated accounts remain visible for audit/history but cannot be reactivated
+through this route.
+
+## Password reset and deactivation page controllers
+
+These are normal form routes rather than `/api` JSON routes. `POST
+/forgot-password` creates one random, expiring reset challenge and stores only
+its SHA-256 digest. The response does not reveal whether the email exists. In
+local classroom mode it exposes a demonstration link; public deployment must
+deliver the link through a private mail service. `POST /reset-password`
+atomically consumes a valid challenge and changes the bcrypt password hash, so
+expiry and replay are rejected. Password/status changes increment the User's
+`authVersion`, so older signed-in sessions are rejected. `POST
+/deactivate-account` requires the signed
+in user plus an explicit confirmation checkbox, changes status to
+`deactivated`, and destroys the session.
+The last active administrator is protected from self-deactivation so the
+installation cannot be left without an account-management path.
 
 ## Common errors
 
@@ -241,10 +296,12 @@ on their next protected request. Unlocking permits a fresh login.
 | `401` | `AUTH_REQUIRED` | No authenticated session |
 | `401` | `SESSION_INVALID` | Session refers to a missing user |
 | `403` | `ADMIN_REQUIRED` | Current account is not an administrator |
+| `403` | `ACCOUNT_DEACTIVATED` / `ACCOUNT_UNAVAILABLE` | Account may no longer create a session |
 | `404` | `API_ROUTE_NOT_FOUND` | Unknown `/api` route |
 | `413` | `PAYLOAD_TOO_LARGE` | JSON body exceeds the 1.5 MB request limit |
 | `422` | `VALIDATION_ERROR` | Request fields failed validation |
 | `423` | `ACCOUNT_LOCKED` | Current account is locked |
+| `429` | `RATE_LIMITED` | Too many requests to a protected public endpoint |
 | `500` | `INTERNAL_ERROR` | Unexpected server error; details are not exposed |
 
 All API responses include `Cache-Control: no-store`.

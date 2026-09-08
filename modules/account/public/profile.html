@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile | RMIT Connect</title>
+    <link rel="stylesheet" href="css/account.css">
+    <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="/css/navigation.css">
+    <script type="module" src="js/profile-view.js"></script>
+</head>
+<body id="top">
+    <a class="skipLink" href="#main-content">Skip to main content</a>
+
+    <header class="siteHeader globalHeader">
+        <a class="globalLogo" href="/">RMIT CONNECT</a>
+
+        <nav class="mainNav globalNav" aria-label="Main navigation">
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/discussions">Discussions</a></li>
+                <li><a href="/blogs">Blogs</a></li>
+                <li><a href="/reviews/browse">Reviews</a></li>
+                <li><a href="/wishlist">Wishlist</a></li>
+                <li><a href="/profile.html" aria-current="page">Profile</a></li>
+            </ul>
+        </nav>
+
+        <span class="currentUser globalCurrentUser" data-current-user hidden></span>
+        <button class="headerButton globalLogoutButton" type="button" data-logout hidden>Log Out</button>
+    </header>
+
+    <main id="main-content">
+        <section class="pageBanner">
+            <div class="pageBannerInner">
+                <div>
+                    <h1>My Profile</h1>
+                    <p>Review the account details shared across RMIT Connect.</p>
+                </div>
+
+                <a class="bannerLink buttonLink" href="/editprofile.html">Edit Profile</a>
+            </div>
+        </section>
+
+        <section class="accountSection" aria-labelledby="profile-heading">
+            <article class="profileCard">
+                <h2 id="profile-heading" class="visuallyHidden">Current profile</h2>
+
+                <div
+                    id="profileViewMessage"
+                    class="notice notice--info"
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true">
+                    Loading your profile…
+                </div>
+
+                <div id="profileView" hidden>
+                    <div class="profilePreview">
+                        <img
+                            id="profileViewAvatar"
+                            class="profileAvatar"
+                            src="/images/user_icon.png"
+                            alt="Profile picture">
+
+                        <div class="profileSummary">
+                            <h2 id="profileViewName">Your name</h2>
+                            <p id="profileViewUsername">@username</p>
+                            <span id="profileViewStatus" class="statusBadge activeStatus">Active account</span>
+                        </div>
+                    </div>
+
+                    <dl class="profileFacts">
+                        <div class="profileFact">
+                            <dt>Email</dt>
+                            <dd id="profileViewEmail"></dd>
+                        </div>
+                        <div class="profileFact">
+                            <dt>Student ID</dt>
+                            <dd id="profileViewStudentId"></dd>
+                        </div>
+                        <div class="profileFact">
+                            <dt>Course</dt>
+                            <dd id="profileViewCourse"></dd>
+                        </div>
+                        <div class="profileFact">
+                            <dt>Role</dt>
+                            <dd id="profileViewRole"></dd>
+                        </div>
+                    </dl>
+
+                    <section class="profileAbout" aria-labelledby="about-heading">
+                        <h2 id="about-heading">About</h2>
+                        <p id="profileViewDescription"></p>
+                    </section>
+
+                    <div class="formActions">
+                        <a class="primaryButton buttonLink" href="/editprofile.html">Edit Profile</a>
+                        <a class="secondaryButton buttonLink" href="/wishlist">View Wishlist</a>
+                    </div>
+                </div>
+            </article>
+        </section>
+    </main>
+
+    <footer class="siteFooter">
+        <div class="footerInner">
+            <div class="footerBrand">
+                <strong>RMIT CONNECT</strong>
+                <p>A full-stack student community demo.</p>
+            </div>
+
+            <nav class="footerNav" aria-label="Footer navigation">
+                <a href="/">Home</a>
+                <a href="/sitemap">Site Map</a>
+                <a href="/editprofile.html">Edit Profile</a>
+                <a href="/wishlist">Wishlist</a>
+                <a href="#top">Back to Top</a>
+            </nav>
+
+            <div class="aiAcknowledgement">
+                <strong>AI Use Acknowledgement</strong>
+                <p>
+                    OpenAI Codex assisted with implementation guidance, debugging, documentation, and testing.
+                    Dat Pham developed, reviewed, understood, and verified the final implementation.
+                </p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
