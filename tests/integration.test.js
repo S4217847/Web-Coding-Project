@@ -9,6 +9,10 @@ const { Discussion } = require("../models/discussion");
 const { Reply } = require("../models/reply");
 const { User } = require("../models/user");
 const { Product } = require("../models/product");
+const { Blog, BlogComment } = require("../models/blog");
+
+// Fixed Jay Blog sample ID from scripts/seed.js.
+const JAY_BLOG_ID = "a3b100000000000000000001";
 const { connectDatabase } = require("../database");
 const { seedDatabase } = require("../scripts/seed");
 
@@ -111,7 +115,7 @@ test("shared pages, compatibility routes, and security headers are available", a
     "/",
     "/sitemap",
     "/blogs",
-    "/blogs/blog-001",
+    `/blogs/${JAY_BLOG_ID}`,
     "/reviews",
     "/reviews/browse",
     "/reviews/1",
@@ -290,6 +294,13 @@ test("Blog supports validated, owned CRUD, comments, and documented image sizes"
   const created = await createdResponse.json();
   assert.equal(created.authorId, login.data.user.id);
   assert.equal(created.image, mediumImage);
+  assert.ok(mongoose.isObjectIdOrHexString(created.id));
+  const stored = await Blog.findById(created.id).lean();
+  assert.ok(stored);
+  assert.equal(String(stored.authorId), login.data.user.id);
+  assert.equal(stored.image, mediumImage);
+  assert.equal((await dat.request("/api/blogs/invalid-id")).status, 400);
+  assert.equal((await dat.request(`/api/blogs/${new mongoose.Types.ObjectId()}`)).status, 404);
 
   const update = await dat.request(
     `/api/blogs/${created.id}`,
@@ -302,27 +313,54 @@ test("Blog supports validated, owned CRUD, comments, and documented image sizes"
     })
   );
   assert.equal(update.status, 200);
+  const updated = await update.json();
+  assert.equal(updated.title, "Updated integrated Blog test");
+  const storedUpdate = await Blog.findById(created.id).lean();
+  assert.equal(storedUpdate.title, updated.title);
+  assert.ok(storedUpdate.updatedAt.getTime() >= stored.updatedAt.getTime());
 
   const comment = await dat.request(
     `/api/blogs/${created.id}/comments`,
     jsonRequest("POST", { content: "A valid authenticated test comment." })
   );
   assert.equal(comment.status, 201);
+  const savedComment = await comment.json();
+  const storedComment = await BlogComment.findById(savedComment.id).lean();
+  assert.ok(storedComment);
+  assert.equal(String(storedComment.blogId), created.id);
+  assert.equal(String(storedComment.authorId), login.data.user.id);
+  const detail = await dat.request(`/api/blogs/${created.id}`);
+  assert.equal(detail.status, 200);
+  assert.ok((await detail.json()).comments.some((item) =>
+    item.id === savedComment.id && item.authorId === login.data.user.id
+  ));
 
   const foreignUpdate = await dat.request(
-    "/api/blogs/blog-001",
+    `/api/blogs/${JAY_BLOG_ID}`,
     jsonRequest("PUT", {
       title: "Forbidden Blog update",
-      category: "Campus Life",
+      category: "Student Life",
       tags: ["test"],
       content: "Dat must not change a Blog post that belongs to Jay Nguyen.",
       image: "",
     })
   );
   assert.equal(foreignUpdate.status, 403);
+  assert.equal((await dat.request(`/api/blogs/${JAY_BLOG_ID}`, { method: "DELETE" })).status, 403);
 
   const remove = await dat.request(`/api/blogs/${created.id}`, { method: "DELETE" });
   assert.equal(remove.status, 204);
+  assert.ok((await Blog.findById(created.id).lean()).deletedAt instanceof Date);
+  assert.equal((await dat.request(`/api/blogs/${created.id}`)).status, 404);
+  const rejectedComment = await dat.request(
+    `/api/blogs/${created.id}/comments`,
+    jsonRequest("POST", { content: "This must not be saved." }),
+  );
+  assert.equal(rejectedComment.status, 404);
+  assert.equal(await BlogComment.countDocuments({ blogId: created.id }), 1);
+  const list = await dat.request("/api/blogs");
+  assert.equal(list.status, 200);
+  assert.ok(!(await list.json()).some((item) => item.id === created.id));
 });
 
 test("Reviews derive identity and support validated course, image, and owned CRUD", async () => {
@@ -976,7 +1014,7 @@ test("password reset and account deactivation persist through the root page cont
   assert.equal(deactivatedLogin.status, 403);
 });
 
-test("legacy Blog and Review samples retain their original MongoDB owners", async () => {
+test("seeded Blog and Review samples retain their original MongoDB owners", async () => {
   const dat = new BrowserSession();
   const jay = new BrowserSession();
   const datLogin = await dat.login("dat.pham", "ConnectDemo!26");
@@ -984,7 +1022,7 @@ test("legacy Blog and Review samples retain their original MongoDB owners", asyn
   const kim = await User.findOne({ studentId: "S4028530" });
   const sampleSource = fs.readFileSync(path.join(__dirname, "..", "review-data.js"), "utf8");
 
-  const blogResponse = await jay.request("/api/blogs/blog-001");
+  const blogResponse = await jay.request(`/api/blogs/${JAY_BLOG_ID}`);
   assert.equal(blogResponse.status, 200);
   const blog = await blogResponse.json();
   assert.equal(blog.authorId, jayLogin.data.user.id);
@@ -998,11 +1036,11 @@ test("legacy Blog and Review samples retain their original MongoDB owners", asyn
     image: blog.image,
   };
   assert.equal(
-    (await dat.request("/api/blogs/blog-001", jsonRequest("PUT", blogUpdate))).status,
+    (await dat.request(`/api/blogs/${JAY_BLOG_ID}`, jsonRequest("PUT", blogUpdate))).status,
     403,
   );
   assert.equal(
-    (await jay.request("/api/blogs/blog-001", jsonRequest("PUT", blogUpdate))).status,
+    (await jay.request(`/api/blogs/${JAY_BLOG_ID}`, jsonRequest("PUT", blogUpdate))).status,
     200,
   );
 
