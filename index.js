@@ -14,8 +14,7 @@ const { Reply } = require("./models/reply");
 const { Review } = require("./models/review");
 const { Product } = require("./models/product");
 const { upload, validateForumImage } = require("./upload");
-const { users } = require("./forum-data");
-const { blogs } = require("./blog-data");
+const { Blog } = require("./models/blog");
 const { registerBlogApi } = require("./routes/register-blog-api");
 let accountRepository = null;
 const app = express();
@@ -178,13 +177,14 @@ async function showSitemap(request, response) {
     deletedAt: null,
   });
   const reviews = await Review.find().sort({ createdAt: -1 });
-  const activeBlogs = [];
-
-  for (let i = 0; i < blogs.length; i += 1) {
-    if (blogs[i].deleted === false) {
-      activeBlogs.push(blogs[i]);
-    }
-  }
+  const databaseBlogs = await Blog.find({ deletedAt: null })
+    .select("_id title")
+    .sort({ createdAt: -1 })
+    .lean();
+  const activeBlogs = databaseBlogs.map((blog) => ({
+    id: String(blog._id),
+    title: blog.title,
+  }));
 
   response.render("sitemap", {
     pageTitle: "Site Map",
@@ -636,35 +636,7 @@ async function getForumDatabaseUser(currentUser) {
   });
 }
 
-// Match the old Blog sample authors to the shared MongoDB users.
-async function connectLegacySampleAuthors() {
-  const studentIds = users.map((user) => user.studentId);
-  const databaseUsers = await User.find({ studentId: { $in: studentIds } });
-
-  for (let i = 0; i < users.length; i += 1) {
-    let databaseUser = null;
-
-    for (let j = 0; j < databaseUsers.length; j += 1) {
-      if (databaseUsers[j].studentId === users[i].studentId) {
-        databaseUser = databaseUsers[j];
-      }
-    }
-
-    if (!databaseUser) {
-      continue;
-    }
-
-    const databaseId = String(databaseUser._id);
-
-    for (let j = 0; j < blogs.length; j += 1) {
-      if (blogs[j].authorId === users[i]._id) {
-        blogs[j].authorId = databaseId;
-      }
-    }
-
-  }
-}
-
+// Adapt the authenticated MongoDB account to the Blog API response.
 async function getBlogCurrentUser(request) {
   const currentUser = await getCurrentUser(request);
 
@@ -673,7 +645,7 @@ async function getBlogCurrentUser(request) {
   }
 
   return {
-    id: currentUser._id,
+    id: String(currentUser._id),
     name: currentUser.username,
     sid: currentUser.studentId,
   };
@@ -1791,7 +1763,6 @@ async function deactivateAccount(request, response) {
 }
 
 registerBlogApi(app, {
-  blogs: blogs,
   getCurrentUser: getBlogCurrentUser,
 });
 
@@ -1970,7 +1941,6 @@ async function startServer(listenPort = port) {
   // Prepare all shared models before the database checks their indexes.
   await prepareApp();
   await connectDatabase();
-  await connectLegacySampleAuthors();
 
   return new Promise((resolve, reject) => {
     let settled = false;
