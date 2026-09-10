@@ -8,9 +8,8 @@ server-side validation, CRUD workflows, image uploads, and MongoDB persistence.
 Dat's latest supplied Assignment 3 work is integrated with the current server.
 It stores the shared Account, Administration, Wishlist, catalogue,
 purchase-history, and password-reset records in MongoDB. Kim's Forum stores its
-Discussions and Replies in MongoDB and shares the same User records. The Blog
-and Ratings and Reviews modules still use their Assessment 2 in-memory stores;
-this README does not claim that those teammate modules are MongoDB-backed.
+Discussions, Replies, and Ratings and Reviews in MongoDB and shares the same
+User records. The Blog module still uses its Assessment 2 in-memory store.
 
 The active integration branch is `integrated-draft`. It should be tested through
 the Node server; opening HTML files directly or using VS Code Live Server will
@@ -97,7 +96,7 @@ instead of changing databases during integration. Ask for Atlas access and crede
 a private team channel; `.env.example` deliberately contains no working secret.
 
 Prepare the controlled sample Users, Products, Wishlist entries, Purchases,
-Discussions, and Replies:
+Discussions, Replies, and Reviews:
 
 ```powershell
 node scripts/seed.js
@@ -214,9 +213,9 @@ does not accept a client-selected user ID as authority.
 - **Blog:** dynamic posts and comments, owner-only editing/deletion, live
   validation, category filtering, full-text search, sorting, per-user drafts,
   and optional image data.
-- **Ratings and Reviews:** dynamic review CRUD, signed-in reviewer identity,
-  course-code and rating validation, search/filter/sort, per-user drafts, and
-  optional image data.
+- **Ratings and Reviews:** MongoDB-backed review CRUD, signed-in reviewer
+  identity, course-code and rating validation, search/filter/sort, per-user
+  drafts, and optional image data.
 - **Wishlist and Favourites:** MongoDB-backed product retrieval, client-side
   search/filter/sort, duplicate prevention, adding, cart transitions,
   purchasing, deletion, and per-user summary counts.
@@ -233,10 +232,11 @@ account-status changes invalidate older sessions through a stored
 ## Data model
 
 The integrated MongoDB collections are `users`, `products`, `wishlistentries`,
-`purchases`, `passwordresettokens`, `discussions`, and `replies`. Relationships
-are stored as ObjectId references: Wishlist entries, Purchases, Discussions,
-Replies, and reset tokens point to their owning User; Wishlist entries and
-Purchases point to a Product; and Replies point to a Discussion.
+`purchases`, `passwordresettokens`, `discussions`, `replies`, and `reviews`.
+Relationships are stored as ObjectId references: Wishlist entries, Purchases,
+Discussions, Replies, Reviews, and reset tokens point to their owning User;
+Wishlist entries and Purchases point to a Product; and Replies point to a
+Discussion.
 
 Indexes express both correctness rules and common query paths. Username,
 student ID, email, and product slug are unique. A compound unique index on
@@ -252,15 +252,16 @@ store. Forum soft-deleted Discussions and Replies remain in MongoDB with
 deletion metadata but are excluded from normal pages. Avatar and Forum image
 files are still stored on local disk; MongoDB stores their public paths.
 
-At startup, the known legacy Blog/Review sample owner labels are matched to
-existing Users by the documented student IDs. Only in-memory owner IDs change;
-the sample source files and MongoDB User IDs are not rewritten. If a matching
-User is absent, the old label is left unchanged and does not grant ownership.
+At startup, the known legacy Blog sample owner labels are matched to existing
+Users by the documented student IDs. The Review seed maps its known sample
+owners to those same MongoDB User ObjectIds and does not overwrite existing
+Review records.
 
-Blog posts/comments and Ratings and Reviews remain in their existing in-memory
-stores and reset when the Node process restarts. Local development sessions also
-use Express MemoryStore and therefore end on restart. When `NODE_ENV=production`,
-sessions are stored in MongoDB's `sessions` collection through `connect-mongo`.
+Blog posts/comments remain in their existing in-memory store and reset when the
+Node process restarts. Reviews persist in MongoDB. Local development sessions
+also use Express MemoryStore and therefore end on restart. When
+`NODE_ENV=production`, sessions are stored in MongoDB's `sessions` collection
+through `connect-mongo`.
 
 ## Integration status and remaining work
 
@@ -290,8 +291,8 @@ sessions are stored in MongoDB's `sessions` collection through `connect-mongo`.
   Discussion deletion and Reply writes still need concurrency review.
 - **Shared Account:** the integrated implementation uses Dat's MongoDB account
   and one-time reset-token workflow. Private reset-link delivery is not implemented.
-- **Other modules:** migrate Blog and Reviews data to MongoDB and test them
-  through the shared application.
+- **Other modules:** migrate Blog data to MongoDB and test it through the
+  shared application.
 - **Deployment verification:** the database selection is preserved. The latest
   Forum/Reset fixes were tested with temporary local databases. Repeat the final
   end-to-end checks on the chosen hosted build and its configured Atlas database.
@@ -579,7 +580,7 @@ review and understand the changes and declare the assistance under the course ru
 - Create, view, edit and delete review posts
 - Search, filter, and sort reviews in the browser
 - Allow active logged-in users to edit or delete only their own ratings
-- Store Reviews in memory for now. MongoDB persistence is unfinished.
+- Store Reviews in MongoDB Atlas with ObjectId ownership links to shared Users.
 
 **Key Routes**
 

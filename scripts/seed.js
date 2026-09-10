@@ -13,7 +13,9 @@ const {
   Purchase,
   Discussion,
   Reply,
+  Review,
 } = require("../models");
+const { reviews: demoReviews } = require("../review-data");
 
 const demoUsers = [
   {
@@ -253,12 +255,47 @@ async function ensureForum(users) {
   }
 }
 
+async function ensureReviews(users) {
+  const ownerStudentIds = {
+    "user-kim": "S4028530",
+    "user-dat": "S4221230",
+    "user-jay": "S4217847",
+  };
+
+  for (const sample of demoReviews) {
+    const owner = users.get(ownerStudentIds[sample.userId]);
+    if (!owner) {
+      throw new Error(`No MongoDB user exists for Review sample ${sample.id}.`);
+    }
+
+    const sampleDate = new Date(`${sample.createdAt}T00:00:00.000Z`);
+    await Review.updateOne(
+      { id: sample.id },
+      {
+        $setOnInsert: {
+          userId: owner._id,
+          courseCode: sample.courseCode,
+          title: sample.title,
+          description: sample.description,
+          rating: sample.rating,
+          reviewerName: owner.name,
+          imageUrl: sample.imageUrl,
+          createdAt: sampleDate,
+          updatedAt: sampleDate,
+        },
+      },
+      { upsert: true, runValidators: true, setDefaultsOnInsert: true, timestamps: false },
+    );
+  }
+}
+
 async function seedDatabase({ connect = true } = {}) {
   if (connect) await connectDatabase();
   const users = await ensureUsers();
   const products = await ensureProducts();
   await ensureWishlist(users, products);
   await ensureForum(users);
+  await ensureReviews(users);
   console.log("MongoDB sample data is ready (safe to run again).");
 }
 

@@ -11,14 +11,12 @@ const { connectDatabase } = require("./database");
 const { User } = require("./models/user");
 const { Discussion } = require("./models/discussion");
 const { Reply } = require("./models/reply");
+const { Review } = require("./models/review");
 const { Product } = require("./models/product");
 const { upload, validateForumImage } = require("./upload");
 const { users } = require("./forum-data");
 const { blogs } = require("./blog-data");
 const { registerBlogApi } = require("./routes/register-blog-api");
-const reviewData = require("./review-data");
-let reviews = reviewData.reviews;
-const getReviewId = reviewData.getReviewId;
 let accountRepository = null;
 const app = express();
 let accountAppMounted = false;
@@ -179,6 +177,7 @@ async function showSitemap(request, response) {
     discussionId: { $in: activeDiscussionIds },
     deletedAt: null,
   });
+  const reviews = await Review.find().sort({ createdAt: -1 });
   const activeBlogs = [];
 
   for (let i = 0; i < blogs.length; i += 1) {
@@ -637,7 +636,7 @@ async function getForumDatabaseUser(currentUser) {
   });
 }
 
-// Match the old Blog and Review sample authors to the shared MongoDB users.
+// Match the old Blog sample authors to the shared MongoDB users.
 async function connectLegacySampleAuthors() {
   const studentIds = users.map((user) => user.studentId);
   const databaseUsers = await User.find({ studentId: { $in: studentIds } });
@@ -663,11 +662,6 @@ async function connectLegacySampleAuthors() {
       }
     }
 
-    for (let j = 0; j < reviews.length; j += 1) {
-      if (reviews[j].userId === users[i]._id) {
-        reviews[j].userId = databaseId;
-      }
-    }
   }
 }
 
@@ -1395,8 +1389,12 @@ async function createReviewData(request, response) {
       ? request.body.courseCode.trim().toUpperCase()
       : "";
 
-  const newReview = {
-    id: getReviewId(),
+  const lastReview = await Review.findOne()
+    .sort({ id: -1 })
+    .select({ id: 1 })
+    .lean();
+  const newReview = await Review.create({
+    id: (lastReview?.id || 0) + 1,
     userId: currentUser._id,
     courseCode: courseCode,
     title: request.body.title.trim(),
@@ -1404,23 +1402,14 @@ async function createReviewData(request, response) {
     rating: Number(request.body.rating),
     reviewerName: currentUser.username,
     imageUrl: request.body.imageUrl || "/images/review-placeholder.jpg",
-    createdAt: new Date().toISOString().slice(0, 10),
-  };
+  });
 
-  reviews.push(newReview);
   response.status(201).json(newReview);
 }
 
 async function updateReviewData(request, response) {
-  let review = null;
-
-  for (let i = 0; i < reviews.length; i += 1) {
-    if (String(reviews[i].id) === request.params.id) {
-      review = reviews[i];
-    }
-  }
-
-  if (!review) {
+  const reviewId = Number(request.params.id);
+  if (!Number.isSafeInteger(reviewId) || reviewId < 1) {
     response.status(404).json({ error: "Review not found." });
     return;
   }
@@ -1429,13 +1418,6 @@ async function updateReviewData(request, response) {
 
   if (!currentUser) {
     response.status(401).json({ error: "You must log in first." });
-    return;
-  }
-
-  if (review.userId !== currentUser._id) {
-    response.status(403).json({
-      error: "You can only edit your own reviews.",
-    });
     return;
   }
 
@@ -1446,29 +1428,35 @@ async function updateReviewData(request, response) {
     return;
   }
 
-  review.title = request.body.title.trim();
-  review.courseCode = request.body.courseCode.trim().toUpperCase();
-  review.description = request.body.description.trim();
-  review.rating = Number(request.body.rating);
-  review.reviewerName = currentUser.username;
+  const update = {
+    title: request.body.title.trim(),
+    courseCode: request.body.courseCode.trim().toUpperCase(),
+    description: request.body.description.trim(),
+    rating: Number(request.body.rating),
+    reviewerName: currentUser.username,
+  };
+  if (request.body.imageUrl) update.imageUrl = request.body.imageUrl;
 
-  if (request.body.imageUrl) {
-    review.imageUrl = request.body.imageUrl;
+  const review = await Review.findOneAndUpdate(
+    { id: reviewId, userId: currentUser._id },
+    { $set: update },
+    { returnDocument: "after", runValidators: true },
+  );
+
+  if (!review) {
+    const exists = await Review.exists({ id: reviewId });
+    response.status(exists ? 403 : 404).json({
+      error: exists ? "You can only edit your own reviews." : "Review not found.",
+    });
+    return;
   }
 
   response.json(review);
 }
 
 async function deleteReviewData(request, response) {
-  let review = null;
-
-  for (let i = 0; i < reviews.length; i += 1) {
-    if (String(reviews[i].id) === request.params.id) {
-      review = reviews[i];
-    }
-  }
-
-  if (!review) {
+  const reviewId = Number(request.params.id);
+  if (!Number.isSafeInteger(reviewId) || reviewId < 1) {
     response.status(404).json({ error: "Review not found." });
     return;
   }
@@ -1480,32 +1468,28 @@ async function deleteReviewData(request, response) {
     return;
   }
 
-  if (review.userId !== currentUser._id) {
-    response.status(403).json({
-      error: "You can only delete your own reviews.",
+  const deleted = await Review.deleteOne({ id: reviewId, userId: currentUser._id });
+  if (deleted.deletedCount === 0) {
+    const exists = await Review.exists({ id: reviewId });
+    response.status(exists ? 403 : 404).json({
+      error: exists ? "You can only delete your own reviews." : "Review not found.",
     });
     return;
   }
 
-  reviews = reviews.filter(function (item) {
-    return String(item.id) !== request.params.id;
-  });
-
   response.status(204).send();
 }
 
-function showReviewData(request, response) {
+async function showReviewData(request, response) {
+  const reviews = await Review.find().sort({ createdAt: -1 });
   response.json(reviews);
 }
 
-function showOneReviewData(request, response) {
-  let review = null;
-
-  for (let i = 0; i < reviews.length; i += 1) {
-    if (String(reviews[i].id) === request.params.id) {
-      review = reviews[i];
-    }
-  }
+async function showOneReviewData(request, response) {
+  const reviewId = Number(request.params.id);
+  const review = Number.isSafeInteger(reviewId)
+    ? await Review.findOne({ id: reviewId })
+    : null;
 
   if (!review) {
     response.status(404).json({ error: "Review not found." });

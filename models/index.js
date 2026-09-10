@@ -11,6 +11,9 @@ const { Discussion } =
 const { Reply } =
 	require("./reply");
 
+const { Review } =
+	require("./review");
+
 const { Product } =
 	require("./product");
 
@@ -27,6 +30,7 @@ module.exports = {
 	User,
 	Discussion,
 	Reply,
+	Review,
 	Product,
 	WishlistEntry,
 	Purchase,
