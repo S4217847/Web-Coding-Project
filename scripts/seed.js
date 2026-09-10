@@ -15,6 +15,7 @@ const {
   Reply,
   Review,
 } = require("../models");
+const { Blog, BlogComment } = require("../models/blog");
 const { reviews: demoReviews } = require("../review-data");
 
 const demoUsers = [
@@ -67,6 +68,19 @@ const demoUsers = [
     status: "deactivated",
     lastActiveAt: new Date("2026-08-10T14:20:00+07:00"),
     deactivatedAt: new Date("2026-08-21T09:15:00+07:00"),
+  },
+  {
+    username: "hoang.hieu.minh",
+    studentId: "S4199268",
+    name: "Hoang Hieu Minh",
+    email: "s4199268@rmit.edu.vn",
+    password: "BlogDemo!26",
+    description: "Student member who is new.",
+    course: "Bachelor of Information Technology",
+    role: "member",
+    status: "active",
+    lastActiveAt: new Date("2026-08-19T10:30:00+07:00"),
+    lockedAt: new Date("2026-08-20T09:00:00+07:00"),
   },
 ];
 
@@ -198,6 +212,7 @@ async function ensureForum(users) {
   const dat = users.get("S4221230");
   const jay = users.get("S4217847");
   const kim = users.get("S4028530");
+  const minh = users.get("S4199268");
   const discussionSamples = [
     {
       key: "html",
@@ -260,6 +275,7 @@ async function ensureReviews(users) {
     "user-kim": "S4028530",
     "user-dat": "S4221230",
     "user-jay": "S4217847",
+    "user-minh": "S4199268",
   };
 
   for (const sample of demoReviews) {
@@ -289,6 +305,100 @@ async function ensureReviews(users) {
   }
 }
 
+// Fixed sample IDs prevent duplicates even if a sample title is later edited.
+// Only missing records are inserted; edits and soft deletions are preserved.
+async function ensureBlogs(users) {
+  const blogSamples = [
+    {
+      id: "a3b100000000000000000001",
+      studentId: "S4217847",
+      title: "My first day at RMIT",
+      category: "Student Life",
+      tags: ["RMIT", "Orientation"],
+      content: "My first day at RMIT was full of new experiences. Meeting classmates and exploring the campus helped me feel more confident about starting university.",
+      date: "2026-08-16T03:00:00.000Z",
+    },
+    {
+      id: "a3b100000000000000000002",
+      studentId: "S4221230",
+      title: "Preparing for a peer coding workshop",
+      category: "Technology",
+      tags: ["HTML", "CSS", "Workshop"],
+      content: "Before joining a peer coding workshop, prepare a small HTML page and list the CSS problems you want to discuss. Bring your laptop and share your questions with student mentors.",
+      date: "2026-08-18T03:00:00.000Z",
+    },
+    {
+      id: "a3b100000000000000000003",
+      studentId: "S4217847",
+      title: "Building a weekly study routine",
+      category: "Academic",
+      tags: ["Study", "Planning"],
+      content: "A weekly study routine helps me balance lectures and assignments. I reserve time for reading, coding practice, and reviewing feedback before planning the next week.",
+      date: "2026-08-19T03:00:00.000Z",
+    },
+  ];
+
+  for (const sample of blogSamples) {
+    const owner = users.get(sample.studentId);
+    if (!owner) {
+      throw new Error(`No MongoDB user exists for Blog sample ${sample.id}.`);
+    }
+    const createdAt = new Date(sample.date);
+    await Blog.updateOne(
+      { _id: new mongoose.Types.ObjectId(sample.id) },
+      {
+        $setOnInsert: {
+          title: sample.title,
+          category: sample.category,
+          tags: sample.tags,
+          content: sample.content,
+          image: "/images/image-for-blog.png",
+          authorId: owner._id,
+          createdAt,
+          updatedAt: createdAt,
+          deletedAt: null,
+        },
+      },
+      { upsert: true, runValidators: true, setDefaultsOnInsert: true, timestamps: false },
+    );
+  }
+
+  const commentSamples = [
+    ["a3c100000000000000000001", blogSamples[0].id, "S4221230", "Welcome to RMIT! The campus tour is a useful way to meet other students.", "2026-08-16T04:00:00.000Z"],
+    ["a3c100000000000000000002", blogSamples[1].id, "S4217847", "I will bring my CSS layout questions to the next workshop.", "2026-08-18T04:00:00.000Z"],
+    ["a3c100000000000000000003", blogSamples[2].id, "S4221230", "Setting aside time to review feedback has helped my study routine too.", "2026-08-19T04:00:00.000Z"],
+  ];
+
+  for (const [id, blogId, studentId, content, dateText] of commentSamples) {
+    const owner = users.get(studentId);
+    if (!owner) {
+      throw new Error(`No MongoDB user exists for Blog comment sample ${id}.`);
+    }
+    // Do not add missing sample comments to a blog that was soft-deleted.
+    const blog = await Blog.findOne({
+      _id: new mongoose.Types.ObjectId(blogId),
+      deletedAt: null,
+    }).select("_id");
+    if (!blog) continue;
+
+    const createdAt = new Date(dateText);
+    await BlogComment.updateOne(
+      { _id: new mongoose.Types.ObjectId(id) },
+      {
+        $setOnInsert: {
+          blogId: blog._id,
+          authorId: owner._id,
+          content,
+          createdAt,
+          updatedAt: createdAt,
+          deletedAt: null,
+        },
+      },
+      { upsert: true, runValidators: true, setDefaultsOnInsert: true, timestamps: false },
+    );
+  }
+}
+
 async function seedDatabase({ connect = true } = {}) {
   if (connect) await connectDatabase();
   const users = await ensureUsers();
@@ -296,6 +406,7 @@ async function seedDatabase({ connect = true } = {}) {
   await ensureWishlist(users, products);
   await ensureForum(users);
   await ensureReviews(users);
+  await ensureBlogs(users);
   console.log("MongoDB sample data is ready (safe to run again).");
 }
 
