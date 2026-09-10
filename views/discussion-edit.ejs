@@ -49,6 +49,101 @@
 
           <div class="error" id="edit-title-error-text"></div>
 
+          <section class="discussion-product-picker" aria-labelledby="edit-product-heading">
+            <h2 id="edit-product-heading">What is your question about? (optional)</h2>
+            <p>You can connect your question to a course or activity.</p>
+
+            <input
+              id="edit-product-slug"
+              name="productSlug"
+              type="hidden"
+              value="<%= discussion.productId
+                ? currentRelatedProduct && currentRelatedProduct.isActive
+                  ? currentRelatedProduct.slug
+                  : keepExistingProductValue
+                : "" %>"
+            />
+
+            <div class="selected-product-row">
+              <p id="edit-selected-product-text">
+                <% if (discussion.productId) { %>
+                  Your question is about: <%= currentRelatedProduct
+                    ? currentRelatedProduct.name
+                    : "Current product" %>
+                  <% if (!currentRelatedProduct || !currentRelatedProduct.isActive) { %>
+                    (unavailable, connection kept)
+                  <% } %>
+                <% } else { %>
+                  No course or activity selected. You can still post.
+                <% } %>
+              </p>
+              <div class="product-selection-actions">
+                <button
+                  id="choose-edit-product"
+                  type="button"
+                  class="text-button"
+                  aria-controls="edit-product-search-panel"
+                  aria-expanded="false"
+                  <% if (discussion.productId) { %>hidden<% } %>
+                >
+                  Choose a course or activity
+                </button>
+                <button
+                  id="change-edit-product"
+                  type="button"
+                  class="text-button"
+                  aria-controls="edit-product-search-panel"
+                  aria-expanded="false"
+                  <% if (!discussion.productId) { %>hidden<% } %>
+                >
+                  Change selection
+                </button>
+                <button
+                  id="clear-edit-product"
+                  type="button"
+                  class="text-button"
+                  <% if (!discussion.productId) { %>hidden<% } %>
+                >
+                  Remove selection
+                </button>
+              </div>
+            </div>
+
+            <div id="edit-product-search-panel" class="product-search-panel" hidden>
+              <label for="edit-product-search">Search courses or activities</label>
+              <input
+                id="edit-product-search"
+                type="search"
+                maxlength="120"
+                placeholder="Search courses or activities"
+                autocomplete="off"
+              />
+
+              <p id="edit-product-result-message" class="product-result-message" aria-live="polite">
+                Type at least 2 letters to find a course or activity.
+              </p>
+
+              <ul id="edit-product-results" class="product-search-results">
+                <% for (let i = 0; i < products.length; i += 1) { %>
+                  <li data-product-name="<%= products[i].name.toLowerCase() %>" hidden>
+                    <button
+                      type="button"
+                      data-product-slug="<%= products[i].slug %>"
+                      data-product-display-name="<%= products[i].name %>"
+                    >
+                      <span><%= products[i].name %></span>
+                      <span class="product-result-category">Category: <%= products[i].category %></span>
+                    </button>
+                  </li>
+                <% } %>
+              </ul>
+
+              <button id="cancel-edit-product-search" type="button" class="text-button product-search-cancel">
+                Cancel
+              </button>
+            </div>
+          </section>
+
           <label for="edit-image">New post image</label>
           <input
             type="file"

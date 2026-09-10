@@ -54,6 +54,27 @@
               alt="<%= discussion.title %>"
             />
             <p class="post-content"><%= discussion.content %></p>
+
+            <% if (relatedProduct) { %>
+              <section class="related-product">
+                <h3>Related item</h3>
+                <p class="related-product-name"><%= relatedProduct.name %></p>
+                <p class="related-product-category">Category: <%= relatedProduct.category %></p>
+                <p class="related-product-description"><%= relatedProduct.description %></p>
+                <div class="related-product-actions">
+                  <a
+                    class="related-product-primary"
+                    href="/discussions?product=<%= relatedProduct.slug %>"
+                  >
+                    View related questions
+                  </a>
+                  <a href="/wishlist/add#item-<%= relatedProduct.slug %>">
+                    View or save item
+                  </a>
+                </div>
+              </section>
+            <% } %>
+
             <div class="discussion-post-footer">
               <span><%= replies.length %> replies</span>
               <% if (isAuthor) { %>

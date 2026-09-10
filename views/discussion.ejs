@@ -29,24 +29,77 @@
 
       <div class="middle">
         <div class="discussion-heading">
-          <h1>Discussion Forum</h1>
+          <div>
+            <% if (selectedProduct) { %>
+              <a class="back-link" href="/discussions">View all discussions</a>
+              <h1>Questions about <%= selectedProduct.name %></h1>
+              <p class="discussion-context-category">Category: <%= selectedProduct.category %></p>
+            <% } else { %>
+              <h1>Discussion Forum</h1>
+            <% } %>
+          </div>
+
           <button
             id="show-post-form-button"
             class="show-post-form-button"
             type="button"
             aria-controls="post-form"
             aria-expanded="false"
+            data-open-post-form
+            <% if (selectedProduct) { %>
+              data-context-product-slug="<%= selectedProduct.slug %>"
+            <% } %>
           >
             <img src="/images/icons/plus.png" alt="" />
-            <span>Start a discussion</span>
+            <span><%= selectedProduct ? "Ask about this item" : "Start a discussion" %></span>
           </button>
         </div>
+
+        <% if (productFilterMessage) { %>
+          <p class="discussion-filter-message"><%= productFilterMessage %></p>
+        <% } %>
+
+        <section
+          class="product-question-browser"
+          aria-labelledby="browse-product-heading"
+        >
+          <h2 id="browse-product-heading">
+            Find questions about a course or activity
+          </h2>
+          <p>Find an item to see questions linked to it.</p>
+
+          <label for="browse-product-search">Search courses or activities</label>
+          <input
+            id="browse-product-search"
+            type="search"
+            maxlength="120"
+            placeholder="Search courses or activities"
+            autocomplete="off"
+          />
+
+          <p id="browse-product-result-message" class="product-result-message" aria-live="polite">
+            Type at least 2 letters to find a course or activity.
+          </p>
+
+          <ul id="browse-product-results" class="product-search-results">
+            <% for (let i = 0; i < products.length; i += 1) { %>
+              <li data-product-name="<%= products[i].name.toLowerCase() %>" hidden>
+                <a href="/discussions?product=<%= products[i].slug %>">
+                  <span><%= products[i].name %></span>
+                  <span class="product-result-category">Category: <%= products[i].category %></span>
+                </a>
+              </li>
+            <% } %>
+          </ul>
+        </section>
 
         <form
           id="post-form"
           class="postbox postbox-hidden"
           data-user-id="<%= currentUserId %>"
           data-clear-draft="<%= clearDiscussionDraft %>"
+          data-context-product-slug="<%= selectedProduct ? selectedProduct.slug : "" %>"
+          data-context-product-name="<%= selectedProduct ? selectedProduct.name : "" %>"
           method="post"
           action="/discussions"
           enctype="multipart/form-data"
@@ -88,6 +141,87 @@
 
           <div class="error" id="content-error-text"></div>
 
+          <section class="discussion-product-picker" aria-labelledby="post-product-heading">
+            <h2 id="post-product-heading">What is your question about? (optional)</h2>
+            <p>You can connect your question to a course or activity.</p>
+
+            <input id="product-slug" name="productSlug" type="hidden" value="" />
+
+            <div class="selected-product-row">
+              <p id="selected-product-text">
+                No course or activity selected. You can still post.
+              </p>
+              <div class="product-selection-actions">
+                <button
+                  id="choose-post-product"
+                  type="button"
+                  class="text-button"
+                  aria-controls="post-product-search-panel"
+                  aria-expanded="false"
+                >
+                  Choose a course or activity
+                </button>
+                <button
+                  id="change-post-product"
+                  type="button"
+                  class="text-button"
+                  aria-controls="post-product-search-panel"
+                  aria-expanded="false"
+                  hidden
+                >
+                  Change selection
+                </button>
+                <button id="clear-post-product" type="button" class="text-button" hidden>
+                  Remove selection
+                </button>
+              </div>
+            </div>
+
+            <div id="post-product-search-panel" class="product-search-panel" hidden>
+              <label for="post-product-search">Search courses or activities</label>
+              <input
+                id="post-product-search"
+                type="search"
+                maxlength="120"
+                placeholder="Search courses or activities"
+                autocomplete="off"
+              />
+
+              <p id="post-product-result-message" class="product-result-message" aria-live="polite">
+                Type at least 2 letters to find a course or activity.
+              </p>
+
+              <ul id="post-product-results" class="product-search-results">
+                <% for (let i = 0; i < products.length; i += 1) { %>
+                  <li data-product-name="<%= products[i].name.toLowerCase() %>" hidden>
+                    <button
+                      type="button"
+                      data-product-slug="<%= products[i].slug %>"
+                      data-product-display-name="<%= products[i].name %>"
+                    >
+                      <span><%= products[i].name %></span>
+                      <span class="product-result-category">Category: <%= products[i].category %></span>
+                    </button>
+                  </li>
+                <% } %>
+              </ul>
+
+              <button id="cancel-post-product-search" type="button" class="text-button product-search-cancel">
+                Cancel
+              </button>
+            </div>
+
+            <div id="product-draft-choice" class="product-draft-choice" hidden>
+              <p>Your saved discussion draft uses a different related item setting.</p>
+              <div class="product-draft-actions">
+                <button id="keep-draft-product" type="button" class="text-button">
+                  Keep saved draft setting
+                </button>
+                <button id="use-context-product" type="button" class="postbtn"></button>
+              </div>
+            </div>
+          </section>
+
           <div class="postfooter">
             <button class="postbtn" type="submit">Post</button>
           </div>
@@ -98,12 +232,13 @@
             <p class="discussion-delete-message"><%= discussionMessage %></p>
           <% } %>
 
-          <form
-            id="discussion-filter-form"
-            class="discussion-filter"
-            method="get"
-            action="/discussions"
-          >
+          <% if (discussions.length > 0) { %>
+            <form
+              id="discussion-filter-form"
+              class="discussion-filter"
+              method="get"
+              action="/discussions"
+            >
             <div class="discussion-search">
               <label for="search-discussion">Search discussions</label>
 
@@ -134,20 +269,44 @@
             </div>
 
             <button class="searchbutton" type="submit">Search</button>
-          </form>
+            </form>
 
-          <p class="no-discussions" id="no-discussions" hidden>
-            No discussions found.
-          </p>
+            <p class="no-discussions" id="no-discussions" hidden>
+              No discussions match your search.
+            </p>
+          <% } else if (selectedProduct) { %>
+            <div class="product-empty-state">
+              <h2>No questions about <%= selectedProduct.name %> yet</h2>
+              <p>Be the first student to ask a question about this item.</p>
+              <button
+                class="postbtn"
+                type="button"
+                data-open-post-form
+                data-context-product-slug="<%= selectedProduct.slug %>"
+              >
+                Ask the first question
+              </button>
+              <a href="/discussions">View all discussions</a>
+            </div>
+          <% } else { %>
+            <div class="product-empty-state">
+              <h2>No discussions yet</h2>
+              <p>Start the first discussion for the RMIT Connect community.</p>
+              <button class="postbtn" type="button" data-open-post-form>
+                Start the first discussion
+              </button>
+            </div>
+          <% } %>
 
-          <% discussions.forEach(function(discussion, i) { %>
-            <article
-              class="discussion-post"
-              data-title-search="<%= titleSearchTexts[i] %>"
-              data-content-search="<%= contentSearchTexts[i] %>"
-              data-created-at="<%= discussion.createdAt.getTime() %>"
-              data-latest-activity="<%= latestActivityTimes[i] %>"
-            >
+          <div id="discussion-post-list" class="discussion-post-list">
+            <% discussions.forEach(function(discussion, i) { %>
+              <article
+                class="discussion-post"
+                data-title-search="<%= titleSearchTexts[i] %>"
+                data-content-search="<%= contentSearchTexts[i] %>"
+                data-created-at="<%= discussion.createdAt.getTime() %>"
+                data-latest-activity="<%= latestActivityTimes[i] %>"
+              >
               <div class="discussion-post-header">
                 <div class="user-info">
                   <img
@@ -164,6 +323,23 @@
                 <p class="post-time"><%= discussion.createdAt %></p>
               </div>
 
+              <% if (relatedProducts[i]) { %>
+                <a
+                  class="discussion-product-badge"
+                  href="/discussions?product=<%= relatedProducts[i].slug %>"
+                >
+                  <%= relatedProducts[i].name %>
+                </a>
+              <% } else if (discussion.productId) { %>
+                <span class="discussion-product-badge discussion-product-unavailable">
+                  Related item unavailable
+                </span>
+              <% } else { %>
+                <span class="discussion-product-badge discussion-product-general">
+                  General discussion
+                </span>
+              <% } %>
+
               <h2><%= discussion.title %></h2>
 
               <img
@@ -178,8 +354,9 @@
                 <span><%= replyCounts[i] %> replies</span>
                 <a href="/discussions/<%= discussion._id %>">View discussion</a>
               </div>
-            </article>
-          <% }); %>
+              </article>
+            <% }); %>
+          </div>
         </section>
       </div>
 

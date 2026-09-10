@@ -8,6 +8,7 @@ const { MongoMemoryReplSet } = require("mongodb-memory-server");
 const { Discussion } = require("../models/discussion");
 const { Reply } = require("../models/reply");
 const { User } = require("../models/user");
+const { Product } = require("../models/product");
 const { connectDatabase } = require("../database");
 const { seedDatabase } = require("../scripts/seed");
 
@@ -560,6 +561,253 @@ test("Forum returns meaningful status codes and preserves owned CRUD", async () 
       await Discussion.deleteOne({ _id: discussionId });
     }
   }
+});
+
+test("Forum preserves unavailable Product links and rejects invalid choices", async () => {
+  const dat = new BrowserSession();
+  await dat.login("dat.pham", "ConnectDemo!26");
+
+  const testTime = Date.now();
+  const productSlug = "forum-product-link-" + testTime;
+  const discussionTitle = "Forum Product relationship " + testTime;
+  const uploadsDirectory = path.join(__dirname, "..", "public", "uploads");
+  const beforeFiles = fs.readdirSync(uploadsDirectory).sort();
+  let discussion = null;
+
+  const product = await Product.create({
+    slug: productSlug,
+    name: "Temporary Forum Course",
+    category: "course",
+    description: "A temporary Product used only by the Forum integration test.",
+    priceVnd: 100000,
+    image: "/images/peer-workshop.jpg",
+    imageAlt: "Temporary Forum course",
+    isActive: true,
+  });
+  const emptyProduct = await Product.create({
+    slug: productSlug + "-empty",
+    name: "Temporary Product Without Questions",
+    category: "course",
+    description: "A temporary Product used to test the empty question list.",
+    priceVnd: 100000,
+    image: "/images/peer-workshop.jpg",
+    imageAlt: "Temporary Product without questions",
+    isActive: true,
+  });
+
+  try {
+    const emptyList = await dat.request(
+      "/discussions?product=" + emptyProduct.slug,
+    );
+    const emptyListHtml = await emptyList.text();
+    assert.equal(emptyList.status, 200);
+    assert.ok(
+      emptyListHtml.includes(
+        "No questions about " + emptyProduct.name + " yet",
+      ),
+    );
+    assert.ok(emptyListHtml.includes("Ask the first question"));
+
+    const createForm = new FormData();
+    createForm.append("postTitle", discussionTitle);
+    createForm.append(
+      "postContent",
+      "This temporary discussion checks the Product relationship.",
+    );
+    createForm.append("productSlug", product.slug);
+    addForumTestImage(createForm, "postImage");
+
+    const createResponse = await dat.request("/discussions", {
+      method: "POST",
+      body: createForm,
+      redirect: "manual",
+    });
+    assert.equal(createResponse.status, 302);
+    assert.equal(
+      createResponse.headers.get("location"),
+      "/discussions?product=" + product.slug,
+    );
+
+    discussion = await Discussion.findOne({ title: discussionTitle });
+    assert.ok(discussion);
+    assert.equal(String(discussion.productId), String(product._id));
+
+    const linkedDetail = await dat.request("/discussions/" + discussion._id);
+    const linkedDetailHtml = await linkedDetail.text();
+    assert.equal(linkedDetail.status, 200);
+    assert.ok(linkedDetailHtml.includes(product.name));
+    assert.ok(
+      linkedDetailHtml.includes("/wishlist/add#item-" + product.slug),
+    );
+    assert.ok(
+      linkedDetailHtml.includes("/discussions?product=" + product.slug),
+    );
+    assert.ok(linkedDetailHtml.includes(product.description));
+
+    const linkedList = await dat.request(
+      "/discussions?product=" + product.slug,
+    );
+    const linkedListHtml = await linkedList.text();
+    assert.equal(linkedList.status, 200);
+    assert.ok(linkedListHtml.includes("Questions about " + product.name));
+    assert.ok(linkedListHtml.includes(discussionTitle));
+    assert.ok(
+      linkedListHtml.includes("Find questions about a course or activity"),
+    );
+    assert.ok(linkedListHtml.includes("Search courses or activities"));
+    assert.ok(linkedListHtml.includes("Category: " + product.category));
+    assert.match(
+      linkedListHtml,
+      /id="post-product-search-panel" class="product-search-panel" hidden/,
+    );
+
+    await Product.updateOne(
+      { _id: product._id },
+      { $set: { isActive: false } },
+    );
+
+    const inactiveEdit = await dat.request(
+      "/discussions/" + discussion._id + "/edit",
+    );
+    const inactiveEditHtml = await inactiveEdit.text();
+    assert.equal(inactiveEdit.status, 200);
+    assert.match(
+      inactiveEditHtml,
+      /value="__keep-existing-product__"/,
+    );
+    assert.match(inactiveEditHtml, /unavailable, connection kept/);
+    assert.match(inactiveEditHtml, /What is your question about\? \(optional\)/);
+    assert.match(inactiveEditHtml, /Your question is about:/);
+    assert.match(
+      inactiveEditHtml,
+      /id="edit-product-search-panel" class="product-search-panel" hidden/,
+    );
+
+    const keepInactiveForm = new FormData();
+    keepInactiveForm.append("postTitle", discussionTitle + " inactive");
+    keepInactiveForm.append(
+      "postContent",
+      "Editing the title must keep the unavailable Product relationship.",
+    );
+    keepInactiveForm.append(
+      "productSlug",
+      "__keep-existing-product__",
+    );
+    const keepInactiveResponse = await dat.request(
+      "/discussions/" + discussion._id + "/edit",
+      { method: "POST", body: keepInactiveForm, redirect: "manual" },
+    );
+    assert.equal(keepInactiveResponse.status, 302);
+
+    discussion = await Discussion.findById(discussion._id);
+    assert.equal(String(discussion.productId), String(product._id));
+
+    const inactiveDetail = await dat.request(
+      "/discussions/" + discussion._id,
+    );
+    assert.equal(
+      (await inactiveDetail.text()).includes(
+        "/wishlist/add#item-" + product.slug,
+      ),
+      false,
+    );
+
+    await Product.deleteOne({ _id: product._id });
+
+    const deletedEdit = await dat.request(
+      "/discussions/" + discussion._id + "/edit",
+    );
+    const deletedEditHtml = await deletedEdit.text();
+    assert.equal(deletedEdit.status, 200);
+    assert.match(
+      deletedEditHtml,
+      /value="__keep-existing-product__"/,
+    );
+    assert.match(deletedEditHtml, /Current product/);
+
+    const keepDeletedForm = new FormData();
+    keepDeletedForm.append("postTitle", discussionTitle + " deleted");
+    keepDeletedForm.append(
+      "postContent",
+      "Editing must also preserve a relationship whose Product was deleted.",
+    );
+    keepDeletedForm.append(
+      "productSlug",
+      "__keep-existing-product__",
+    );
+    const keepDeletedResponse = await dat.request(
+      "/discussions/" + discussion._id + "/edit",
+      { method: "POST", body: keepDeletedForm, redirect: "manual" },
+    );
+    assert.equal(keepDeletedResponse.status, 302);
+
+    discussion = await Discussion.findById(discussion._id);
+    assert.equal(String(discussion.productId), String(product._id));
+
+    const generalForm = new FormData();
+    generalForm.append("postTitle", discussionTitle + " general");
+    generalForm.append(
+      "postContent",
+      "Selecting General discussion must remove the Product relationship.",
+    );
+    generalForm.append("productSlug", "");
+    const generalResponse = await dat.request(
+      "/discussions/" + discussion._id + "/edit",
+      { method: "POST", body: generalForm, redirect: "manual" },
+    );
+    assert.equal(generalResponse.status, 302);
+
+    discussion = await Discussion.findById(discussion._id);
+    assert.equal(discussion.productId, null);
+
+    const invalidKeepForm = new FormData();
+    invalidKeepForm.append("postTitle", discussionTitle + " invalid keep");
+    invalidKeepForm.append(
+      "postContent",
+      "A post without a Product must reject the special keep value.",
+    );
+    invalidKeepForm.append(
+      "productSlug",
+      "__keep-existing-product__",
+    );
+    const invalidKeepResponse = await dat.request(
+      "/discussions/" + discussion._id + "/edit",
+      { method: "POST", body: invalidKeepForm, redirect: "manual" },
+    );
+    assert.equal(invalidKeepResponse.status, 400);
+
+    discussion = await Discussion.findById(discussion._id);
+    assert.equal(discussion.title, discussionTitle + " general");
+    assert.equal(discussion.productId, null);
+
+    const repeatedProductForm = new FormData();
+    repeatedProductForm.append("postTitle", discussionTitle + " repeated");
+    repeatedProductForm.append(
+      "postContent",
+      "Repeated Product values must be rejected instead of unlinking the post.",
+    );
+    repeatedProductForm.append("productSlug", "peer-workshop");
+    repeatedProductForm.append("productSlug", "data-bootcamp");
+    const repeatedProductResponse = await dat.request(
+      "/discussions/" + discussion._id + "/edit",
+      { method: "POST", body: repeatedProductForm, redirect: "manual" },
+    );
+    assert.equal(repeatedProductResponse.status, 400);
+
+    discussion = await Discussion.findById(discussion._id);
+    assert.equal(discussion.title, discussionTitle + " general");
+    assert.equal(discussion.productId, null);
+  } finally {
+    if (discussion) {
+      removeForumTestImage(discussion.image);
+      await Discussion.deleteOne({ _id: discussion._id });
+    }
+
+    await Product.deleteOne({ _id: product._id });
+    await Product.deleteOne({ _id: emptyProduct._id });
+  }
+
+  assert.deepEqual(fs.readdirSync(uploadsDirectory).sort(), beforeFiles);
 });
 
 test("Wishlist duplicate prevention and state transitions work through shared login", async () => {

@@ -11,6 +11,7 @@ const { connectDatabase } = require("./database");
 const { User } = require("./models/user");
 const { Discussion } = require("./models/discussion");
 const { Reply } = require("./models/reply");
+const { Product } = require("./models/product");
 const { upload, validateForumImage } = require("./upload");
 const { users } = require("./forum-data");
 const { blogs } = require("./blog-data");
@@ -28,6 +29,7 @@ const sessionSecret =
   process.env.SESSION_SECRET || "local-demo-change-this-secret";
 const accountApiPath =
   /^\/api\/(?:users|session|products|wishlist|profile|admin)(?:\/|$)/i;
+const keepExistingProductValue = "__keep-existing-product__";
 const passwordHelpLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
@@ -166,6 +168,7 @@ async function showSitemap(request, response) {
   const activeDiscussions = await Discussion.find({
     deletedAt: null,
   });
+
   const activeDiscussionIds = [];
 
   for (let i = 0; i < activeDiscussions.length; i += 1) {
@@ -238,6 +241,25 @@ function isValidDatabaseId(databaseId) {
   );
 }
 
+async function findActiveProduct(productSlug) {
+  const normalisedProductSlug = String(productSlug || "")
+    .trim()
+    .toLowerCase();
+
+  if (
+    !normalisedProductSlug ||
+    normalisedProductSlug.length > 80 ||
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalisedProductSlug)
+  ) {
+    return null;
+  }
+
+  return Product.findOne({
+    slug: normalisedProductSlug,
+    isActive: true,
+  });
+}
+
 async function findActiveDiscussion(discussionId) {
   if (!isValidDatabaseId(discussionId)) {
     return null;
@@ -291,9 +313,34 @@ async function showDiscussions(request, response) {
   const clearDiscussionDraft = request.session.clearDiscussionDraft === true;
   request.session.clearDiscussionDraft = false;
 
-  const activeDiscussions = await Discussion.find({
+  const activeProducts = await Product.find({
+    isActive: true,
+  }).sort({ name: 1 });
+
+  const requestedProductSlug = request.query.product;
+  let selectedProduct = null;
+  let productFilterMessage = "";
+
+  if (requestedProductSlug !== undefined) {
+    if (typeof requestedProductSlug === "string") {
+      selectedProduct = await findActiveProduct(requestedProductSlug);
+    }
+
+    if (!selectedProduct) {
+      productFilterMessage =
+        "That related item is unavailable. Showing all discussions.";
+    }
+  }
+
+  const discussionQuery = {
     deletedAt: null,
-  });
+  };
+
+  if (selectedProduct) {
+    discussionQuery.productId = selectedProduct._id;
+  }
+
+  const activeDiscussions = await Discussion.find(discussionQuery);
 
   const discussionIds = [];
   const discussionAuthorIds = [];
@@ -317,12 +364,14 @@ async function showDiscussions(request, response) {
   const titleSearchTexts = [];
   const contentSearchTexts = [];
   const latestActivityTimes = [];
+  const relatedProducts = [];
 
   for (let i = 0; i < activeDiscussions.length; i += 1) {
     let replyCount = 0;
     let titleSearchText = activeDiscussions[i].title;
     let contentSearchText = activeDiscussions[i].content;
     let latestActivityTime = activeDiscussions[i].createdAt.getTime();
+    let relatedProduct = null;
     let author = {
       username: "Unknown user",
       profileImage: "/images/user_icon.png",
@@ -357,11 +406,22 @@ async function showDiscussions(request, response) {
       }
     }
 
+    for (let j = 0; j < activeProducts.length; j += 1) {
+      if (
+        activeDiscussions[i].productId &&
+        String(activeProducts[j]._id) ===
+          String(activeDiscussions[i].productId)
+      ) {
+        relatedProduct = activeProducts[j];
+      }
+    }
+
     replyCounts.push(replyCount);
     authors.push(author);
     titleSearchTexts.push(titleSearchText);
     contentSearchTexts.push(contentSearchText);
     latestActivityTimes.push(latestActivityTime);
+    relatedProducts.push(relatedProduct);
   }
 
   response.render("discussion", {
@@ -369,6 +429,10 @@ async function showDiscussions(request, response) {
     currentUserId: String(forumUser._id),
     clearDiscussionDraft: clearDiscussionDraft,
     discussions: activeDiscussions,
+    products: activeProducts,
+    selectedProduct: selectedProduct,
+    productFilterMessage: productFilterMessage,
+    relatedProducts: relatedProducts,
     replyCounts: replyCounts,
     authors: authors,
     titleSearchTexts: titleSearchTexts,
@@ -398,6 +462,15 @@ async function showDiscussionDetail(request, response) {
   if (!discussion) {
     response.status(404).send("Discussion not found.");
     return;
+  }
+
+  let relatedProduct = null;
+
+  if (discussion.productId) {
+    relatedProduct = await Product.findOne({
+      _id: discussion.productId,
+      isActive: true,
+    });
   }
 
   const discussionReplies = await Reply.find({
@@ -463,6 +536,7 @@ async function showDiscussionDetail(request, response) {
   response.render("discussion-detail", {
     pageTitle: "Discussion Details",
     discussion: discussion,
+    relatedProduct: relatedProduct,
     author: author,
     isAuthor: isAuthor,
     replies: discussionReplies,
@@ -499,9 +573,22 @@ async function showEditDiscussion(request, response) {
     return;
   }
 
+  const activeProducts = await Product.find({
+    isActive: true,
+  }).sort({ name: 1 });
+
+  let currentRelatedProduct = null;
+
+  if (discussion.productId) {
+    currentRelatedProduct = await Product.findById(discussion.productId);
+  }
+
   response.render("discussion-edit", {
     pageTitle: "Edit Discussion",
     discussion: discussion,
+    products: activeProducts,
+    currentRelatedProduct: currentRelatedProduct,
+    keepExistingProductValue: keepExistingProductValue,
   });
 }
 
@@ -647,6 +734,32 @@ async function createDiscussion(request, response) {
     return;
   }
 
+  const productSlugValue = request.body.productSlug;
+
+  if (
+    productSlugValue !== undefined &&
+    typeof productSlugValue !== "string"
+  ) {
+    await removeUploadedForumImage(request.file);
+
+    response.status(400).send("Please select a valid related product.");
+    return;
+  }
+
+  const productSlug = getTrimmedFormText(productSlugValue);
+  let relatedProduct = null;
+
+  if (productSlug !== "") {
+    relatedProduct = await findActiveProduct(productSlug);
+
+    if (!relatedProduct) {
+      await removeUploadedForumImage(request.file);
+
+      response.status(400).send("Please select a valid related product.");
+      return;
+    }
+  }
+
   const now = new Date();
 
   const discussion = new Discussion({
@@ -654,6 +767,7 @@ async function createDiscussion(request, response) {
     content: postContent,
     image: postImage,
     authorId: forumUser._id,
+    productId: relatedProduct ? relatedProduct._id : null,
     createdAt: now,
     updatedAt: now,
     deletedAt: null,
@@ -671,7 +785,11 @@ async function createDiscussion(request, response) {
   );
 
   request.session.clearDiscussionDraft = true;
-  response.redirect("/discussions");
+  response.redirect(
+    relatedProduct
+      ? "/discussions?product=" + encodeURIComponent(relatedProduct.slug)
+      : "/discussions",
+  );
 }
 
 // Update the selected post.
@@ -741,6 +859,43 @@ async function updateDiscussion(request, response) {
     return;
   }
 
+  const productSlugValue = request.body.productSlug;
+
+  if (
+    productSlugValue !== undefined &&
+    typeof productSlugValue !== "string"
+  ) {
+    await removeUploadedForumImage(request.file);
+
+    response.status(400).send("Please select a valid related product.");
+    return;
+  }
+
+  const productSlug = getTrimmedFormText(productSlugValue);
+  let relatedProductId = null;
+
+  if (productSlug === keepExistingProductValue) {
+    if (!discussion.productId) {
+      await removeUploadedForumImage(request.file);
+
+      response.status(400).send("Please select a valid related product.");
+      return;
+    }
+
+    relatedProductId = discussion.productId;
+  } else if (productSlug !== "") {
+    const relatedProduct = await findActiveProduct(productSlug);
+
+    if (!relatedProduct) {
+      await removeUploadedForumImage(request.file);
+
+      response.status(400).send("Please select a valid related product.");
+      return;
+    }
+
+    relatedProductId = relatedProduct._id;
+  }
+
   const now = new Date();
 
   const discussionUpdate = await Discussion.updateOne(
@@ -753,6 +908,7 @@ async function updateDiscussion(request, response) {
       title: postTitle,
       content: postContent,
       image: postImage,
+      productId: relatedProductId,
       updatedAt: now,
     },
   );
