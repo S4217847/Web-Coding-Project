@@ -14,6 +14,11 @@ const discussionSchema = new mongoose.Schema({
     ref: "Product",
     default: null,
   },
+  reviewId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Review",
+    default: null,
+  },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
   deletedAt: { type: Date, default: null },

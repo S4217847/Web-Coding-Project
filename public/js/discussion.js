@@ -32,7 +32,24 @@ const postProductSearchPanel = document.getElementById(
 const productDraftChoice = document.getElementById("product-draft-choice");
 const keepDraftProductButton = document.getElementById("keep-draft-product");
 const useContextProductButton = document.getElementById("use-context-product");
+const discussionRelatedReview = document.getElementById("review-id");
+const postReviewSearch = document.getElementById("post-review-search");
+const postReviewResults = document.querySelectorAll("#post-review-results li");
+const postReviewResultMessage = document.getElementById(
+  "post-review-result-message",
+);
+const selectedReviewText = document.getElementById("selected-review-text");
+const choosePostReviewButton = document.getElementById("choose-post-review");
+const changePostReviewButton = document.getElementById("change-post-review");
+const clearPostReviewButton = document.getElementById("clear-post-review");
+const cancelPostReviewSearchButton = document.getElementById(
+  "cancel-post-review-search",
+);
+const postReviewSearchPanel = document.getElementById(
+  "post-review-search-panel",
+);
 const maximumProductResults = 8;
+const maximumReviewResults = 8;
 discussionPostForm.noValidate = true;
 
 // Keep each account's unfinished post separate in this browser.
@@ -40,21 +57,25 @@ const discussionUserId = discussionPostForm.getAttribute("data-user-id");
 const discussionTitleKey = "discussionPostTitle:" + discussionUserId;
 const discussionContentKey = "discussionPostContent:" + discussionUserId;
 const discussionProductSlugKey = "discussionProductSlug:" + discussionUserId;
+const discussionReviewIdKey = "discussionReviewId:" + discussionUserId;
 
 // Clear the draft only after the server has saved the discussion.
 if (discussionPostForm.getAttribute("data-clear-draft") === "true") {
   localStorage.removeItem(discussionTitleKey);
   localStorage.removeItem(discussionContentKey);
   localStorage.removeItem(discussionProductSlugKey);
+  localStorage.removeItem(discussionReviewIdKey);
 }
 
 const savedPostTitle = localStorage.getItem(discussionTitleKey);
 const savedPostContent = localStorage.getItem(discussionContentKey);
 const savedProductSlug = localStorage.getItem(discussionProductSlugKey);
+const savedReviewId = localStorage.getItem(discussionReviewIdKey);
 const savedDraftExists =
   savedPostTitle !== null ||
   savedPostContent !== null ||
-  savedProductSlug !== null;
+  savedProductSlug !== null ||
+  savedReviewId !== null;
 
 if (savedPostTitle !== null) {
   discussionPostTitle.value = savedPostTitle;
@@ -113,6 +134,155 @@ if (savedProductSlug !== null && savedProductSlug !== "") {
 } else {
   selectProduct("", "", false);
 }
+
+function getReviewButton(reviewId) {
+  for (let i = 0; i < postReviewResults.length; i += 1) {
+    const button = postReviewResults[i].querySelector("button");
+
+    if (button.getAttribute("data-review-id") === reviewId) {
+      return button;
+    }
+  }
+
+  return null;
+}
+
+function selectReview(reviewId, courseCode, reviewTitle, saveDraft) {
+  discussionRelatedReview.value = reviewId;
+
+  if (reviewId === "") {
+    selectedReviewText.textContent = "No review selected. You can still post.";
+    choosePostReviewButton.hidden = false;
+    changePostReviewButton.hidden = true;
+    clearPostReviewButton.hidden = true;
+  } else {
+    selectedReviewText.textContent =
+      "Related review: " + courseCode + " · " + reviewTitle;
+    choosePostReviewButton.hidden = true;
+    changePostReviewButton.hidden = false;
+    clearPostReviewButton.hidden = false;
+  }
+
+  if (saveDraft) {
+    localStorage.setItem(discussionReviewIdKey, reviewId);
+  }
+}
+
+if (savedReviewId !== null && savedReviewId !== "") {
+  const savedReviewButton = getReviewButton(savedReviewId);
+
+  if (savedReviewButton) {
+    selectReview(
+      savedReviewId,
+      savedReviewButton.getAttribute("data-review-course-code"),
+      savedReviewButton.getAttribute("data-review-title"),
+      false,
+    );
+  } else {
+    selectReview("", "", "", false);
+    localStorage.removeItem(discussionReviewIdKey);
+  }
+} else {
+  selectReview("", "", "", false);
+}
+
+function updateReviewSearch() {
+  const searchText = postReviewSearch.value.trim().toLowerCase();
+
+  if (searchText.length < 2) {
+    for (let i = 0; i < postReviewResults.length; i += 1) {
+      postReviewResults[i].hidden = true;
+    }
+
+    postReviewResultMessage.textContent =
+      "Type at least 2 letters to find a review.";
+    return;
+  }
+
+  let matchingCount = 0;
+
+  for (let i = 0; i < postReviewResults.length; i += 1) {
+    const matches = postReviewResults[i]
+      .getAttribute("data-review-search")
+      .includes(searchText);
+
+    if (matches) matchingCount += 1;
+    postReviewResults[i].hidden =
+      !matches || matchingCount > maximumReviewResults;
+  }
+
+  if (matchingCount === 0) {
+    postReviewResultMessage.textContent = "No reviews match your search.";
+  } else if (matchingCount > maximumReviewResults) {
+    const remainingCount = matchingCount - maximumReviewResults;
+    postReviewResultMessage.textContent =
+      remainingCount +
+      " more " +
+      (remainingCount === 1 ? "review matches" : "reviews match") +
+      ". Narrow your search to see them.";
+  } else {
+    postReviewResultMessage.textContent =
+      matchingCount +
+      (matchingCount === 1 ? " review found." : " reviews found.");
+  }
+}
+
+let lastReviewSearchButton = choosePostReviewButton;
+
+function openPostReviewSearch(button) {
+  lastReviewSearchButton = button;
+  postReviewSearchPanel.hidden = false;
+  choosePostReviewButton.setAttribute("aria-expanded", "true");
+  changePostReviewButton.setAttribute("aria-expanded", "true");
+  postReviewSearch.focus();
+}
+
+function closePostReviewSearch(moveFocus) {
+  postReviewSearchPanel.hidden = true;
+  postReviewSearch.value = "";
+  choosePostReviewButton.setAttribute("aria-expanded", "false");
+  changePostReviewButton.setAttribute("aria-expanded", "false");
+  updateReviewSearch();
+
+  if (moveFocus) {
+    lastReviewSearchButton.focus();
+  }
+}
+
+choosePostReviewButton.addEventListener("click", function () {
+  openPostReviewSearch(choosePostReviewButton);
+});
+
+changePostReviewButton.addEventListener("click", function () {
+  openPostReviewSearch(changePostReviewButton);
+});
+
+cancelPostReviewSearchButton.addEventListener("click", function () {
+  closePostReviewSearch(true);
+});
+
+postReviewSearch.addEventListener("input", updateReviewSearch);
+
+for (let i = 0; i < postReviewResults.length; i += 1) {
+  const reviewButton = postReviewResults[i].querySelector("button");
+
+  reviewButton.addEventListener("click", function () {
+    selectReview(
+      reviewButton.getAttribute("data-review-id"),
+      reviewButton.getAttribute("data-review-course-code"),
+      reviewButton.getAttribute("data-review-title"),
+      true,
+    );
+    closePostReviewSearch(false);
+    changePostReviewButton.focus();
+  });
+}
+
+clearPostReviewButton.addEventListener("click", function () {
+  selectReview("", "", "", true);
+  closePostReviewSearch(false);
+  choosePostReviewButton.focus();
+});
 
 function updateProductSearch(searchInput, resultItems, resultMessage) {
   const searchText = searchInput.value.trim().toLowerCase();

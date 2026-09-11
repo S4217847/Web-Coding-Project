@@ -27,6 +27,7 @@ const sessionSecret =
 const accountApiPath =
   /^\/api\/(?:users|session|products|wishlist|profile|admin)(?:\/|$)/i;
 const keepExistingProductValue = "__keep-existing-product__";
+const keepExistingReviewValue = "__keep-existing-review__";
 const passwordHelpLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
@@ -259,6 +260,14 @@ async function findActiveProduct(productSlug) {
   });
 }
 
+async function findReviewByDatabaseId(reviewId) {
+  if (!isValidDatabaseId(reviewId)) {
+    return null;
+  }
+
+  return Review.findById(reviewId).select("_id id courseCode title");
+}
+
 async function findActiveDiscussion(discussionId) {
   if (!isValidDatabaseId(discussionId)) {
     return null;
@@ -315,6 +324,10 @@ async function showDiscussions(request, response) {
   const activeProducts = await Product.find({
     isActive: true,
   }).sort({ name: 1 });
+
+  const availableReviews = await Review.find()
+    .select("_id id courseCode title")
+    .sort({ courseCode: 1, title: 1 });
 
   const requestedProductSlug = request.query.product;
   let selectedProduct = null;
@@ -429,6 +442,7 @@ async function showDiscussions(request, response) {
     clearDiscussionDraft: clearDiscussionDraft,
     discussions: activeDiscussions,
     products: activeProducts,
+    reviews: availableReviews,
     selectedProduct: selectedProduct,
     productFilterMessage: productFilterMessage,
     relatedProducts: relatedProducts,
@@ -470,6 +484,14 @@ async function showDiscussionDetail(request, response) {
       _id: discussion.productId,
       isActive: true,
     });
+  }
+
+  let relatedReview = null;
+
+  if (discussion.reviewId) {
+    relatedReview = await Review.findById(discussion.reviewId).select(
+      "_id id courseCode title",
+    );
   }
 
   const discussionReplies = await Reply.find({
@@ -536,6 +558,8 @@ async function showDiscussionDetail(request, response) {
     pageTitle: "Discussion Details",
     discussion: discussion,
     relatedProduct: relatedProduct,
+    relatedReview: relatedReview,
+    hasRelatedReviewReference: Boolean(discussion.reviewId),
     author: author,
     isAuthor: isAuthor,
     replies: discussionReplies,
@@ -576,18 +600,33 @@ async function showEditDiscussion(request, response) {
     isActive: true,
   }).sort({ name: 1 });
 
+  const availableReviews = await Review.find()
+    .select("_id id courseCode title")
+    .sort({ courseCode: 1, title: 1 });
+
   let currentRelatedProduct = null;
 
   if (discussion.productId) {
     currentRelatedProduct = await Product.findById(discussion.productId);
   }
 
+  let currentRelatedReview = null;
+
+  if (discussion.reviewId) {
+    currentRelatedReview = await Review.findById(discussion.reviewId).select(
+      "_id id courseCode title",
+    );
+  }
+
   response.render("discussion-edit", {
     pageTitle: "Edit Discussion",
     discussion: discussion,
     products: activeProducts,
+    reviews: availableReviews,
     currentRelatedProduct: currentRelatedProduct,
+    currentRelatedReview: currentRelatedReview,
     keepExistingProductValue: keepExistingProductValue,
+    keepExistingReviewValue: keepExistingReviewValue,
   });
 }
 
@@ -726,6 +765,29 @@ async function createDiscussion(request, response) {
     }
   }
 
+  const reviewIdValue = request.body.reviewId;
+
+  if (reviewIdValue !== undefined && typeof reviewIdValue !== "string") {
+    await removeUploadedForumImage(request.file);
+
+    response.status(400).send("Please select a valid related review.");
+    return;
+  }
+
+  const reviewId = getTrimmedFormText(reviewIdValue);
+  let relatedReview = null;
+
+  if (reviewId !== "") {
+    relatedReview = await findReviewByDatabaseId(reviewId);
+
+    if (!relatedReview) {
+      await removeUploadedForumImage(request.file);
+
+      response.status(400).send("Please select a valid related review.");
+      return;
+    }
+  }
+
   const now = new Date();
 
   const discussion = new Discussion({
@@ -734,6 +796,7 @@ async function createDiscussion(request, response) {
     image: postImage,
     authorId: forumUser._id,
     productId: relatedProduct ? relatedProduct._id : null,
+    reviewId: relatedReview ? relatedReview._id : null,
     createdAt: now,
     updatedAt: now,
     deletedAt: null,
@@ -862,6 +925,40 @@ async function updateDiscussion(request, response) {
     relatedProductId = relatedProduct._id;
   }
 
+  const reviewIdValue = request.body.reviewId;
+
+  if (reviewIdValue !== undefined && typeof reviewIdValue !== "string") {
+    await removeUploadedForumImage(request.file);
+
+    response.status(400).send("Please select a valid related review.");
+    return;
+  }
+
+  const reviewId = getTrimmedFormText(reviewIdValue);
+  let relatedReviewId = null;
+
+  if (reviewId === keepExistingReviewValue) {
+    if (!discussion.reviewId) {
+      await removeUploadedForumImage(request.file);
+
+      response.status(400).send("Please select a valid related review.");
+      return;
+    }
+
+    relatedReviewId = discussion.reviewId;
+  } else if (reviewId !== "") {
+    const relatedReview = await findReviewByDatabaseId(reviewId);
+
+    if (!relatedReview) {
+      await removeUploadedForumImage(request.file);
+
+      response.status(400).send("Please select a valid related review.");
+      return;
+    }
+
+    relatedReviewId = relatedReview._id;
+  }
+
   const now = new Date();
 
   const discussionUpdate = await Discussion.updateOne(
@@ -875,6 +972,7 @@ async function updateDiscussion(request, response) {
       content: postContent,
       image: postImage,
       productId: relatedProductId,
+      reviewId: relatedReviewId,
       updatedAt: now,
     },
   );

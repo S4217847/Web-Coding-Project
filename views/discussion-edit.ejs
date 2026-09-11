@@ -144,6 +144,104 @@
             </div>
           </section>
 
+          <section class="discussion-review-picker" aria-labelledby="edit-review-heading">
+            <h2 id="edit-review-heading">Related review (optional)</h2>
+            <p>Connect one existing review when your post is a follow-up question.</p>
+
+            <input
+              id="edit-review-id"
+              name="reviewId"
+              type="hidden"
+              value="<%= discussion.reviewId
+                ? currentRelatedReview
+                  ? currentRelatedReview._id
+                  : keepExistingReviewValue
+                : "" %>"
+            />
+
+            <div class="selected-product-row">
+              <p id="edit-selected-review-text">
+                <% if (discussion.reviewId) { %>
+                  <% if (currentRelatedReview) { %>
+                    Related review: <%= currentRelatedReview.courseCode %> · <%= currentRelatedReview.title %>
+                  <% } else { %>
+                    The previously selected review is no longer available. The connection will be kept unless you remove or replace it.
+                  <% } %>
+                <% } else { %>
+                  No review selected. You can still post.
+                <% } %>
+              </p>
+              <div class="product-selection-actions">
+                <button
+                  id="choose-edit-review"
+                  type="button"
+                  class="text-button"
+                  aria-controls="edit-review-search-panel"
+                  aria-expanded="false"
+                  <% if (discussion.reviewId) { %>hidden<% } %>
+                >
+                  Choose a review
+                </button>
+                <button
+                  id="change-edit-review"
+                  type="button"
+                  class="text-button"
+                  aria-controls="edit-review-search-panel"
+                  aria-expanded="false"
+                  <% if (!discussion.reviewId) { %>hidden<% } %>
+                >
+                  Change selection
+                </button>
+                <button
+                  id="clear-edit-review"
+                  type="button"
+                  class="text-button"
+                  <% if (!discussion.reviewId) { %>hidden<% } %>
+                >
+                  Remove selection
+                </button>
+              </div>
+            </div>
+
+            <div id="edit-review-search-panel" class="product-search-panel" hidden>
+              <label for="edit-review-search">Search by course code or review title</label>
+              <input
+                id="edit-review-search"
+                type="search"
+                maxlength="120"
+                placeholder="Search course code or review title"
+                autocomplete="off"
+              />
+
+              <p id="edit-review-result-message" class="product-result-message" aria-live="polite">
+                Type at least 2 letters to find a review.
+              </p>
+
+              <ul id="edit-review-results" class="product-search-results">
+                <% for (let i = 0; i < reviews.length; i += 1) { %>
+                  <li
+                    data-review-search="<%= (reviews[i].courseCode + " " + reviews[i].title).toLowerCase() %>"
+                    hidden
+                  >
+                    <button
+                      type="button"
+                      data-review-id="<%= reviews[i]._id %>"
+                      data-review-course-code="<%= reviews[i].courseCode %>"
+                      data-review-title="<%= reviews[i].title %>"
+                    >
+                      <span><%= reviews[i].courseCode %> · <%= reviews[i].title %></span>
+                      <span class="product-result-category">Review #<%= reviews[i].id %></span>
+                    </button>
+                  </li>
+                <% } %>
+              </ul>
+
+              <button id="cancel-edit-review-search" type="button" class="text-button product-search-cancel">
+                Cancel
+              </button>
+            </div>
+          </section>
+
           <label for="edit-image">New post image</label>
           <input
             type="file"

@@ -75,6 +75,28 @@
               </section>
             <% } %>
 
+            <% if (hasRelatedReviewReference) { %>
+              <section class="related-review">
+                <h3>Related review</h3>
+                <% if (relatedReview) { %>
+                  <p class="related-review-course"><%= relatedReview.courseCode %></p>
+                  <p class="related-review-title"><%= relatedReview.title %></p>
+                  <div class="related-review-actions">
+                    <a
+                      class="related-review-primary"
+                      href="/reviews/<%= relatedReview.id %>"
+                    >
+                      View related review
+                    </a>
+                  </div>
+                <% } else { %>
+                  <p class="related-review-unavailable">
+                    This review is no longer available.
+                  </p>
+                <% } %>
+              </section>
+            <% } %>
+
             <div class="discussion-post-footer">
               <span><%= replies.length %> replies</span>
               <% if (isAuthor) { %>

@@ -273,7 +273,8 @@
   overflow-wrap: anywhere;
 }
 
-.related-product {
+.related-product,
+.related-review {
   background-color: #f7f7f7;
   border-left: 4px solid #e60028;
   border-radius: 6px;
@@ -281,7 +282,8 @@
   padding: 12px;
 }
 
-.related-product h3 {
+.related-product h3,
+.related-review h3 {
   font-size: 14px;
   margin-bottom: 4px;
 }
@@ -301,14 +303,33 @@
   margin-top: 8px;
 }
 
-.related-product-actions {
+.related-review-course {
+  color: #555555;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.related-review-title {
+  font-weight: bold;
+  margin-top: 4px;
+}
+
+.related-review-unavailable {
+  color: #555555;
+  font-size: 14px;
+  margin-top: 6px;
+}
+
+.related-product-actions,
+.related-review-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }
 
-.related-product a {
+.related-product a,
+.related-review a {
   color: #e60028;
   display: inline-block;
   font-weight: bold;
@@ -316,18 +337,21 @@
   text-decoration: none;
 }
 
-.related-product a:hover {
+.related-product a:hover,
+.related-review a:hover {
   text-decoration: underline;
 }
 
-.related-product .related-product-primary {
+.related-product .related-product-primary,
+.related-review .related-review-primary {
   background-color: #e60028;
   border-radius: 6px;
   color: #ffffff;
   padding: 8px 12px;
 }
 
-.related-product .related-product-primary:hover {
+.related-product .related-product-primary:hover,
+.related-review .related-review-primary:hover {
   text-decoration: none;
 }
 
@@ -348,6 +372,7 @@
 
 .product-question-browser,
 .discussion-product-picker,
+.discussion-review-picker,
 .product-empty-state {
   background-color: #ffffff;
   border: 1px solid #e2e2e2;
@@ -359,12 +384,14 @@
   margin-bottom: 16px;
 }
 
-.discussion-product-picker {
+.discussion-product-picker,
+.discussion-review-picker {
   margin: 4px 0 16px;
 }
 
 .product-question-browser h2,
 .discussion-product-picker h2,
+.discussion-review-picker h2,
 .product-empty-state h2 {
   font-size: 17px;
   margin-bottom: 6px;
@@ -372,6 +399,7 @@
 
 .product-question-browser > p,
 .discussion-product-picker > p,
+.discussion-review-picker > p,
 .product-empty-state > p {
   color: #555555;
   font-size: 14px;
@@ -386,7 +414,8 @@
 }
 
 .product-question-browser input,
-.discussion-product-picker input[type="search"] {
+.discussion-product-picker input[type="search"],
+.discussion-review-picker input[type="search"] {
   border: 1px solid #cccccc;
   border-radius: 6px;
   font-size: 14px;
@@ -850,7 +879,8 @@
   .show-post-form-button,
   .product-empty-state .postbtn,
   .product-empty-state a,
-  .related-product-actions a {
+  .related-product-actions a,
+  .related-review-actions a {
     margin-left: 0;
     text-align: center;
     width: 100%;

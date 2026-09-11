@@ -222,6 +222,81 @@
             </div>
           </section>
 
+          <section class="discussion-review-picker" aria-labelledby="post-review-heading">
+            <h2 id="post-review-heading">Related review (optional)</h2>
+            <p>Connect one existing review when your post is a follow-up question.</p>
+
+            <input id="review-id" name="reviewId" type="hidden" value="" />
+
+            <div class="selected-product-row">
+              <p id="selected-review-text">
+                No review selected. You can still post.
+              </p>
+              <div class="product-selection-actions">
+                <button
+                  id="choose-post-review"
+                  type="button"
+                  class="text-button"
+                  aria-controls="post-review-search-panel"
+                  aria-expanded="false"
+                >
+                  Choose a review
+                </button>
+                <button
+                  id="change-post-review"
+                  type="button"
+                  class="text-button"
+                  aria-controls="post-review-search-panel"
+                  aria-expanded="false"
+                  hidden
+                >
+                  Change selection
+                </button>
+                <button id="clear-post-review" type="button" class="text-button" hidden>
+                  Remove selection
+                </button>
+              </div>
+            </div>
+
+            <div id="post-review-search-panel" class="product-search-panel" hidden>
+              <label for="post-review-search">Search by course code or review title</label>
+              <input
+                id="post-review-search"
+                type="search"
+                maxlength="120"
+                placeholder="Search course code or review title"
+                autocomplete="off"
+              />
+
+              <p id="post-review-result-message" class="product-result-message" aria-live="polite">
+                Type at least 2 letters to find a review.
+              </p>
+
+              <ul id="post-review-results" class="product-search-results">
+                <% for (let i = 0; i < reviews.length; i += 1) { %>
+                  <li
+                    data-review-search="<%= (reviews[i].courseCode + " " + reviews[i].title).toLowerCase() %>"
+                    hidden
+                  >
+                    <button
+                      type="button"
+                      data-review-id="<%= reviews[i]._id %>"
+                      data-review-course-code="<%= reviews[i].courseCode %>"
+                      data-review-title="<%= reviews[i].title %>"
+                    >
+                      <span><%= reviews[i].courseCode %> · <%= reviews[i].title %></span>
+                      <span class="product-result-category">Review #<%= reviews[i].id %></span>
+                    </button>
+                  </li>
+                <% } %>
+              </ul>
+
+              <button id="cancel-post-review-search" type="button" class="text-button product-search-cancel">
+                Cancel
+              </button>
+            </div>
+          </section>
+
           <div class="postfooter">
             <button class="postbtn" type="submit">Post</button>
           </div>

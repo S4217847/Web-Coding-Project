@@ -9,6 +9,7 @@ const { Discussion } = require("../models/discussion");
 const { Reply } = require("../models/reply");
 const { User } = require("../models/user");
 const { Product } = require("../models/product");
+const { Review } = require("../models/review");
 const { Blog, BlogComment } = require("../models/blog");
 
 // Fixed Jay Blog sample ID from scripts/seed.js.
@@ -843,6 +844,227 @@ test("Forum preserves unavailable Product links and rejects invalid choices", as
 
     await Product.deleteOne({ _id: product._id });
     await Product.deleteOne({ _id: emptyProduct._id });
+  }
+
+  assert.deepEqual(fs.readdirSync(uploadsDirectory).sort(), beforeFiles);
+});
+
+test("Forum links one Review by MongoDB ID and preserves a deleted relationship", async () => {
+  const dat = new BrowserSession();
+  await dat.login("dat.pham", "ConnectDemo!26");
+
+  const owner = await User.findOne({ studentId: "S4221230" });
+  const reviewNumber = 900001;
+  const uploadsDirectory = path.join(__dirname, "..", "public", "uploads");
+  const beforeFiles = fs.readdirSync(uploadsDirectory).sort();
+  const discussionTitle = "Forum related Review " + Date.now();
+  let discussion = null;
+  let originalReview = null;
+  let replacementReview = null;
+
+  try {
+    originalReview = await Review.create({
+      id: reviewNumber,
+      userId: owner._id,
+      courseCode: "COSC1076",
+      title: "Original Review for a follow-up question",
+      description:
+        "This temporary Review verifies the Forum relationship without changing Review routes.",
+      rating: 5,
+      reviewerName: owner.name,
+      imageUrl: "/images/review-placeholder.jpg",
+    });
+    const originalReviewDatabaseId = String(originalReview._id);
+
+    const createForm = new FormData();
+    createForm.append("postTitle", discussionTitle);
+    createForm.append(
+      "postContent",
+      "This question follows up on one specific Review.",
+    );
+    createForm.append("reviewId", originalReviewDatabaseId);
+    addForumTestImage(createForm, "postImage");
+    const createResponse = await dat.request("/discussions", {
+      method: "POST",
+      body: createForm,
+      redirect: "manual",
+    });
+    assert.equal(createResponse.status, 302);
+
+    discussion = await Discussion.findOne({ title: discussionTitle });
+    assert.ok(discussion);
+    assert.equal(String(discussion.reviewId), originalReviewDatabaseId);
+
+    const linkedDetail = await dat.request("/discussions/" + discussion._id);
+    const linkedDetailHtml = await linkedDetail.text();
+    assert.equal(linkedDetail.status, 200);
+    assert.ok(linkedDetailHtml.includes("COSC1076"));
+    assert.ok(linkedDetailHtml.includes(originalReview.title));
+    assert.ok(linkedDetailHtml.includes("/reviews/" + reviewNumber));
+    assert.ok(linkedDetailHtml.includes("View related review"));
+
+    const keepOnCreateForm = new FormData();
+    keepOnCreateForm.append("postTitle", discussionTitle + " invalid create");
+    keepOnCreateForm.append(
+      "postContent",
+      "A new Discussion cannot use the special keep value.",
+    );
+    keepOnCreateForm.append("reviewId", "__keep-existing-review__");
+    addForumTestImage(keepOnCreateForm, "postImage");
+    const keepOnCreateResponse = await dat.request("/discussions", {
+      method: "POST",
+      body: keepOnCreateForm,
+      redirect: "manual",
+    });
+    assert.equal(keepOnCreateResponse.status, 400);
+    assert.equal(
+      await Discussion.exists({ title: discussionTitle + " invalid create" }),
+      null,
+    );
+
+    const missingReviewForm = new FormData();
+    missingReviewForm.append("postTitle", discussionTitle + " missing");
+    missingReviewForm.append(
+      "postContent",
+      "A missing Review must be rejected by the server.",
+    );
+    missingReviewForm.append(
+      "reviewId",
+      new mongoose.Types.ObjectId().toString(),
+    );
+    addForumTestImage(missingReviewForm, "postImage");
+    const missingReviewResponse = await dat.request("/discussions", {
+      method: "POST",
+      body: missingReviewForm,
+      redirect: "manual",
+    });
+    assert.equal(missingReviewResponse.status, 400);
+    assert.equal(
+      await Discussion.exists({ title: discussionTitle + " missing" }),
+      null,
+    );
+
+    await Review.deleteOne({ _id: originalReview._id });
+    replacementReview = await Review.create({
+      id: reviewNumber,
+      userId: owner._id,
+      courseCode: "BUSM1228",
+      title: "Replacement Review with the same public number",
+      description:
+        "This different Review reuses the public number but has a new MongoDB document ID.",
+      rating: 4,
+      reviewerName: owner.name,
+      imageUrl: "/images/review-placeholder.jpg",
+    });
+
+    assert.notEqual(String(replacementReview._id), originalReviewDatabaseId);
+
+    const unavailableDetail = await dat.request(
+      "/discussions/" + discussion._id,
+    );
+    const unavailableDetailHtml = await unavailableDetail.text();
+    assert.equal(unavailableDetail.status, 200);
+    assert.ok(unavailableDetailHtml.includes("This review is no longer available."));
+    assert.equal(
+      unavailableDetailHtml.includes(replacementReview.title),
+      false,
+    );
+    assert.equal(
+      unavailableDetailHtml.includes('href="/reviews/' + reviewNumber + '"'),
+      false,
+    );
+
+    const unavailableEdit = await dat.request(
+      "/discussions/" + discussion._id + "/edit",
+    );
+    const unavailableEditHtml = await unavailableEdit.text();
+    assert.equal(unavailableEdit.status, 200);
+    assert.match(unavailableEditHtml, /value="__keep-existing-review__"/);
+    assert.ok(
+      unavailableEditHtml.includes(
+        "The previously selected review is no longer available.",
+      ),
+    );
+
+    const keepDeletedForm = new FormData();
+    keepDeletedForm.append("postTitle", discussionTitle + " updated");
+    keepDeletedForm.append(
+      "postContent",
+      "Editing the title must keep the missing Review document ID.",
+    );
+    keepDeletedForm.append("reviewId", "__keep-existing-review__");
+    const keepDeletedResponse = await dat.request(
+      "/discussions/" + discussion._id + "/edit",
+      { method: "POST", body: keepDeletedForm, redirect: "manual" },
+    );
+    assert.equal(keepDeletedResponse.status, 302);
+
+    discussion = await Discussion.findById(discussion._id);
+    assert.equal(String(discussion.reviewId), originalReviewDatabaseId);
+    assert.notEqual(String(discussion.reviewId), String(replacementReview._id));
+
+    const chooseReplacementForm = new FormData();
+    chooseReplacementForm.append("postTitle", discussionTitle + " changed");
+    chooseReplacementForm.append(
+      "postContent",
+      "The relationship changes only after an explicit new selection.",
+    );
+    chooseReplacementForm.append("reviewId", String(replacementReview._id));
+    const chooseReplacementResponse = await dat.request(
+      "/discussions/" + discussion._id + "/edit",
+      { method: "POST", body: chooseReplacementForm, redirect: "manual" },
+    );
+    assert.equal(chooseReplacementResponse.status, 302);
+
+    discussion = await Discussion.findById(discussion._id);
+    assert.equal(String(discussion.reviewId), String(replacementReview._id));
+
+    const removeReviewForm = new FormData();
+    removeReviewForm.append("postTitle", discussionTitle + " removed");
+    removeReviewForm.append(
+      "postContent",
+      "Removing the selection explicitly clears the Review relationship.",
+    );
+    removeReviewForm.append("reviewId", "");
+    const removeReviewResponse = await dat.request(
+      "/discussions/" + discussion._id + "/edit",
+      { method: "POST", body: removeReviewForm, redirect: "manual" },
+    );
+    assert.equal(removeReviewResponse.status, 302);
+
+    discussion = await Discussion.findById(discussion._id);
+    assert.equal(discussion.reviewId, null);
+
+    const keepWithoutRelationForm = new FormData();
+    keepWithoutRelationForm.append(
+      "postTitle",
+      discussionTitle + " invalid keep",
+    );
+    keepWithoutRelationForm.append(
+      "postContent",
+      "A Discussion without a Review must reject the special keep value.",
+    );
+    keepWithoutRelationForm.append("reviewId", "__keep-existing-review__");
+    const keepWithoutRelationResponse = await dat.request(
+      "/discussions/" + discussion._id + "/edit",
+      { method: "POST", body: keepWithoutRelationForm, redirect: "manual" },
+    );
+    assert.equal(keepWithoutRelationResponse.status, 400);
+
+    discussion = await Discussion.findById(discussion._id);
+    assert.equal(discussion.title, discussionTitle + " removed");
+    assert.equal(discussion.reviewId, null);
+  } finally {
+    if (discussion) {
+      removeForumTestImage(discussion.image);
+      await Discussion.deleteOne({ _id: discussion._id });
+    }
+    if (originalReview) {
+      await Review.deleteOne({ _id: originalReview._id });
+    }
+    if (replacementReview) {
+      await Review.deleteOne({ _id: replacementReview._id });
+    }
   }
 
   assert.deepEqual(fs.readdirSync(uploadsDirectory).sort(), beforeFiles);

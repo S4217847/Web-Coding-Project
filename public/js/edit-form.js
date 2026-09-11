@@ -23,7 +23,26 @@ const cancelEditProductSearchButton = document.getElementById(
 const editProductSearchPanel = document.getElementById(
   "edit-product-search-panel",
 );
+const editReviewId = document.getElementById("edit-review-id");
+const editReviewSearch = document.getElementById("edit-review-search");
+const editReviewResults = document.querySelectorAll("#edit-review-results li");
+const editReviewResultMessage = document.getElementById(
+  "edit-review-result-message",
+);
+const editSelectedReviewText = document.getElementById(
+  "edit-selected-review-text",
+);
+const chooseEditReviewButton = document.getElementById("choose-edit-review");
+const changeEditReviewButton = document.getElementById("change-edit-review");
+const clearEditReviewButton = document.getElementById("clear-edit-review");
+const cancelEditReviewSearchButton = document.getElementById(
+  "cancel-edit-review-search",
+);
+const editReviewSearchPanel = document.getElementById(
+  "edit-review-search-panel",
+);
 const maximumEditProductResults = 8;
+const maximumEditReviewResults = 8;
 
 editForm.noValidate = true;
 
@@ -172,6 +191,116 @@ if (editProductSearch) {
     clearEditProductButton.hidden = true;
     closeEditProductSearch(false);
     chooseEditProductButton.focus();
+  });
+}
+
+if (editReviewSearch) {
+  let lastEditReviewSearchButton = chooseEditReviewButton;
+
+  function closeEditReviewSearch(moveFocus) {
+    editReviewSearchPanel.hidden = true;
+    editReviewSearch.value = "";
+    chooseEditReviewButton.setAttribute("aria-expanded", "false");
+    changeEditReviewButton.setAttribute("aria-expanded", "false");
+
+    for (let i = 0; i < editReviewResults.length; i += 1) {
+      editReviewResults[i].hidden = true;
+    }
+
+    editReviewResultMessage.textContent =
+      "Type at least 2 letters to find a review.";
+
+    if (moveFocus) lastEditReviewSearchButton.focus();
+  }
+
+  function openEditReviewSearch(button) {
+    lastEditReviewSearchButton = button;
+    editReviewSearchPanel.hidden = false;
+    chooseEditReviewButton.setAttribute("aria-expanded", "true");
+    changeEditReviewButton.setAttribute("aria-expanded", "true");
+    editReviewSearch.focus();
+  }
+
+  chooseEditReviewButton.addEventListener("click", function () {
+    openEditReviewSearch(chooseEditReviewButton);
+  });
+
+  changeEditReviewButton.addEventListener("click", function () {
+    openEditReviewSearch(changeEditReviewButton);
+  });
+
+  cancelEditReviewSearchButton.addEventListener("click", function () {
+    closeEditReviewSearch(true);
+  });
+
+  editReviewSearch.addEventListener("input", function () {
+    const searchText = editReviewSearch.value.trim().toLowerCase();
+
+    if (searchText.length < 2) {
+      for (let i = 0; i < editReviewResults.length; i += 1) {
+        editReviewResults[i].hidden = true;
+      }
+
+      editReviewResultMessage.textContent =
+        "Type at least 2 letters to find a review.";
+      return;
+    }
+
+    let matchingCount = 0;
+
+    for (let i = 0; i < editReviewResults.length; i += 1) {
+      const matches = editReviewResults[i]
+        .getAttribute("data-review-search")
+        .includes(searchText);
+
+      if (matches) matchingCount += 1;
+      editReviewResults[i].hidden =
+        !matches || matchingCount > maximumEditReviewResults;
+    }
+
+    if (matchingCount === 0) {
+      editReviewResultMessage.textContent = "No reviews match your search.";
+    } else if (matchingCount > maximumEditReviewResults) {
+      const remainingCount = matchingCount - maximumEditReviewResults;
+      editReviewResultMessage.textContent =
+        remainingCount +
+        " more " +
+        (remainingCount === 1 ? "review matches" : "reviews match") +
+        ". Narrow your search to see them.";
+    } else {
+      editReviewResultMessage.textContent =
+        matchingCount +
+        (matchingCount === 1 ? " review found." : " reviews found.");
+    }
+  });
+
+  for (let i = 0; i < editReviewResults.length; i += 1) {
+    const reviewButton = editReviewResults[i].querySelector("button");
+
+    reviewButton.addEventListener("click", function () {
+      editReviewId.value = reviewButton.getAttribute("data-review-id");
+      editSelectedReviewText.textContent =
+        "Related review: " +
+        reviewButton.getAttribute("data-review-course-code") +
+        " · " +
+        reviewButton.getAttribute("data-review-title");
+      chooseEditReviewButton.hidden = true;
+      changeEditReviewButton.hidden = false;
+      clearEditReviewButton.hidden = false;
+      closeEditReviewSearch(false);
+      changeEditReviewButton.focus();
+    });
+  }
+
+  clearEditReviewButton.addEventListener("click", function () {
+    editReviewId.value = "";
+    editSelectedReviewText.textContent =
+      "No review selected. You can still post.";
+    chooseEditReviewButton.hidden = false;
+    changeEditReviewButton.hidden = true;
+    clearEditReviewButton.hidden = true;
+    closeEditReviewSearch(false);
+    chooseEditReviewButton.focus();
   });
 }
 
