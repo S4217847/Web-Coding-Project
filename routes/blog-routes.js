@@ -2,6 +2,8 @@ const express = require("express");
 const mongoose = require("mongoose");
 const { Blog, BlogComment } = require("../models/blog");
 
+const { relatedOptions, validateRelated, relatedResponse } = require("./blog-related");
+
 const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
 const DEFAULT_IMAGE = "/images/image-for-blog.png";
 const BLOG_CATEGORIES = ["Academic", "Events", "Student Life", "Technology", "Other"];
@@ -22,6 +24,10 @@ function createBlogRouter({ getCurrentUser }) {
     }
   );
 
+  router.get("/related-options", requireUser, asyncRoute(async (request, response) => {
+    response.json(await relatedOptions());
+  }));
+
   router.param("id", (request, response, next, id) => {
     if (!mongoose.isObjectIdOrHexString(id)) {
       return response.status(400).json({ error: "Invalid blog ID." });
@@ -40,17 +46,18 @@ function createBlogRouter({ getCurrentUser }) {
       return response.status(404).json({ error: "Blog not found." });
     }
     const comments = await BlogComment.find({ blogId: blog._id, deletedAt: null }).populate("authorId", AUTHOR_FIELDS).sort({ createdAt: 1 });
-    response.json(toBlogResponse(blog, comments));
+    response.json({ ...toBlogResponse(blog, comments), ...await relatedResponse(blog) });
   }));
 
   router.post("/", requireUser, asyncRoute(async (request, response) => {
-    const errors = validateBlog(request.body ?? {});
+    const related = await validateRelated(request.body ?? {});
+    const errors = { ...validateBlog(request.body ?? {}), ...related.errors };
     if (Object.keys(errors).length) {
       return response.status(400).json({ errors });
     }
 
     const blog = await Blog.create({
-      ...cleanBlogInput(request.body), authorId: request.currentUser.id,
+      ...cleanBlogInput(request.body), ...related.values, authorId: request.currentUser.id,
     });
     await blog.populate("authorId", AUTHOR_FIELDS);
     response.status(201).json(toBlogResponse(blog));
@@ -65,13 +72,14 @@ function createBlogRouter({ getCurrentUser }) {
       return response.status(403).json({ error: "You can edit only your own blogs." });
     }
 
-    const errors = validateBlog(request.body ?? {});
+    const related = await validateRelated(request.body ?? {}, existingBlog);
+    const errors = { ...validateBlog(request.body ?? {}), ...related.errors };
     if (Object.keys(errors).length) {
       return response.status(400).json({ errors });
     }
     const blog = await Blog.findOneAndUpdate(
       { _id: request.params.id, authorId: request.currentUser.id, deletedAt: null },
-      { $set: cleanBlogInput(request.body) },
+      { $set: { ...cleanBlogInput(request.body), ...related.values } },
       { returnDocument: "after", runValidators: true }
     ).populate("authorId", AUTHOR_FIELDS);
     if (!blog) {
@@ -202,6 +210,8 @@ function toBlogResponse(blog, comments = []) {
   
   return {
     id: String(blog.id),
+    reviewId: blog.reviewId ? String(blog.reviewId) : null,
+    productId: blog.productId ? String(blog.productId) : null,
     title: String(blog.title),
     category: String(blog.category),
     tags: blog.tags.map((tag) => String(tag)),
