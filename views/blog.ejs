@@ -125,6 +125,17 @@
           ></textarea>
           <small class="field-error" id="blog-content-error" aria-live="polite"></small>
 
+          <fieldset class="blog-related-fields">
+            <legend>Related content (optional)</legend>
+            <label for="blog-reviewId">Rating and Review</label>
+            <select class="article-input" id="blog-reviewId" name="reviewId" aria-describedby="blog-reviewId-error"><option value="">No related review</option></select>
+            <small class="field-error" id="blog-reviewId-error" aria-live="polite"></small>
+            <label for="blog-productId">Wishlist product or activity</label>
+            <select class="article-input" id="blog-productId" name="productId" aria-describedby="blog-productId-error"><option value="">No related product</option></select>
+            <small class="field-error" id="blog-productId-error" aria-live="polite"></small>
+            <p id="blog-related-options-status" role="status"></p>
+            <button id="blog-related-retry" type="button" hidden>Retry loading choices</button>
+          </fieldset>
           <div class="articlefooter">
             <div>
               <input
