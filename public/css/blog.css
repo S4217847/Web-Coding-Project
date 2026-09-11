@@ -728,3 +728,11 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+.blog-related-fields { min-width: 0; margin: 1rem 0; padding: 1rem; border: 1px solid #ccc; border-radius: 8px; }
+.blog-related-fields select { width: 100%; max-width: 100%; }
+.blog-related-content { display: grid; gap: 1rem; margin: 1.5rem 0; }
+.blog-related-content[hidden] { display: none; }
+.blog-related-card { min-width: 0; padding: 1rem; border: 1px solid #ccc; border-radius: 8px; overflow-wrap: anywhere; }
+.blog-related-card img { display: block; width: 100%; max-width: 260px; height: auto; border-radius: 6px; margin: .75rem 0; }
+.blog-related-card button, .blog-related-card a { margin: .5rem .75rem .5rem 0; }
