@@ -64,6 +64,8 @@ async function setupBlogList() {
     form.addEventListener("input", validateAndSaveDraft);
     form.addEventListener("change", validateAndSaveDraft);
     document.querySelector("#cancel-edit").addEventListener("click", cancelEdit);
+    await loadRelatedOptions(form);
+    document.querySelector("#blog-related-retry").addEventListener("click", () => loadRelatedOptions(form));
     restoreDraft(form);
   }
 
@@ -223,6 +225,10 @@ async function saveBlog(event) {
       tags: parseTags(form.elements.tags.value),
       content: form.elements.content.value.trim(),
       image: file ? await readImage(file) : oldBlog?.image || "",
+      ...(form.dataset.relatedReady === "true" ? {
+        reviewId: form.elements.reviewId.value || null,
+        productId: form.elements.productId.value || null,
+      } : {}),
     };
 
     const saved = await requestJson(blogId ? `${BLOG_API}/${encodeURIComponent(blogId)}` : BLOG_API, {
@@ -266,6 +272,8 @@ function startEdit(id) {
   form.elements.category.value = blog.category;
   form.elements.tags.value = Array.isArray(blog.tags) ? blog.tags.join(", ") : "";
   form.elements.content.value = blog.content;
+  setRelatedSelection(form, "reviewId", blog.reviewId);
+  setRelatedSelection(form, "productId", blog.productId);
   restoreDraft(form);
   showBlogErrors(validateBlogForm(form));
   form.querySelector(".articlebtn").textContent = "Update";
@@ -355,6 +363,7 @@ async function setupBlogDetails() {
       document.querySelector("#detail-delete").addEventListener("click", () => deleteBlog(blog.id));
     }
 
+    renderRelatedContent(blog);
     detailComments = Array.isArray(blog.comments) ? blog.comments : [];
     displayComments(detailComments);
   } catch (error) {
@@ -464,6 +473,8 @@ function showBlogErrors(errors) {
     tags: "blog-tags",
     content: "blog-content",
     image: "imageUpload",
+    reviewId: "blog-reviewId",
+    productId: "blog-productId",
   };
 
   Object.entries(fieldIds).forEach(([name, fieldId]) => {
@@ -489,6 +500,8 @@ function focusFirstInvalidField(errors) {
     tags: "blog-tags",
     content: "blog-content",
     image: "imageUpload",
+    reviewId: "blog-reviewId",
+    productId: "blog-productId",
   };
   if (ids[first]) document.querySelector(`#${ids[first]}`).focus();
 }
@@ -512,6 +525,8 @@ function saveDraft(form) {
       category: form.elements.category.value,
       tags: form.elements.tags.value,
       content: form.elements.content.value,
+      reviewId: form.elements.reviewId.value,
+      productId: form.elements.productId.value,
     }));
   } catch {
     // Draft storage is optional; the form remains usable when storage is unavailable.
@@ -524,6 +539,7 @@ function restoreDraft(form) {
   try {
     const draft = JSON.parse(localStorage.getItem(key) || "null");
     if (!draft || typeof draft !== "object") return;
+    ["reviewId", "productId"].forEach(field => { if (typeof draft[field] === "string") setRelatedSelection(form, field, draft[field]); });
     ["title", "category", "tags", "content"].forEach((field) => {
       if (typeof draft[field] === "string") form.elements[field].value = draft[field];
     });
@@ -583,9 +599,10 @@ async function requestJson(url, options = {}) {
   }
 
   if (!response.ok) {
-    const message = data?.error || (data?.errors ? "Please correct the highlighted fields." : `Request failed (${response.status}).`);
+    const message = (typeof data?.error === "string" ? data.error : data?.error?.message) || (data?.errors ? "Please correct the highlighted fields." : `Request failed (${response.status}).`);
     const error = new Error(message);
     error.data = data;
+    error.status = response.status;
     throw error;
   }
   return data;
@@ -633,4 +650,102 @@ function safeImageSource(value) {
   if (/^\/images\/[\w.-]+$/i.test(value)) return value;
   if (/^data:image\/(png|jpeg|gif|webp);base64,[a-z0-9+/=]+$/i.test(value)) return value;
   return DEFAULT_BLOG_IMAGE;
+}
+
+function setRelatedSelection(form, field, value) {
+  const select = form.elements[field];
+  const id = value || "";
+  if (id && !Array.from(select.options).some(option => option.value === id)) {
+    select.add(new Option("Previously selected item (unavailable; keep or remove)", id));
+  }
+  select.value = id;
+}
+
+async function loadRelatedOptions(form) {
+  const fields = ["reviewId", "productId"];
+  const previous = fields.map(field => form.elements[field].value);
+  const status = document.querySelector("#blog-related-options-status");
+  const retry = document.querySelector("#blog-related-retry");
+  form.dataset.relatedReady = "false";
+  fields.forEach(field => { form.elements[field].disabled = true; });
+  retry.hidden = true;
+  try {
+    const options = await requestJson(`${BLOG_API}/related-options`);
+    fields.forEach((field, index) => {
+      const select = form.elements[field];
+      select.replaceChildren(new Option(field === "reviewId" ? "No related review" : "No related product", ""));
+      for (const item of options[field === "reviewId" ? "reviews" : "products"]) select.add(new Option(item.label, item.id));
+      setRelatedSelection(form, field, previous[index]);
+      select.disabled = false;
+    });
+    form.dataset.relatedReady = "true";
+    setStatus(status, "Choose related content, or leave these fields empty.");
+  } catch {
+    setStatus(status, "Choices could not be loaded. You can still save the post; existing links will be kept.", "error");
+    retry.hidden = false;
+  }
+}
+
+function renderRelatedContent(blog) {
+  const section = document.querySelector("#blog-related-content");
+  section.replaceChildren();
+  section.hidden = !blog.reviewId && !blog.productId;
+  if (section.hidden) return;
+  section.append(textElement("h2", "", "Related content"));
+  if (blog.reviewId) {
+    const card = textElement("div", "blog-related-card", "");
+    const review = blog.relatedReview;
+    card.append(textElement("h3", "", "Rating and Review"));
+    if (review) {
+      card.append(textElement("p", "", `${review.courseCode} - ${review.title}`));
+      card.append(textElement("p", "", `Rating: ${review.rating}/5`));
+      const link = textElement("a", "btn", "Read review");
+      link.href = review.href;
+      card.append(link);
+    } else card.append(textElement("p", "", "This review is no longer available."));
+    section.append(card);
+  }
+  if (blog.productId) {
+    const card = textElement("div", "blog-related-card", "");
+    const product = blog.relatedProduct;
+    card.append(textElement("h3", "", "Wishlist product or activity"));
+    if (!product) card.append(textElement("p", "", "This product is no longer available."));
+    else {
+      card.append(textElement("p", "", product.name));
+      const img = document.createElement("img");
+      img.src = safeImageSource(product.image);
+      img.alt = product.imageAlt || product.name;
+      card.append(img, textElement("p", "", `${Number(product.priceVnd).toLocaleString("en-AU")} VND`));
+      const status = textElement("p", "", "");
+      status.setAttribute("role", "status");
+      if (!currentUser) {
+        const login = textElement("a", "btn", "Log in to add to Wishlist");
+        login.href = "/login.html";
+        card.append(login);
+      } else {
+        const button = textElement("button", "btn", "Add to Wishlist");
+        button.type = "button";
+        button.addEventListener("click", async () => {
+          button.disabled = true;
+          setStatus(status, "Adding to Wishlist...");
+          try {
+            await requestJson("/api/wishlist", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ productId: product.slug }),
+            });
+            setStatus(status, "Added to your Wishlist.", "success");
+            button.textContent = "Added";
+          } catch (error) {
+            setStatus(status, error.status === 401 ? "Your session expired. Log in and try again." : error.message, "error");
+            button.disabled = false;
+          }
+        });
+        card.append(button);
+      }
+      const wishlist = textElement("a", "", "Open Wishlist");
+      wishlist.href = "/wishlist";
+      card.append(wishlist, status);
+    }
+    section.append(card);
+  }
 }
