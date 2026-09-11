@@ -701,6 +701,164 @@ test("Forum returns meaningful status codes and preserves owned CRUD", async () 
   }
 });
 
+test("Forum pages exclude large image data and serve each image separately", async (context) => {
+  const dat = new BrowserSession();
+  const login = await dat.login("dat.pham", "ConnectDemo!26");
+  const sampleImage = fs.readFileSync(
+    path.join(__dirname, "..", "public", "images", "peer-workshop.jpg"),
+  );
+  // Two files below 2 MB still exceed 4.5 MB when combined as Base64.
+  const imageBytes = Buffer.concat([
+    sampleImage,
+    Buffer.alloc(1900000 - sampleImage.length),
+  ]);
+  const image = "data:image/jpeg;base64," + imageBytes.toString("base64");
+  const discussions = [];
+  const previousDebug = mongoose.get("debug");
+  let reply;
+
+  try {
+    for (let i = 0; i < 2; i += 1) {
+      discussions.push(await Discussion.create({
+        title: "Separate image test " + i,
+        content: "The text must load without waiting for this large image.",
+        image,
+        authorId: login.data.user.id,
+      }));
+    }
+    reply = await Reply.create({
+      title: "Separate reply image",
+      content: "Replies must not add Base64 data to the page either.",
+      image,
+      authorId: login.data.user.id,
+      discussionId: discussions[0]._id,
+    });
+    const discussionPath = "/discussions/" + discussions[0]._id;
+    const replyPath = discussionPath + "/replies/" + reply._id;
+    const pageQueries = [];
+    mongoose.set("debug", (collection, method, _query, options) => {
+      if (["discussions", "replies"].includes(collection) &&
+          ["find", "findOne"].includes(method)) {
+        pageQueries.push({ collection, projection: options?.projection });
+      }
+    });
+
+    for (const route of [
+      "/discussions", discussionPath, discussionPath + "/edit",
+      replyPath + "/edit", "/sitemap",
+    ]) {
+      const response = await dat.request(route);
+      assert.equal(response.status, 200, route);
+      const html = await response.text();
+      assert.ok(Buffer.byteLength(html) < 200000, route + " stays below 200 KB");
+      assert.ok(!html.includes(image), route + " excludes the large image");
+      if (route === "/discussions" || route === discussionPath) {
+        assert.ok(html.includes('src="' + discussionPath + '/image"'));
+      }
+      if (route === discussionPath) {
+        assert.ok(html.includes('src="' + replyPath + '/image"'));
+      }
+      context.diagnostic(route + " HTML: " + Buffer.byteLength(html) + " bytes");
+    }
+    mongoose.set("debug", previousDebug || false);
+    assert.ok(pageQueries.length >= 9);
+    for (const query of pageQueries) {
+      assert.equal(query.projection?.image, 0, "exclude images at the database query");
+    }
+
+    for (const route of [discussionPath + "/image", replyPath + "/image"]) {
+      const response = await dat.request(route);
+      assert.equal(response.status, 200, route);
+      assert.equal(response.headers.get("content-type"), "image/jpeg");
+      assert.equal(response.headers.get("cache-control"), "private, no-store");
+      assert.deepEqual(Buffer.from(await response.arrayBuffer()), imageBytes);
+    }
+    assert.equal((await Discussion.findById(discussions[0]._id)).image, image);
+    assert.equal((await Reply.findById(reply._id)).image, image);
+
+    const editForm = new FormData();
+    editForm.append("postTitle", "Separate image test updated");
+    editForm.append("postContent", "Editing text must keep the original Base64 image.");
+    assert.equal((await dat.request(discussionPath + "/edit", {
+      method: "POST", body: editForm, redirect: "manual",
+    })).status, 302);
+    assert.equal((await Discussion.findById(discussions[0]._id)).image, image);
+  } finally {
+    mongoose.set("debug", previousDebug || false);
+    if (reply) await Reply.deleteOne({ _id: reply._id });
+    for (const discussion of discussions) {
+      await Discussion.deleteOne({ _id: discussion._id });
+    }
+  }
+});
+
+test("Forum image routes protect deleted data and retain existing file URLs", async () => {
+  const dat = new BrowserSession();
+  const login = await dat.login("dat.pham", "ConnectDemo!26");
+  const pngBytes = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",
+    "base64",
+  );
+  const discussion = await Discussion.create({
+    title: "Image access test", content: "Check image access.",
+    image: "data:image/png;base64," + pngBytes.toString("base64"),
+    authorId: login.data.user.id,
+  });
+  let reply;
+  try {
+    reply = await Reply.create({
+      title: "Image access reply", content: "Check reply image access.",
+      image: "/images/peer-workshop.jpg",
+      authorId: login.data.user.id, discussionId: discussion._id,
+    });
+    const discussionImagePath = "/discussions/" + discussion._id + "/image";
+    const replyImagePath = "/discussions/" + discussion._id + "/replies/" + reply._id + "/image";
+    for (const route of [discussionImagePath, replyImagePath]) {
+      const response = await fetch(baseUrl + route, { redirect: "manual" });
+      assert.equal(response.status, 302);
+      assert.match(response.headers.get("location"), /^\/login\.html/);
+    }
+    const png = await dat.request(discussionImagePath);
+    assert.equal(png.status, 200);
+    assert.equal(png.headers.get("content-type"), "image/png");
+    assert.deepEqual(Buffer.from(await png.arrayBuffer()), pngBytes);
+
+    const oldFile = await dat.request(replyImagePath, { redirect: "manual" });
+    assert.equal(oldFile.status, 302);
+    assert.equal(oldFile.headers.get("location"), reply.image);
+    assert.equal((await dat.request(replyImagePath)).status, 200);
+    for (const route of [
+      "/discussions/not-an-id/image",
+      "/discussions/000000000000000000000000/image",
+      "/discussions/" + discussion._id + "/replies/not-an-id/image",
+    ]) {
+      assert.equal((await dat.request(route)).status, 404, route);
+    }
+    const otherDiscussion = await Discussion.findOne({ _id: { $ne: discussion._id }, deletedAt: null });
+    const wrongParentPath = "/discussions/" + otherDiscussion._id + "/replies/" + reply._id + "/image";
+    assert.equal((await dat.request(wrongParentPath)).status, 404);
+
+    for (const invalidImage of ["https://example.org/image.jpg", "/uploads/../index.js", "data:text/html;base64,PHNjcmlwdD4="]) {
+      await Reply.updateOne({ _id: reply._id }, { image: invalidImage });
+      assert.equal((await dat.request(replyImagePath, { redirect: "manual" })).status, 404);
+    }
+    await Reply.updateOne({ _id: reply._id }, { image: "/uploads/local-image.jpg" });
+    const localFile = await dat.request(replyImagePath, { redirect: "manual" });
+    assert.equal(localFile.status, 302);
+    assert.equal(localFile.headers.get("location"), "/uploads/local-image.jpg");
+
+    await Reply.updateOne({ _id: reply._id }, { deletedAt: new Date() });
+    assert.equal((await dat.request(replyImagePath)).status, 404);
+    await Reply.updateOne({ _id: reply._id }, { deletedAt: null });
+    await Discussion.updateOne({ _id: discussion._id }, { deletedAt: new Date() });
+    assert.equal((await dat.request(discussionImagePath)).status, 404);
+    assert.equal((await dat.request(replyImagePath)).status, 404);
+  } finally {
+    if (reply) await Reply.deleteOne({ _id: reply._id });
+    await Discussion.deleteOne({ _id: discussion._id });
+  }
+});
+
 test("Forum preserves unavailable Product links and rejects invalid choices", async () => {
   const dat = new BrowserSession();
   await dat.login("dat.pham", "ConnectDemo!26");

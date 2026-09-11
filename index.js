@@ -165,7 +165,7 @@ async function showSitemap(request, response) {
   const currentUser = await getCurrentUser(request);
   const activeDiscussions = await Discussion.find({
     deletedAt: null,
-  });
+  }).select("-image");
 
   const activeDiscussionIds = [];
 
@@ -176,7 +176,7 @@ async function showSitemap(request, response) {
   const activeReplies = await Reply.find({
     discussionId: { $in: activeDiscussionIds },
     deletedAt: null,
-  });
+  }).select("-image");
   const reviews = await Review.find().sort({ createdAt: -1 });
   const databaseBlogs = await Blog.find({ deletedAt: null })
     .select("_id title")
@@ -272,12 +272,12 @@ async function findReviewByDatabaseId(reviewId) {
   return Review.findById(reviewId).select("_id id courseCode title");
 }
 
-async function findActiveDiscussion(discussionId) {
+async function findActiveDiscussion(discussionId, selectedFields = "") {
   if (!isValidDatabaseId(discussionId)) {
     return null;
   }
 
-  const discussion = await Discussion.findById(discussionId);
+  const discussion = await Discussion.findById(discussionId).select(selectedFields);
 
   if (!discussion || discussion.deletedAt !== null) {
     return null;
@@ -286,12 +286,12 @@ async function findActiveDiscussion(discussionId) {
   return discussion;
 }
 
-async function findActiveReply(replyId, discussionId) {
+async function findActiveReply(replyId, discussionId, selectedFields = "") {
   if (!isValidDatabaseId(replyId)) {
     return null;
   }
 
-  const reply = await Reply.findById(replyId);
+  const reply = await Reply.findById(replyId).select(selectedFields);
 
   if (
     !reply ||
@@ -302,6 +302,75 @@ async function findActiveReply(replyId, discussionId) {
   }
 
   return reply;
+}
+
+// Send one image separately, so its Base64 data is not part of the page HTML.
+function sendForumImage(response, image) {
+  response.set("Cache-Control", "private, no-store");
+
+  if (typeof image !== "string") {
+    response.status(404).send("Image not found.");
+    return;
+  }
+
+  const imageData = image.match(
+    /^data:(image\/(?:jpeg|png));base64,([a-zA-Z0-9+/]+={0,2})$/,
+  );
+
+  if (imageData) {
+    response.type(imageData[1]).send(Buffer.from(imageData[2], "base64"));
+    return;
+  }
+
+  // Older sample images and local uploads already have a separate file URL.
+  if (
+    /^\/(?:images|uploads)\/[a-zA-Z0-9/_.-]+$/.test(image) &&
+    !image.split("/").includes("..")
+  ) {
+    response.redirect(image);
+    return;
+  }
+
+  response.status(404).send("Image not found.");
+}
+
+async function showDiscussionImage(request, response) {
+  const discussion = await findActiveDiscussion(
+    request.params.id,
+    "image deletedAt",
+  );
+
+  if (!discussion) {
+    response.status(404).send("Discussion not found.");
+    return;
+  }
+
+  sendForumImage(response, discussion.image);
+}
+
+async function showReplyImage(request, response) {
+  const discussion = await findActiveDiscussion(
+    request.params.id,
+    "deletedAt",
+  );
+
+  if (!discussion) {
+    response.status(404).send("Discussion not found.");
+    return;
+  }
+
+  const reply = await findActiveReply(
+    request.params.replyId,
+    discussion._id,
+    "image discussionId deletedAt",
+  );
+
+  if (!reply) {
+    response.status(404).send("Reply not found.");
+    return;
+  }
+
+  sendForumImage(response, reply.image);
 }
 
 // Show all active discussions.
@@ -356,7 +425,7 @@ async function showDiscussions(request, response) {
     discussionQuery.productId = selectedProduct._id;
   }
 
-  const activeDiscussions = await Discussion.find(discussionQuery);
+  const activeDiscussions = await Discussion.find(discussionQuery).select("-image");
 
   const discussionIds = [];
   const discussionAuthorIds = [];
@@ -369,7 +438,7 @@ async function showDiscussions(request, response) {
   const activeReplies = await Reply.find({
     discussionId: { $in: discussionIds },
     deletedAt: null,
-  });
+  }).select("-image");
 
   const forumUsers = await User.find({
     _id: { $in: discussionAuthorIds },
@@ -474,7 +543,7 @@ async function showDiscussionDetail(request, response) {
     return;
   }
 
-  const discussion = await findActiveDiscussion(request.params.id);
+  const discussion = await findActiveDiscussion(request.params.id, "-image");
 
   if (!discussion) {
     response.status(404).send("Discussion not found.");
@@ -501,7 +570,7 @@ async function showDiscussionDetail(request, response) {
   const discussionReplies = await Reply.find({
     discussionId: discussion._id,
     deletedAt: null,
-  });
+  }).select("-image");
 
   const forumUserIds = [discussion.authorId];
 
@@ -588,7 +657,7 @@ async function showEditDiscussion(request, response) {
     return;
   }
 
-  const discussion = await findActiveDiscussion(request.params.id);
+  const discussion = await findActiveDiscussion(request.params.id, "-image");
 
   if (!discussion) {
     response.status(404).send("Discussion not found.");
@@ -1077,6 +1146,7 @@ async function showEditReply(request, response) {
   const reply = await findActiveReply(
     request.params.replyId,
     request.params.id,
+    "-image",
   );
 
   if (!reply) {
@@ -1089,7 +1159,7 @@ async function showEditReply(request, response) {
     return;
   }
 
-  const discussion = await findActiveDiscussion(request.params.id);
+  const discussion = await findActiveDiscussion(request.params.id, "-image");
 
   if (!discussion) {
     response.status(404).send("Discussion not found.");
@@ -1869,6 +1939,12 @@ registerBlogApi(app, {
 app.get("/", showHome);
 app.get("/sitemap", showSitemap);
 app.get("/discussions", showDiscussions);
+app.get("/discussions/:id/image", requireForumLogin, showDiscussionImage);
+app.get(
+  "/discussions/:id/replies/:replyId/image",
+  requireForumLogin,
+  showReplyImage,
+);
 app.get("/discussions/:id/edit", showEditDiscussion);
 app.get("/discussions/:id/replies/:replyId/edit", showEditReply);
 app.get("/discussions/:id", showDiscussionDetail);
