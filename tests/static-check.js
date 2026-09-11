@@ -126,7 +126,8 @@ for (const fragment of [
   'Cache-Control',
   '/review/review-detail.html',
   'Number.isInteger(rating)',
-  'module.exports = { app, prepareApp, startServer }',
+  'module.exports = vercelHandler',
+  'module.exports.app = app',
 ]) {
   if (!indexSource.includes(fragment)) fail(`index.js: missing ${fragment}`);
 }

@@ -13,7 +13,7 @@ const { Discussion } = require("./models/discussion");
 const { Reply } = require("./models/reply");
 const { Review } = require("./models/review");
 const { Product } = require("./models/product");
-const { upload, validateForumImage } = require("./upload");
+const { upload, validateForumImage, forumImageDataUrl } = require("./upload");
 const { Blog } = require("./models/blog");
 const { registerBlogApi } = require("./routes/register-blog-api");
 let accountRepository = null;
@@ -206,11 +206,15 @@ function getTrimmedFormText(value) {
 }
 
 async function removeUploadedForumImage(uploadedFile) {
-  if (!uploadedFile) {
-    return;
+  if (uploadedFile?.path) {
+    await fs.unlink(uploadedFile.path);
   }
+}
 
-  await fs.unlink(uploadedFile.path);
+function redirectAfterForumMutation(response, location) {
+  // Vercel preserves POST for its serverless redirect path, so explicitly
+  // switch to GET there. Existing local browser behaviour remains unchanged.
+  response.redirect(process.env.VERCEL === "1" ? 303 : 302, location);
 }
 
 async function requireForumLogin(request, response, next) {
@@ -694,9 +698,7 @@ async function getBlogCurrentUser(request) {
 async function createDiscussion(request, response) {
   const postTitle = getTrimmedFormText(request.body.postTitle);
   const postContent = getTrimmedFormText(request.body.postContent);
-  const postImage = request.file
-    ? "/uploads/" + request.file.filename
-    : null;
+  const postImage = forumImageDataUrl(request.file);
 
   if (postTitle === "" || postTitle.length > 100) {
     await removeUploadedForumImage(request.file);
@@ -814,7 +816,8 @@ async function createDiscussion(request, response) {
   );
 
   request.session.clearDiscussionDraft = true;
-  response.redirect(
+  redirectAfterForumMutation(
+    response,
     relatedProduct
       ? "/discussions?product=" + encodeURIComponent(relatedProduct.slug)
       : "/discussions",
@@ -862,7 +865,7 @@ async function updateDiscussion(request, response) {
   let postImage = discussion.image;
 
   if (request.file) {
-    postImage = "/uploads/" + request.file.filename;
+    postImage = forumImageDataUrl(request.file);
   }
 
   if (postTitle === "" || postTitle.length > 100) {
@@ -992,7 +995,7 @@ async function updateDiscussion(request, response) {
     },
   );
 
-  response.redirect("/discussions/" + discussion._id);
+  redirectAfterForumMutation(response, "/discussions/" + discussion._id);
 }
 
 // Soft delete the selected discussion post
@@ -1052,7 +1055,7 @@ async function deleteDiscussion(request, response) {
   );
 
   request.session.discussionMessage = "Post deleted successfully.";
-  response.redirect("/discussions");
+  redirectAfterForumMutation(response, "/discussions");
 }
 
 // Show the edit page for a reply written by the current user.
@@ -1104,9 +1107,7 @@ async function showEditReply(request, response) {
 async function createReply(request, response) {
   const replyTitle = getTrimmedFormText(request.body.replyTitle);
   const replyContent = getTrimmedFormText(request.body.replyContent);
-  const replyImage = request.file
-    ? "/uploads/" + request.file.filename
-    : null;
+  const replyImage = forumImageDataUrl(request.file);
 
   if (replyTitle === "" || replyTitle.length > 100) {
     await removeUploadedForumImage(request.file);
@@ -1183,7 +1184,7 @@ async function createReply(request, response) {
     },
   );
 
-  response.redirect("/discussions/" + discussion._id);
+  redirectAfterForumMutation(response, "/discussions/" + discussion._id);
 }
 
 // Save changes to a reply written by the current user.
@@ -1258,7 +1259,7 @@ async function updateReply(request, response) {
   let replyImage = reply.image;
 
   if (request.file) {
-    replyImage = "/uploads/" + request.file.filename;
+    replyImage = forumImageDataUrl(request.file);
   }
 
   if (!replyImage) {
@@ -1299,7 +1300,7 @@ async function updateReply(request, response) {
     },
   );
 
-  response.redirect("/discussions/" + request.params.id);
+  redirectAfterForumMutation(response, "/discussions/" + request.params.id);
 }
 
 // Soft delete a reply written by the current user.
@@ -2090,4 +2091,19 @@ if (require.main === module) {
   });
 }
 
-module.exports = { app, prepareApp, startServer };
+/*
+ * Vercel invokes the module's default CommonJS export as the serverless
+ * function.  Export a request handler (rather than an object) and retain the
+ * named helpers as properties so the local server and test suite keep their
+ * existing API.
+ */
+async function vercelHandler(request, response) {
+  await prepareApp();
+  await connectDatabase();
+  return app(request, response);
+}
+
+module.exports = vercelHandler;
+module.exports.app = app;
+module.exports.prepareApp = prepareApp;
+module.exports.startServer = startServer;
