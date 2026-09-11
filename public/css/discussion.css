@@ -96,6 +96,12 @@
   display: none;
 }
 
+.image-size-note {
+  color: #cc0000;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
 .postbox label {
   display: block;
   font-size: 14px;
@@ -166,29 +172,6 @@
 .eventdate {
   color: #e60028;
   font-weight: bold;
-}
-
-.frienditem {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.frienditem:last-child {
-  margin-bottom: 0;
-}
-
-.friendavatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background-color: #000054;
-  flex-shrink: 0;
-}
-
-.friendname {
-  font-size: 13px;
 }
 
 /* ------------------ Discussion Forum ------------------ */

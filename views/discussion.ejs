@@ -127,6 +127,8 @@
             required
           />
 
+          <p class="image-size-note">Images of 200 KB or less are recommended for faster loading.</p>
+
           <div class="error" id="image-error-text"></div>
 
           <label for="post-content">Post content</label>
@@ -419,7 +421,7 @@
 
               <img
                 class="post-image"
-                src="<%= discussion.image %>"
+                src="/discussions/<%= discussion._id %>/image"
                 alt="<%= discussion.title %>"
               />
 
@@ -439,31 +441,10 @@
         <div class="itembar">
           <div class="itemtitle">Upcoming Events</div>
           <div class="eventitem">
-            <span class="eventdate">Jul #</span> - Coding Contest
-          </div>
-          <div class="eventitem">
-            <span class="eventdate">Jul #</span> - Something Contest
-          </div>
-          <div class="eventitem">
-            <span class="eventdate">Jul #</span> - Contest Contest
+            <span class="eventdate">Sep 16</span> - Web Programming Studio Final Test
           </div>
         </div>
 
-        <div class="itembar">
-          <div class="itemtitle">Friends Online</div>
-          <div class="frienditem">
-            <div class="friendavatar"></div>
-            <div class="friendname">Kim</div>
-          </div>
-          <div class="frienditem">
-            <div class="friendavatar"></div>
-            <div class="friendname">Dat</div>
-          </div>
-          <div class="frienditem">
-            <div class="friendavatar"></div>
-            <div class="friendname">Jay Nguyen</div>
-          </div>
-        </div>
       </div>
     </main>
     <script src="/js/discussion.js"></script>
