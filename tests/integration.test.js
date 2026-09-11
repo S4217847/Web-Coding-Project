@@ -364,6 +364,105 @@ test("Blog supports validated, owned CRUD, comments, and documented image sizes"
   assert.ok(!(await list.json()).some((item) => item.id === created.id));
 });
 
+test("Blog links MongoDB Reviews and Products to the shared Wishlist", async () => {
+  const { WishlistEntry } = require("../models/wishlist-entry");
+  const dat = new BrowserSession();
+  const jay = new BrowserSession();
+  const login = await dat.login("dat.pham", "ConnectDemo!26");
+  const jayLogin = await jay.login("jay.nguyen", "StudentDemo!26");
+  const suffix = new mongoose.Types.ObjectId().toString();
+  let product;
+  let review;
+  let blogId;
+  const input = {
+    title: "Blog related content integration",
+    category: "Academic", tags: ["integration"],
+    content: "This Blog verifies related Reviews and the shared Wishlist workflow.",
+    image: "",
+  };
+  try {
+    product = await Product.create({
+      slug: `blog-links-${suffix}`, name: "Blog related workshop",
+      category: "Workshop", description: "A temporary workshop for Blog relationship tests.",
+      priceVnd: 30000, image: "/images/peer-workshop.jpg",
+      imageAlt: "Students at a coding workshop", isActive: true,
+    });
+    const highestReview = await Review.findOne().sort({ id: -1 }).select("id");
+    review = await Review.create({
+      id: (highestReview?.id || 0) + 1, userId: login.data.user.id,
+      courseCode: "COSC1076", title: "Blog linked course review",
+      description: "This temporary course review verifies the Blog relationship.",
+      rating: 4, reviewerName: login.data.user.name || "Dat Pham",
+    });
+    const links = { reviewId: String(review._id), productId: String(product._id) };
+    assert.equal((await fetch(baseUrl + "/api/blogs/related-options")).status, 401);
+    const optionsResponse = await dat.request("/api/blogs/related-options");
+    assert.equal(optionsResponse.status, 200);
+    const options = await optionsResponse.json();
+    assert.ok(options.reviews.some(item => item.id === links.reviewId));
+    assert.ok(options.products.some(item => item.id === links.productId));
+
+    for (const field of ["reviewId", "productId"]) {
+      for (const invalid of ["invalid-id", String(new mongoose.Types.ObjectId())]) {
+        const rejected = await dat.request("/api/blogs", jsonRequest("POST", { ...input, [field]: invalid }));
+        assert.equal(rejected.status, 400);
+        assert.ok((await rejected.json()).errors[field]);
+      }
+    }
+    const created = await dat.request("/api/blogs", jsonRequest("POST", { ...input, ...links }));
+    assert.equal(created.status, 201);
+    blogId = (await created.json()).id;
+    const stored = await Blog.findById(blogId).lean();
+    assert.equal(String(stored.reviewId), links.reviewId);
+    assert.equal(String(stored.productId), links.productId);
+    const detailResponse = await dat.request(`/api/blogs/${blogId}`);
+    assert.equal(detailResponse.status, 200);
+    const detail = await detailResponse.json();
+    assert.equal(detail.relatedReview.href, `/reviews/${review.id}`);
+    assert.equal(detail.relatedProduct.slug, product.slug);
+    assert.equal((await dat.request(detail.relatedReview.href)).status, 200);
+
+    // Use the slug supplied by Blog, exactly as the Blog Wishlist button does.
+    const wishlistBody = jsonRequest("POST", { productId: detail.relatedProduct.slug });
+    assert.equal((await fetch(baseUrl + "/api/wishlist", wishlistBody)).status, 401);
+    assert.equal((await dat.request("/api/wishlist", wishlistBody)).status, 201);
+    assert.equal((await dat.request("/api/wishlist", wishlistBody)).status, 409);
+    assert.equal(await WishlistEntry.countDocuments({ userId: login.data.user.id, productId: product._id }), 1);
+    assert.equal(await WishlistEntry.countDocuments({ userId: jayLogin.data.user.id, productId: product._id }), 0);
+    assert.equal((await jay.request(`/api/blogs/${blogId}`, jsonRequest("PUT", { ...input, reviewId: null, productId: null }))).status, 403);
+
+    // Older clients that omit link fields must not silently clear them.
+    assert.equal((await dat.request(`/api/blogs/${blogId}`, jsonRequest("PUT", input))).status, 200);
+    const preserved = await Blog.findById(blogId).lean();
+    assert.equal(String(preserved.reviewId), links.reviewId);
+    assert.equal(String(preserved.productId), links.productId);
+    await Product.updateOne({ _id: product._id }, { $set: { isActive: false } });
+    await Review.deleteOne({ _id: review._id });
+    const unavailableOptions = await (await dat.request("/api/blogs/related-options")).json();
+    assert.ok(!unavailableOptions.products.some(item => item.id === links.productId));
+    assert.ok(!unavailableOptions.reviews.some(item => item.id === links.reviewId));
+    const unavailable = await (await dat.request(`/api/blogs/${blogId}`)).json();
+    assert.equal(unavailable.relatedReview, null);
+    assert.equal(unavailable.relatedProduct, null);
+    assert.equal(unavailable.reviewId, links.reviewId);
+    assert.equal(unavailable.productId, links.productId);
+    // Existing unavailable links may stay; a new Blog cannot select them.
+    assert.equal((await dat.request(`/api/blogs/${blogId}`, jsonRequest("PUT", { ...input, ...links }))).status, 200);
+    assert.equal((await dat.request("/api/blogs", jsonRequest("POST", { ...input, ...links }))).status, 400);
+    assert.equal((await dat.request(`/api/blogs/${blogId}`, jsonRequest("PUT", { ...input, reviewId: null, productId: null }))).status, 200);
+    const cleared = await Blog.findById(blogId).lean();
+    assert.equal(cleared.reviewId, null);
+    assert.equal(cleared.productId, null);
+  } finally {
+    if (blogId) await Blog.deleteOne({ _id: blogId });
+    if (product) {
+      await WishlistEntry.deleteMany({ productId: product._id });
+      await Product.deleteOne({ _id: product._id });
+    }
+    if (review) await Review.deleteOne({ _id: review._id });
+  }
+});
+
 test("Reviews derive identity and support validated course, image, and owned CRUD", async () => {
   const dat = new BrowserSession();
   const jay = new BrowserSession();
