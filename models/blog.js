@@ -14,6 +14,8 @@ const blogSchema = new mongoose.Schema({
     },
     content: { type: String, required: true, trim: true, minlength: 20, maxlength: 5000 },
     image: { type: String, required: true },
+    reviewId: { type: mongoose.Schema.Types.ObjectId, ref: 'Review', default: null },
+    productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', default: null },
     authorId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
