@@ -2090,4 +2090,19 @@ if (require.main === module) {
   });
 }
 
-module.exports = { app, prepareApp, startServer };
+/*
+ * Vercel invokes the module's default CommonJS export as the serverless
+ * function.  Export a request handler (rather than an object) and retain the
+ * named helpers as properties so the local server and test suite keep their
+ * existing API.
+ */
+async function vercelHandler(request, response) {
+  await prepareApp();
+  await connectDatabase();
+  return app(request, response);
+}
+
+module.exports = vercelHandler;
+module.exports.app = app;
+module.exports.prepareApp = prepareApp;
+module.exports.startServer = startServer;
