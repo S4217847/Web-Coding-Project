@@ -8,18 +8,19 @@ server-side validation, CRUD workflows, image uploads, and MongoDB persistence.
 Dat's latest supplied Assignment 3 work is integrated with the current server.
 It stores the shared Account, Administration, Wishlist, catalogue,
 purchase-history, and password-reset records in MongoDB. Kim's Forum stores its
-Discussions, Replies, and Ratings and Reviews in MongoDB and shares the same
-User records. The Blog module still uses its Assessment 2 in-memory store.
+Discussions and Replies in MongoDB and shares the same User records. Ratings
+and Reviews also uses MongoDB. The Blog module still uses its Assessment 2
+in-memory store.
 
 The active integration branch is `integrated-draft`. It should be tested through
 the Node server; opening HTML files directly or using VS Code Live Server will
 not run the EJS templates or APIs.
 
-As of 8 September 2026, the scoped Dat/Kim integration and the identified Forum
-and Reset Password fixes are complete in this working tree. All 47 automated
-tests passed. This is not a claim that hosting, other modules' persistence, or
-final submission preparation is complete. The latest changes have not been
-committed or pushed.
+As of 11 September 2026, the planned Forum changes include optional Product
+and Review links. These changes are recorded in commit `173370e` on
+`integrated-draft`. The latest root integration and Forum draft check passed
+all 31 tests. See Testing for the scope and earlier integration results.
+This does not confirm that hosting or final submission preparation is complete.
 
 - Source repository: <https://github.com/S4217847/Web-Coding-Project>
 - Live website: pending the team's hosting decision. Replace this line with the
@@ -167,6 +168,7 @@ remain usable.
 | Edit Profile             | `/editprofile.html`                      |
 | Administration           | `/admin.html`                            |
 | Discussion Forum         | `/discussions`                           |
+| Questions about an item  | `/discussions?product=:slug`             |
 | Discussion detail        | `/discussions/:id`                       |
 | Edit Discussion          | `/discussions/:id/edit`                  |
 | Edit Reply               | `/discussions/:id/replies/:replyId/edit` |
@@ -207,9 +209,12 @@ does not accept a client-selected user ID as authority.
 
 - **Discussion Forum:** MongoDB-backed Discussions and Replies, author-only
   editing and soft deletion, required JPEG and PNG image uploads, live form
-  validation, title and content filtering, newest and oldest sorting, and local
-  draft restoration for each signed-in account. A draft is kept if submission
-  fails and cleared only after the server saves the Discussion.
+  validation, title and content filtering, and newest and oldest sorting.
+  Users can independently connect one Product and one existing Review to a
+  Discussion. Product links lead to related questions and the matching Wishlist
+  item. Review links lead to the selected review's detail page. Account-specific
+  drafts restore the title, content, and both selections. A draft is kept if
+  submission fails and cleared only after the server saves the Discussion.
 - **Blog:** dynamic posts and comments, owner-only editing/deletion, live
   validation, category filtering, full-text search, sorting, per-user drafts,
   and optional image data.
@@ -252,6 +257,13 @@ store. Forum soft-deleted Discussions and Replies remain in MongoDB with
 deletion metadata but are excluded from normal pages. Avatar and Forum image
 files are still stored on local disk; MongoDB stores their public paths.
 
+Each Discussion also has optional `productId` and `reviewId` fields. Both use
+ObjectId references and default to `null`. A Discussion can select at most one
+Product and one Review. Multiple Discussions can reference the same Product
+or Review. These are independent relationships, not automatic Product-to-Review
+matching. `reviewId` stores `Review._id`; the existing `/reviews/:id` link uses
+the selected Review's numeric `id`.
+
 At startup, the known legacy Blog sample owner labels are matched to existing
 Users by the documented student IDs. The Review seed maps its known sample
 owners to those same MongoDB User ObjectIds and does not overwrite existing
@@ -273,6 +285,10 @@ through `connect-mongo`.
 - The identified Forum draft-isolation, premature draft-deletion, image-type,
   and stale Reset-link problems were fixed. The latest local checks passed;
   see the Testing section for their scope.
+- Forum users can search for a related Product or Review, select it, change it,
+  or remove the connection. Searching or canceling does not change the current
+  selection. Unavailable items do not produce active destination links, and
+  editing a Discussion can preserve its existing reference.
 - The selected Atlas database and existing User/Forum relationships were
   checked. Dat's missing sample data was added with approval. Atlas-backed
   browser checks covered Dat and Jay login/logout, account screens, Wishlist,
@@ -281,9 +297,10 @@ through `connect-mongo`.
 ### Separate follow-up work and current limits
 
 - **Forum queries:** title/content filtering and newest/oldest sorting work in
-  the browser. The server currently loads all active Discussions and their
-  active Replies for the list. Database-side filtering/sorting and additional
-  Forum compound indexes are not implemented yet.
+  the browser. The server filters Discussions by `productId` when a valid Product
+  is selected; otherwise it loads all active Discussions. It then loads their
+  active Replies. Database-side text filtering, date sorting, pagination, and
+  additional Forum compound indexes are not implemented yet.
 - **Forum ownership and deletion:** edit/delete database updates include the
   author and active-record conditions. Replies under deleted Discussions are
   hidden, and Reply routes check that the parent Discussion is active.
@@ -338,7 +355,39 @@ tests. Database tests use isolated temporary MongoDB instances. They do not
 read or alter the team Atlas database. A first run may need to download the
 MongoDB test binary.
 
-### Latest verification: 8 September 2026
+### Forum verification: 11 September 2026
+
+The root integration and Forum draft check passed on the Forum code now recorded
+in commit `173370e`:
+
+```powershell
+node --test tests/integration.test.js tests/forum-draft.test.js
+```
+
+- Root integration: 19 passed.
+- Forum drafts: 12 passed.
+- Total for this check: 31 passed, with no failures or skipped tests.
+- Static check: 26 active pages, 36 JavaScript files, and 11 stylesheets passed.
+
+The root suite includes shared-module checks as well as Forum checks. These 31
+tests are not an additional set to add to a full release-gate total. This check
+did not rerun the three separate Account suites listed below.
+
+Forum coverage includes Product and Review selection, draft restoration,
+explicit connection changes, invalid choices, and unavailable references.
+A deleted Review's numeric ID can be reused without connecting its old
+Discussion to the replacement Review. Draft tests check that removing an
+unavailable Review selection preserves the title, content, and Product selection.
+
+Manual checks confirmed selection, change, cancel, removal, and draft restoration
+in the temporary local demo. On the Atlas-connected local application, the two
+user-created Discussions were checked for the correct Review detail link,
+Product question list, and Wishlist item link. The reviewer did not create,
+edit, or delete Discussion or Reply records in Atlas. Automated test records
+were confined to temporary local databases. Repeat these checks on the hosted
+submission build.
+
+### Earlier integration verification: 8 September 2026
 
 `npm run check` passed on the current `integrated-draft` working tree after the
 Forum and Reset Password fixes:
@@ -404,10 +453,12 @@ For the final hosted build, manual browser verification should include:
   are removed before a Forum document is saved. This is not full image decoding
   or a malware scan. Forum files are stored in `public/uploads`, while MongoDB
   stores only their public paths.
-- Forum text drafts use account-specific `localStorage` keys. Old drafts with
-  no account ID are ignored rather than assigned to the next person who logs in.
-  Images are not stored in the draft. The server confirms a successful post
-  before the browser clears that account's draft.
+- Forum drafts store the title, content, Product slug, and Review ObjectId using
+  account-specific `localStorage` keys. Old drafts with no account ID are ignored
+  rather than assigned to the next person who logs in. An unavailable Review
+  selection is cleared without removing the other draft fields. Images are not
+  stored in the draft. The server confirms a successful post before the browser
+  clears that account's draft.
 - Password-reset records contain a SHA-256 token digest, not the usable token,
   and expire after 20 minutes. No email-delivery service is implemented.
   Local development shows a demonstration reset link. A public deployment must
@@ -469,9 +520,23 @@ Reviews persistence work is outside Dat's Assignment 3 scope.
 - Keep the existing image when editing without selecting a new file.
 - Filter by the original Discussion title or by Discussion and active Reply content.
 - Sort by the newest active Discussion or Reply, or by the oldest original Discussion.
-- Save a new Discussion text draft separately for each account in `localStorage`.
+- Save the new Discussion title, content, Product selection, and Review selection
+  separately for each account in `localStorage`.
 - Keep the draft after a failed submission and clear it only after the server
   confirms that the Discussion was saved.
+- Optionally connect one Product to a Discussion and browse questions about
+  that Product. Open its matching item in the existing Wishlist catalogue.
+- Optionally search existing Reviews by course code or title and select one
+  Review for a follow-up question. Open that selected review's detail page.
+- Keep Product and Review selections independent. No automatic matching is
+  performed between the two modules.
+- Use Choose, Change, Remove, and Cancel controls. Searching or canceling does
+  not change the current selection. Searches show up to eight matching results
+  and explain when more matches are available.
+- Validate related choices on the server. Preserve existing unavailable
+  references during editing unless the author removes or replaces them, and
+  hide links to unavailable targets. A reused Review number does not reconnect
+  the Discussion to a different Review.
 - Allow active logged-in authors to edit or delete only their own content.
 - Open the compact post form from the Start a discussion button.
 - Keep the Reply composer visible near the bottom of the Discussion detail page.
@@ -504,6 +569,7 @@ Reviews persistence work is outside Dat's Assignment 3 scope.
 **Key routes**
 
 - `GET/POST /discussions`
+- `GET /discussions?product=:slug` for questions linked to a Product.
 - `GET /discussions/:id`
 - `GET/POST /discussions/:id/edit`
 - `POST /discussions/:id/delete`
@@ -515,6 +581,10 @@ Reviews persistence work is outside Dat's Assignment 3 scope.
 - `GET /logout`
 - `GET/POST /deactivate-account`
 - `GET /deactivated-success`
+
+Related destinations use existing module routes: `/wishlist/add#item-:slug`
+for the selected Product and `/reviews/:id` for the selected Review. These
+links do not change ownership of the Wishlist or Reviews implementations.
 
 **Main files**
 
@@ -530,6 +600,8 @@ Reviews persistence work is outside Dat's Assignment 3 scope.
 - `modules/account/public/js/profile.js`
 - `models/discussion.js`
 - `models/reply.js`
+- `models/product.js` and `models/review.js` are existing models read by the
+  Forum for its optional relationships; this feature did not modify them.
 - `scripts/seed.js`
 - `index.js` for Forum and shared account route handlers.
 - `forum-data.js` for the known legacy sample owner/student ID mapping only.
