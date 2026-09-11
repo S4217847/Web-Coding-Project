@@ -2,16 +2,15 @@ const multer = require("multer");
 const path = require("node:path");
 const fs = require("node:fs/promises");
 
-const storage = multer.diskStorage({
+const isVercelDeployment = process.env.VERCEL === "1";
+
+const localStorage = multer.diskStorage({
   destination: function (_request, _file, callback) {
     callback(null, path.join(__dirname, "public", "uploads"));
   },
   filename: function (_request, file, callback) {
     const extension = file.mimetype === "image/png" ? ".png" : ".jpg";
-    const uniqueName =
-      Date.now() + "-" + Math.round(Math.random() * 1E9) + extension;
-
-    callback(null, uniqueName);
+    callback(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`);
   },
 });
 
@@ -25,7 +24,9 @@ function checkImageFile(_request, file, callback) {
 }
 
 const upload = multer({
-  storage: storage,
+  // Vercel functions have a read-only deployment filesystem. Keep uploads in
+  // memory there; local development continues to use public/uploads.
+  storage: isVercelDeployment ? multer.memoryStorage() : localStorage,
   limits: {
     fileSize: 1024 * 1024 * 5,
   },
@@ -39,7 +40,12 @@ async function validateForumImage(request, response, next) {
     return;
   }
 
-  const imageBytes = await fs.readFile(request.file.path);
+  const imageBytes = request.file.buffer || (await fs.readFile(request.file.path));
+
+  if (!Buffer.isBuffer(imageBytes)) {
+    next(new Error("The uploaded image could not be read."));
+    return;
+  }
   const pngSignature = Buffer.from([
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
   ]);
@@ -60,8 +66,22 @@ async function validateForumImage(request, response, next) {
     return;
   }
 
-  await fs.unlink(request.file.path);
+  if (request.file.path) {
+    await fs.unlink(request.file.path);
+  }
   next(new Error("Only JPEG and PNG images are allowed."));
 }
 
-module.exports = { upload, validateForumImage };
+function forumImageDataUrl(uploadedFile) {
+  if (!uploadedFile) {
+    return null;
+  }
+
+  if (!Buffer.isBuffer(uploadedFile.buffer)) {
+    return `/uploads/${uploadedFile.filename}`;
+  }
+
+  return `data:${uploadedFile.mimetype};base64,${uploadedFile.buffer.toString("base64")}`;
+}
+
+module.exports = { upload, validateForumImage, forumImageDataUrl };
