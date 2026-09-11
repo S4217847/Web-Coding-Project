@@ -6,16 +6,16 @@ forgotPasswordForm.noValidate = true;
 
 function checkForgotPasswordEmail() {
   const email = forgotPasswordEmail.value.trim().toLowerCase();
-  const emailFormat = /^[^\s@]+@rmit\.edu\.vn$/;
+  const emailFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   if (email === "") {
-    emailErrorText.textContent = "Please enter your RMIT email address.";
+    emailErrorText.textContent = "Please enter your email address.";
 
     return false;
   }
 
-  if (!emailFormat.test(email)) {
-    emailErrorText.textContent = "Please enter a valid RMIT email address.";
+  if (email.length > 120 || !emailFormat.test(email)) {
+    emailErrorText.textContent = "Please enter a valid email address.";
 
     return false;
   }

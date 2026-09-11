@@ -21,7 +21,7 @@
             <li><a href="/discussions" aria-current="page">Discussion Forum</a></li>
             <li><a href="/blogs">Blogs</a></li>
             <li><a href="/reviews/browse">Reviews</a></li>
-            <li><a href="/wishlist">Favourites</a></li>
+            <li><a href="/wishlist">Favorites</a></li>
             <li><a href="/editprofile.html">Profile settings</a></li>
           </ul>
         </nav>
@@ -33,6 +33,7 @@
           class="postbox"
           method="post"
           action="/discussions/<%= discussion._id %>/edit"
+          enctype="multipart/form-data"
         >
           <h1>Edit discussion</h1>
 
@@ -48,27 +49,208 @@
 
           <div class="error" id="edit-title-error-text"></div>
 
-          <label for="edit-image">Post image</label>
-          <select id="edit-image" name="postImage" required>
-            <option
-              value="/images/peer-workshop.jpg"
-              <%= discussion.image === "/images/peer-workshop.jpg" ? "selected" : "" %>
-            >
-              Peer Workshop
-            </option>
-            <option
-              value="/images/RMIT_campus.png"
-              <%= discussion.image === "/images/RMIT_campus.png" ? "selected" : "" %>
-            >
-              RMIT Campus
-            </option>
-            <option
-              value="/images/saigonview.jpg"
-              <%= discussion.image === "/images/saigonview.jpg" ? "selected" : "" %>
-            >
-              Saigon View
-            </option>
-          </select>
+          <section class="discussion-product-picker" aria-labelledby="edit-product-heading">
+            <h2 id="edit-product-heading">What is your question about? (optional)</h2>
+            <p>You can connect your question to a course or activity.</p>
+
+            <input
+              id="edit-product-slug"
+              name="productSlug"
+              type="hidden"
+              value="<%= discussion.productId
+                ? currentRelatedProduct && currentRelatedProduct.isActive
+                  ? currentRelatedProduct.slug
+                  : keepExistingProductValue
+                : "" %>"
+            />
+
+            <div class="selected-product-row">
+              <p id="edit-selected-product-text">
+                <% if (discussion.productId) { %>
+                  Your question is about: <%= currentRelatedProduct
+                    ? currentRelatedProduct.name
+                    : "Current product" %>
+                  <% if (!currentRelatedProduct || !currentRelatedProduct.isActive) { %>
+                    (unavailable, connection kept)
+                  <% } %>
+                <% } else { %>
+                  No course or activity selected. You can still post.
+                <% } %>
+              </p>
+              <div class="product-selection-actions">
+                <button
+                  id="choose-edit-product"
+                  type="button"
+                  class="text-button"
+                  aria-controls="edit-product-search-panel"
+                  aria-expanded="false"
+                  <% if (discussion.productId) { %>hidden<% } %>
+                >
+                  Choose a course or activity
+                </button>
+                <button
+                  id="change-edit-product"
+                  type="button"
+                  class="text-button"
+                  aria-controls="edit-product-search-panel"
+                  aria-expanded="false"
+                  <% if (!discussion.productId) { %>hidden<% } %>
+                >
+                  Change selection
+                </button>
+                <button
+                  id="clear-edit-product"
+                  type="button"
+                  class="text-button"
+                  <% if (!discussion.productId) { %>hidden<% } %>
+                >
+                  Remove selection
+                </button>
+              </div>
+            </div>
+
+            <div id="edit-product-search-panel" class="product-search-panel" hidden>
+              <label for="edit-product-search">Search courses or activities</label>
+              <input
+                id="edit-product-search"
+                type="search"
+                maxlength="120"
+                placeholder="Search courses or activities"
+                autocomplete="off"
+              />
+
+              <p id="edit-product-result-message" class="product-result-message" aria-live="polite">
+                Type at least 2 letters to find a course or activity.
+              </p>
+
+              <ul id="edit-product-results" class="product-search-results">
+                <% for (let i = 0; i < products.length; i += 1) { %>
+                  <li data-product-name="<%= products[i].name.toLowerCase() %>" hidden>
+                    <button
+                      type="button"
+                      data-product-slug="<%= products[i].slug %>"
+                      data-product-display-name="<%= products[i].name %>"
+                    >
+                      <span><%= products[i].name %></span>
+                      <span class="product-result-category">Category: <%= products[i].category %></span>
+                    </button>
+                  </li>
+                <% } %>
+              </ul>
+
+              <button id="cancel-edit-product-search" type="button" class="text-button product-search-cancel">
+                Cancel
+              </button>
+            </div>
+          </section>
+
+          <section class="discussion-review-picker" aria-labelledby="edit-review-heading">
+            <h2 id="edit-review-heading">Related review (optional)</h2>
+            <p>Connect one existing review when your post is a follow-up question.</p>
+
+            <input
+              id="edit-review-id"
+              name="reviewId"
+              type="hidden"
+              value="<%= discussion.reviewId
+                ? currentRelatedReview
+                  ? currentRelatedReview._id
+                  : keepExistingReviewValue
+                : "" %>"
+            />
+
+            <div class="selected-product-row">
+              <p id="edit-selected-review-text">
+                <% if (discussion.reviewId) { %>
+                  <% if (currentRelatedReview) { %>
+                    Related review: <%= currentRelatedReview.courseCode %> · <%= currentRelatedReview.title %>
+                  <% } else { %>
+                    The previously selected review is no longer available. The connection will be kept unless you remove or replace it.
+                  <% } %>
+                <% } else { %>
+                  No review selected. You can still post.
+                <% } %>
+              </p>
+              <div class="product-selection-actions">
+                <button
+                  id="choose-edit-review"
+                  type="button"
+                  class="text-button"
+                  aria-controls="edit-review-search-panel"
+                  aria-expanded="false"
+                  <% if (discussion.reviewId) { %>hidden<% } %>
+                >
+                  Choose a review
+                </button>
+                <button
+                  id="change-edit-review"
+                  type="button"
+                  class="text-button"
+                  aria-controls="edit-review-search-panel"
+                  aria-expanded="false"
+                  <% if (!discussion.reviewId) { %>hidden<% } %>
+                >
+                  Change selection
+                </button>
+                <button
+                  id="clear-edit-review"
+                  type="button"
+                  class="text-button"
+                  <% if (!discussion.reviewId) { %>hidden<% } %>
+                >
+                  Remove selection
+                </button>
+              </div>
+            </div>
+
+            <div id="edit-review-search-panel" class="product-search-panel" hidden>
+              <label for="edit-review-search">Search by course code or review title</label>
+              <input
+                id="edit-review-search"
+                type="search"
+                maxlength="120"
+                placeholder="Search course code or review title"
+                autocomplete="off"
+              />
+
+              <p id="edit-review-result-message" class="product-result-message" aria-live="polite">
+                Type at least 2 letters to find a review.
+              </p>
+
+              <ul id="edit-review-results" class="product-search-results">
+                <% for (let i = 0; i < reviews.length; i += 1) { %>
+                  <li
+                    data-review-search="<%= (reviews[i].courseCode + " " + reviews[i].title).toLowerCase() %>"
+                    hidden
+                  >
+                    <button
+                      type="button"
+                      data-review-id="<%= reviews[i]._id %>"
+                      data-review-course-code="<%= reviews[i].courseCode %>"
+                      data-review-title="<%= reviews[i].title %>"
+                    >
+                      <span><%= reviews[i].courseCode %> · <%= reviews[i].title %></span>
+                      <span class="product-result-category">Review #<%= reviews[i].id %></span>
+                    </button>
+                  </li>
+                <% } %>
+              </ul>
+
+              <button id="cancel-edit-review-search" type="button" class="text-button product-search-cancel">
+                Cancel
+              </button>
+            </div>
+          </section>
+
+          <label for="edit-image">New post image</label>
+          <input
+            type="file"
+            id="edit-image"
+            name="postImage"
+            accept="image/jpeg, image/png"
+          />
+
+          <p>Leave this empty to keep the current image</p>
 
           <div class="error" id="edit-image-error-text"></div>
 

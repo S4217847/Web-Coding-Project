@@ -1,0 +1,73 @@
+erDiagram
+    %% Profile attributes are embedded/flattened into USER because they share
+    %% the account lifecycle; they are a logical 1:1, not another collection.
+    %% o| means zero-or-one active reset token, enforced by unique userId.
+    USER ||--o{ WISHLIST_ENTRY : owns
+    PRODUCT ||--o{ WISHLIST_ENTRY : appears_in
+    USER ||--o{ PURCHASE : makes
+    PRODUCT ||--o{ PURCHASE : records
+    USER ||--o| PASSWORD_RESET_TOKEN : has_active
+
+    USER {
+        ObjectId _id PK
+        string username UK
+        string studentId UK
+        string name
+        string email UK
+        string passwordHash
+        string description
+        string avatarUrl
+        string course
+        string role
+        string status
+        int authVersion
+        date lastActiveAt
+        date lockedAt
+        date deactivatedAt
+        date createdAt
+        date updatedAt
+    }
+
+    PRODUCT {
+        ObjectId _id PK
+        string slug UK
+        string name
+        string category
+        string description
+        int priceVnd
+        string image
+        string imageAlt
+        boolean isActive
+        date createdAt
+        date updatedAt
+    }
+
+    WISHLIST_ENTRY {
+        ObjectId _id PK
+        ObjectId userId FK
+        ObjectId productId FK
+        string status
+        int quantity
+        date createdAt
+        date updatedAt
+    }
+
+    PURCHASE {
+        ObjectId _id PK
+        ObjectId userId FK
+        ObjectId productId FK
+        string productName
+        int unitPriceVnd
+        int quantity
+        date purchasedAt
+        date createdAt
+    }
+
+    PASSWORD_RESET_TOKEN {
+        ObjectId _id PK
+        ObjectId userId FK, UK
+        string tokenHash UK
+        date expiresAt
+        date usedAt
+        date createdAt
+    }

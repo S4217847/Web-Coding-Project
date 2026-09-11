@@ -569,6 +569,7 @@ if (exists("package.json")) {
 
 function assertDependencies(dependencies) {
     const expected = [
+        "bcryptjs",
         "express",
         "express-session"
     ];

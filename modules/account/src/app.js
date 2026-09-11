@@ -17,7 +17,7 @@ import session from "express-session";
 
 import { dataStore } from "./data.js";
 import {
-    createPasswordRecord,
+    createPasswordHash,
     verifyPassword
 } from "./passwords.js";
 
@@ -28,6 +28,10 @@ import {
     validateLogin,
     validateProfilePatch
 } from "./validation.js";
+
+import {
+    createMongoAccountRouter
+} from "./mongo-routes.js";
 
 const currentDirectory =
     path.dirname(
@@ -72,7 +76,7 @@ function sendError(
 }
 
 function publicUser(user) {
-    // Explicit selection prevents password salts and hashes reaching the client.
+    // Explicit selection prevents password hashes reaching the client.
     return {
         id: user.id,
         username: user.username,
@@ -376,6 +380,13 @@ export function createApp(options = {}) {
     const store =
         options.store ?? dataStore;
 
+    /*
+        Production injects the Mongo repository. The resettable A2 store remains
+        available only as a lightweight unit-test adapter.
+    */
+    const repository =
+        options.repository ?? null;
+
     const publicDirectory =
         options.publicDirectory ??
         defaultPublicDirectory;
@@ -440,19 +451,35 @@ export function createApp(options = {}) {
         production proxy. A persistent session store should replace MemoryStore
         when this demonstration application is deployed across processes.
     */
-    app.use(session({
-        name: "rmit.connect.sid",
-        secret: sessionSecret,
-        resave: false,
-        saveUninitialized: false,
-        cookie: {
-            httpOnly: true,
-            sameSite: "lax",
-            secure: isProduction,
-            maxAge:
-                2 * 60 * 60 * 1000
-        }
-    }));
+    /*
+        The standalone module owns its session middleware. When this app is
+        mounted inside the team server, the parent has already supplied the
+        shared session (and its production MongoStore), so installing another
+        store here would split authentication between modules.
+    */
+    if (!options.useExistingSession) {
+        app.use(session({
+            name: "rmit.connect.sid",
+            secret: sessionSecret,
+            resave: false,
+            saveUninitialized: false,
+            cookie: {
+                httpOnly: true,
+                sameSite: "lax",
+                secure: isProduction,
+                maxAge:
+                    2 * 60 * 60 * 1000
+            }
+        }));
+    }
+
+    if (repository) {
+        app.use(createMongoAccountRouter({
+            repository,
+            publicDirectory,
+            isProduction
+        }));
+    }
 
     // ---------- Health and session routes ----------
 
@@ -545,7 +572,7 @@ export function createApp(options = {}) {
                 !user ||
                 !verifyPassword(
                     password,
-                    user.password
+                    user.passwordHash
                 )
             ) {
                 return sendError(
@@ -1244,7 +1271,7 @@ export function createApp(options = {}) {
                 ) &&
                 !verifyPassword(
                     values.currentPassword,
-                    request.currentUser.password
+                    request.currentUser.passwordHash
                 )
             ) {
                 return sendError(
@@ -1268,12 +1295,12 @@ export function createApp(options = {}) {
                 fields. If password hashing ever fails, the request now leaves the
                 in-memory user unchanged instead of applying a partial update.
             */
-            const nextPasswordRecord =
+            const nextPasswordHash =
                 Object.hasOwn(
                     values,
                     "newPassword"
                 )
-                    ? createPasswordRecord(
+                    ? createPasswordHash(
                         values.newPassword
                     )
                     : null;
@@ -1298,9 +1325,9 @@ export function createApp(options = {}) {
                 }
             }
 
-            if (nextPasswordRecord) {
-                request.currentUser.password =
-                    nextPasswordRecord;
+            if (nextPasswordHash) {
+                request.currentUser.passwordHash =
+                    nextPasswordHash;
             }
 
             return sendData(response, {

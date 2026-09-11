@@ -1,2 +1,6 @@
 node_modules/
 .env
+public/uploads/*
+!public/uploads/.gitkeep
+modules/account/public/uploads/*
+!modules/account/public/uploads/.gitkeep

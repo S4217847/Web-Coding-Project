@@ -53,11 +53,47 @@
   font-weight: bold;
 }
 
+.discussion-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.discussion-heading h1 {
+  font-size: 24px;
+  margin: 0;
+}
+
+.show-post-form-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #ffffff;
+  color: #000054;
+  border: 1px solid #e60028;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.show-post-form-button img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
 .postbox {
   background-color: #ffffff;
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
+}
+
+.postbox-hidden {
+  display: none;
 }
 
 .postbox label {
@@ -81,6 +117,10 @@
 
 .postbox textarea {
   height: 60px;
+}
+
+.postbox input[type="hidden"] {
+  display: none;
 }
 
 .postfooter {
@@ -165,9 +205,12 @@
   color: #555555;
 }
 
-.discussion-list h1 {
-  font-size: 24px;
-  margin-bottom: 4px;
+.discussion-delete-message {
+  background-color: #eaf7ed;
+  border: 1px solid #2e7d32;
+  border-radius: 8px;
+  color: #1b5e20;
+  padding: 12px 16px;
 }
 
 .discussion-post {
@@ -215,8 +258,7 @@
   margin-bottom: 8px;
 }
 
-.discussion-post > .post-image,
-.reply-image {
+.discussion-post > .post-image {
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
@@ -229,6 +271,304 @@
   color: #333333;
   font-size: 14px;
   overflow-wrap: anywhere;
+}
+
+.related-product,
+.related-review {
+  background-color: #f7f7f7;
+  border-left: 4px solid #e60028;
+  border-radius: 6px;
+  margin-top: 14px;
+  padding: 12px;
+}
+
+.related-product h3,
+.related-review h3 {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.related-product-name {
+  font-weight: bold;
+}
+
+.related-product-category {
+  color: #555555;
+  font-size: 13px;
+}
+
+.related-product-description {
+  color: #333333;
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+.related-review-course {
+  color: #555555;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.related-review-title {
+  font-weight: bold;
+  margin-top: 4px;
+}
+
+.related-review-unavailable {
+  color: #555555;
+  font-size: 14px;
+  margin-top: 6px;
+}
+
+.related-product-actions,
+.related-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.related-product a,
+.related-review a {
+  color: #e60028;
+  display: inline-block;
+  font-weight: bold;
+  margin-top: 8px;
+  text-decoration: none;
+}
+
+.related-product a:hover,
+.related-review a:hover {
+  text-decoration: underline;
+}
+
+.related-product .related-product-primary,
+.related-review .related-review-primary {
+  background-color: #e60028;
+  border-radius: 6px;
+  color: #ffffff;
+  padding: 8px 12px;
+}
+
+.related-product .related-product-primary:hover,
+.related-review .related-review-primary:hover {
+  text-decoration: none;
+}
+
+.discussion-context-category,
+.discussion-filter-message {
+  color: #555555;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.discussion-filter-message {
+  background-color: #fff3de;
+  border: 1px solid #ffcc7a;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+}
+
+.product-question-browser,
+.discussion-product-picker,
+.discussion-review-picker,
+.product-empty-state {
+  background-color: #ffffff;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.product-question-browser {
+  margin-bottom: 16px;
+}
+
+.discussion-product-picker,
+.discussion-review-picker {
+  margin: 4px 0 16px;
+}
+
+.product-question-browser h2,
+.discussion-product-picker h2,
+.discussion-review-picker h2,
+.product-empty-state h2 {
+  font-size: 17px;
+  margin-bottom: 6px;
+}
+
+.product-question-browser > p,
+.discussion-product-picker > p,
+.discussion-review-picker > p,
+.product-empty-state > p {
+  color: #555555;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.product-question-browser label {
+  display: block;
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.product-question-browser input,
+.discussion-product-picker input[type="search"],
+.discussion-review-picker input[type="search"] {
+  border: 1px solid #cccccc;
+  border-radius: 6px;
+  font-size: 14px;
+  padding: 8px;
+  width: 100%;
+}
+
+.product-result-message {
+  color: #555555;
+  font-size: 13px;
+  margin: 8px 0;
+}
+
+.product-search-results {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.product-search-results a,
+.product-search-results button {
+  align-items: center;
+  background-color: #f7f7f7;
+  border: 1px solid #dddddd;
+  border-radius: 6px;
+  color: #000054;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  text-align: left;
+  text-decoration: none;
+  width: 100%;
+}
+
+.product-search-results a:hover,
+.product-search-results button:hover {
+  background-color: #fff3de;
+}
+
+.product-result-category {
+  color: #555555;
+  font-size: 12px;
+}
+
+.selected-product-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.selected-product-row p {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.product-selection-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.product-search-panel {
+  border-top: 1px solid #e2e2e2;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.product-search-cancel {
+  margin-top: 10px;
+}
+
+.text-button {
+  background: none;
+  border: none;
+  color: #e60028;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: bold;
+  padding: 4px 0;
+}
+
+.product-draft-choice {
+  background-color: #fff3de;
+  border: 1px solid #ffcc7a;
+  border-radius: 6px;
+  margin-top: 12px;
+  padding: 12px;
+}
+
+.product-draft-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.discussion-post-list {
+  display: grid;
+  gap: 12px;
+}
+
+.discussion-product-badge {
+  background-color: #fff3de;
+  border-radius: 999px;
+  color: #000054;
+  display: inline-block;
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 8px;
+  padding: 5px 9px;
+  text-decoration: none;
+}
+
+.discussion-product-badge:hover {
+  text-decoration: underline;
+}
+
+.discussion-product-general,
+.discussion-product-unavailable {
+  background-color: #eeeeee;
+  color: #555555;
+}
+
+.product-empty-state {
+  text-align: center;
+}
+
+.product-empty-state a {
+  color: #e60028;
+  display: inline-block;
+  font-weight: bold;
+  margin-left: 12px;
+  text-decoration: none;
+}
+
+.product-question-browser input:focus-visible,
+.product-search-results a:focus-visible,
+.product-search-results button:focus-visible,
+.text-button:focus-visible,
+.related-product-actions a:focus-visible {
+  outline: 3px solid #000054;
+  outline-offset: 3px;
 }
 
 .discussion-post-footer {
@@ -316,6 +656,7 @@
 .discussion-detail {
   display: grid;
   gap: 12px;
+  padding-bottom: 420px;
 }
 
 .back-link {
@@ -333,6 +674,13 @@
   font-size: 24px;
 }
 
+.reply-type-label {
+  color: #555555;
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
 .reply-list {
   display: grid;
   gap: 12px;
@@ -344,10 +692,12 @@
 }
 
 .reply-card {
-  background-color: #ffffff;
+  background-color: #fafafa;
   border: 1px solid #e2e2e2;
+  border-left: 4px solid #e60028;
   border-radius: 8px;
-  padding: 16px;
+  padding: 14px;
+  margin-left: 20px;
 }
 
 .reply-header {
@@ -363,11 +713,27 @@
   overflow-wrap: anywhere;
 }
 
+.reply-title {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.reply-image {
+  width: 180px;
+  height: 135px;
+  max-width: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
 .menu-card a:focus-visible,
 .back-link:focus-visible,
 .discussion-post-footer a:focus-visible,
 .postbtn:focus-visible,
 .searchbutton:focus-visible,
+.show-post-form-button:focus-visible,
 .postbox input:focus-visible,
 .postbox select:focus-visible,
 .postbox textarea:focus-visible,
@@ -379,13 +745,20 @@
 
 .reply-box {
   background-color: #ffffff;
+  border: 1px solid #dddddd;
   border-radius: 8px;
   padding: 16px;
-  margin-bottom: 0;
+  position: fixed;
+  bottom: 0;
+  left: 252px;
+  right: 292px;
+  max-width: 656px;
+  margin: 0 auto;
+  z-index: 10;
+  box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.12);
 }
 
-.reply-box input,
-.reply-box select,
+.reply-box input[type="text"],
 .reply-box textarea {
   width: 100%;
   border: 1px solid #cccccc;
@@ -396,8 +769,7 @@
   display: block;
 }
 
-.reply-box input,
-.reply-box select {
+.reply-box input[type="text"] {
   height: 35px;
 }
 
@@ -406,12 +778,69 @@
 }
 
 .reply-box h2 {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+}
+
+.reply-box-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reply-box-footer .postbtn {
+  margin-left: auto;
+}
+
+.reply-image-area {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.reply-image-input {
+  display: block;
+  max-width: 100%;
+}
+
+.reply-image-button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #cccccc;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.reply-image-button:hover {
+  background-color: #f2f2f2;
+}
+
+.reply-image-button img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+#reply-image-name {
+  color: #555555;
+  font-size: 13px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.reply-image-area .error {
+  margin: 0;
 }
 
 /* ------------------ Responsive ------------------ */
 
-@media (max-width: 800px) {
+@media (max-width: 1050px) {
   .page {
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -440,5 +869,37 @@
   .discussion-post-footer {
     flex-wrap: wrap;
     gap: 8px;
+  }
+
+  .discussion-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .show-post-form-button,
+  .product-empty-state .postbtn,
+  .product-empty-state a,
+  .related-product-actions a,
+  .related-review-actions a {
+    margin-left: 0;
+    text-align: center;
+    width: 100%;
+  }
+
+  .product-selection-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .reply-card {
+    margin-left: 0;
+  }
+
+  .reply-box {
+    left: 16px;
+    right: 16px;
+    width: auto;
+    max-width: none;
+    margin: 0;
   }
 }

@@ -16,12 +16,15 @@ flowchart LR
     end
 
     subgraph Server["Node.js process"]
-        Entry["server.js"]
+        Entry["root index.js"]
         App["src/app.js\nExpress routes and middleware"]
         Validation["src/validation.js"]
         Passwords["src/passwords.js"]
-        Data["src/data.js\nin-memory store"]
+        Routes["src/mongo-routes.js"]
+        Repository["src/mongo-repository.js"]
+        Models["shared Mongoose models"]
         Session["Server-side session store"]
+        Mongo[(MongoDB)]
     end
 
     HTML --> Page
@@ -29,9 +32,12 @@ flowchart LR
     Page <--> Storage
     Shared -->|"JSON over /api"| App
     Entry --> App
-    App --> Validation
-    App --> Passwords
-    App <--> Data
+    App --> Routes
+    Routes --> Validation
+    Routes --> Passwords
+    Routes --> Repository
+    Repository --> Models
+    Models <--> Mongo
     App <--> Session
 ```
 
@@ -71,11 +77,14 @@ Page modules usually follow the same lifecycle:
 
 | File | Responsibility |
 | --- | --- |
-| `server.js` | Reads `HOST`/`PORT`, creates the app, and starts listening only when run as the entry point. It re-exports test-friendly constructors/helpers. |
-| `src/app.js` | Builds Express, security/session/JSON/static middleware, authorization middleware, presenters, API routes, controlled 404s, and the final error handler. |
-| `src/data.js` | Defines products and seeded users/relations, owns the in-memory arrays, and provides `resetData()` for repeatable tests. |
+| Root `index.js` | Connects MongoDB, owns the one shared team session, mounts all team routes, and starts listening after models and indexes are ready. |
+| `src/app.js` | Builds the standalone module for tests or mounts the Mongo router into the integrated server. `useExistingSession` prevents a second session store when nested. |
+| `src/mongo-routes.js` | Implements Account, Administration, Product, and Wishlist HTTP routes with session authorization and controlled response envelopes. |
+| `src/mongo-repository.js` | Owns Mongoose queries, transactions, projections, relationship traversal, duplicate-key translation, filtering, and sorting. |
+| Root `models/*.js` | Define the shared User and Dat-owned Product, WishlistEntry, Purchase, and PasswordResetToken collection contracts and indexes. |
+| `src/data.js` | Retains the Assessment 2 in-memory adapter only for fast isolated compatibility tests; production does not use it. |
 | `src/validation.js` | Cleans and validates login/profile input independently of browser validation. The profile allow-list blocks protected-field mass assignment. |
-| `src/passwords.js` | Creates salted scrypt password records and verifies supplied passwords with a timing-safe comparison. |
+| `src/passwords.js` | Creates and verifies bcrypt `passwordHash` strings; live routes use asynchronous helpers so hashing does not block the request loop. |
 
 Two small response helpers keep the contract consistent:
 
@@ -94,18 +103,22 @@ Two small response helpers keep the contract consistent:
 }
 ```
 
-Presenter functions build public product, Wishlist, purchase, and user objects.
-Routes must return presenters rather than raw user records because raw records
-contain password hashes and salts.
+Repository/presenter functions build public product, Wishlist, purchase, and
+user objects. Routes never return raw User records because raw records may
+contain a `passwordHash`; the schema also excludes that field from normal
+queries as a second defence.
 
 ## Session and ownership flow
 
 1. `POST /api/session` validates the body, finds the normalized username/email,
    verifies the password, rejects locked users, and regenerates the session.
-2. The session stores only `userId`; the browser receives an HTTP-only cookie,
-   not the session record or password data.
+2. The session stores `userId` and the User's non-secret `authVersion`; the
+   browser receives an HTTP-only cookie, not the session record or password data.
 3. On a protected request, `requireUser` reads `request.session.userId`, finds the
-   current user, checks current lock status, and assigns `request.currentUser`.
+   current user, checks active status and the matching `authVersion`, and assigns
+   `request.currentUser`. A password/status change therefore revokes dormant
+   sessions; the session performing its own password change receives the new
+   version after the database commit.
 4. `requireAdmin` additionally checks `request.currentUser.role`.
 5. User-owned queries always compare a relation's `userId` with
    `request.currentUser.id`. A body/query/path value cannot choose the owner.
@@ -126,18 +139,22 @@ operations needed by this prototype.
 
 ### Products and Wishlist
 
-- **Read products:** `GET /api/products` returns the entire catalogue and
-  current-user saved flags. Browser code owns search/filter/sort.
+- **Read products:** `GET /api/products` queries active catalogue records,
+  applies indexed search/category/sort options, derives relationship statistics,
+  and returns current-user saved flags. The browser may further filter the
+  already returned list for immediate presentation.
 - **Create saved relation:** `POST /api/wishlist` validates the product, derives
   ownership from the session, rejects an existing Wishlist/cart relation, adds
-  the entry, and updates the product counter.
+  the entry. A compound unique index prevents concurrent duplicates.
 - **Read state:** `GET /api/wishlist` independently filters Wishlist, cart, and
-  purchases by the current user, then presents each linked product.
+  purchases by the current user using indexed queries, then presents each linked
+  product and immutable purchase name/price snapshots.
 - **Update relation:** `PATCH /api/wishlist/:productId` finds only the current
   user's relation. `move-to-cart` transfers it; `mark-purchased` removes it and
-  creates purchase history. Counters are adjusted with the transition.
+  creates purchase history in one transaction. Displayed statistics are derived
+  from source relations rather than mutable counters.
 - **Delete relation:** `DELETE /api/wishlist/:productId` removes only the current
-  user's Wishlist/cart entry and prevents counters from falling below zero.
+  user's Wishlist/cart entry.
 
 Clients render the returned summary or refetch after a mutation. They do not
 guess that a server mutation succeeded.
@@ -160,7 +177,8 @@ receives only the actual new password and current-password proof.
   summary counts.
 - **Update:** `PATCH /api/admin/users/:userId/status` accepts only `active` or
   `locked`, rejects unknown users, and prevents an administrator from locking
-  their own account. A newly locked user's next protected request is rejected.
+  their own account. A real state change increments `authVersion` and removes
+  reset challenges when locking; a repeated same-status request is a no-op.
 
 ## Web Storage and security boundaries
 
@@ -172,38 +190,41 @@ authentication or secrets.
 | `sessionStorage` | Catalogue/admin filter choices for the current tab | Passwords, cookie/session values, roles, authorization decisions |
 | `localStorage` | Optional remembered login identity; profile name/email/description draft scoped by user identity | Current/new passwords, hashes, salts, tokens, avatar binary data |
 | HTTP-only session cookie | Opaque session identifier managed by the browser | Application/profile data |
-| Server session | Authenticated `userId` | Plain-text password |
+| Server session | Authenticated `userId` and non-secret `authVersion` | Plain-text password |
 
 Browser validation improves immediate feedback but is bypassable. Server
-validation, authorization, ownership checks, field allow-lists, unique indexes
-(in the future database), and safe presenters are the security boundary.
+validation, authorization, ownership checks, field allow-lists, MongoDB unique
+indexes, and safe presenters are the security boundary.
+
+Registration, sign-in, forgot-password, and reset-password writes are also
+rate-limited. Password validation enforces bcrypt's 72 UTF-8-byte boundary so
+two accepted inputs cannot become equivalent through silent truncation.
 
 Other boundaries include `SameSite=Lax` and production-secure cookies, no-store
 API responses, a restrictive Content Security Policy, size-limited JSON/images,
 no inline event handlers, and DOM construction/text assignment for dynamic data.
 
-## Extending the architecture for Assessment 3
+## Assessment 3 persistence implementation
 
-The browser/API contract can stay mostly unchanged while persistence is replaced:
+The planned migration is now implemented for Dat's individual and shared scope:
 
-1. Add repository modules such as `userRepository`, `productRepository`, and
-   `wishlistRepository`; routes call these instead of accessing arrays directly.
-2. Implement repositories with MongoDB Atlas collections described in
-   [`database-schema.md`](database-schema.md).
-3. Convert string seed IDs at the repository boundary while continuing to expose
-   stable public IDs/slugs to browser code.
-4. Enforce unique indexes for usernames, student IDs, normalized emails, and
-   `(userId, productId)` Wishlist/cart pairs. Translate duplicate-key errors into
-   the existing controlled `409` responses.
-5. Use MongoDB transactions for move-to-cart and purchase transitions so relation
-   and counter/history writes cannot partially complete.
-6. Replace Express MemoryStore with a durable session store and configure secret,
-   proxy, HTTPS, expiry, and cookie policy from deployment environment variables.
-7. Move avatars to validated object storage and keep only their URL/metadata in
-   the user document.
-8. Keep the current integration tests, swap in a disposable test database, and
-   add repository/index/transaction tests. Existing ownership and response tests
-   become regression protection during the migration.
+1. The browser/API contract remains stable while routes call a Mongo repository.
+2. Users, products, Wishlist/cart relationships, purchases, and reset challenges
+   use the collections in [`database-schema.md`](database-schema.md).
+3. ObjectIds stay inside database relationships; product slugs remain stable
+   public identifiers for readable links and browser state.
+4. Unique indexes enforce usernames, student IDs, normalized emails, reset
+   challenges, and one live Wishlist/cart relationship per user-product pair.
+5. Mark-purchased and password-change/reset-token invalidation use MongoDB
+   transactions so related writes cannot partially commit.
+6. Production sessions use `connect-mongo`; local development uses MemoryStore,
+   while `npm run start:local` supplies an isolated disposable Mongo replica set.
+7. Validated avatar bytes remain on local disk for this classroom build and only
+   their URL is stored in User. Hosted multi-instance deployment should replace
+   this one remaining file-system boundary with team-approved object storage.
+8. Hermetic replica-set tests cover schemas/indexes, persistence across an HTTP
+   restart, authentication, authorization, ownership, transactions, and replay
+   prevention without touching the team's Atlas database.
 
 The key design goal is separation: pages depend on API contracts, API routes
 depend on validation/authentication plus repositories, and repositories alone

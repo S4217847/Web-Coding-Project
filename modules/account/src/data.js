@@ -1,15 +1,15 @@
 /**
  * In-memory data store and resettable demo fixtures.
  *
- * User-facing records refer to users and products by ID. Password records hold
- * only a salt and derived hash; plaintext passwords never belong in dataStore.
+ * User-facing records refer to users and products by ID. Password hashes are
+ * stored instead of plaintext passwords.
  * This module is intentionally non-persistent, so restarting the process resets
  * the application to its seed state.
  */
 import crypto from "node:crypto";
 
 import {
-    createPasswordRecord
+    createPasswordHash
 } from "./passwords.js";
 
 // The catalogue is a template; each reset receives its own deep clone.
@@ -118,8 +118,8 @@ function buildSeedData() {
                 status: "active",
                 lastActiveAt:
                     "2026-08-15T08:30:00.000Z",
-                password:
-                    createPasswordRecord(
+                passwordHash:
+                    createPasswordHash(
                         "ConnectDemo!26"
                     )
             },
@@ -136,16 +136,16 @@ function buildSeedData() {
                 status: "active",
                 lastActiveAt:
                     "2026-08-14T09:15:00.000Z",
-                password:
-                    createPasswordRecord(
+                passwordHash:
+                    createPasswordHash(
                         "StudentDemo!26"
                     )
             },
             {
                 id: "user-kim",
-                username: "kim.tran",
+                username: "kim.seung-uk",
                 studentId: "S4028530",
-                name: "Kim Tran",
+                name: "Kim SeungUk",
                 email: "s4028530@rmit.edu.vn",
                 description:
                     "Student member whose demonstration account is locked.",
@@ -154,8 +154,8 @@ function buildSeedData() {
                 status: "locked",
                 lastActiveAt:
                     "2026-08-09T03:45:00.000Z",
-                password:
-                    createPasswordRecord(
+                passwordHash:
+                    createPasswordHash(
                         "LockedDemo!26"
                     )
             }

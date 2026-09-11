@@ -11,7 +11,7 @@
   <body id="top">
     <%- include("partials/global-navigation", {
       activePage: "sitemap",
-      sessionAction: "login"
+      sessionAction: sessionAction
     }) %>
 
     <section class="pageBanner">
@@ -63,6 +63,13 @@
               <a href="/discussions">All Discussion Threads</a>
               <% for (let i = 0; i < discussions.length; i += 1) { %>
               <a href="/discussions/<%= discussions[i]._id %>"><%= discussions[i].title %></a>
+              <div class="nestedList">
+                <% for (let j = 0; j < replies.length; j += 1) { %>
+                  <% if (String(replies[j].discussionId) === String(discussions[i]._id)) { %>
+                  <a href="/discussions/<%= discussions[i]._id %>#reply-<%= replies[j]._id %>">Reply: <%= replies[j].title %></a>
+                  <% } %>
+                <% } %>
+              </div>
               <% } %>
             </div>
           </div>

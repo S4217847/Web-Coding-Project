@@ -9,7 +9,33 @@ const EMAIL_PATTERN =
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const USERNAME_PATTERN =
-    /^[a-zA-Z0-9._-]{3,50}$/;
+    /^(?=.{3,50}$)[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])$/;
+
+const STUDENT_ID_PATTERN =
+    /^s\d{7}$/i;
+
+const PASSWORD_MAX_BYTES = 72;
+
+function passwordByteLength(password) {
+    return Buffer.byteLength(password, "utf8");
+}
+
+function validatePassword(password, fieldName, details) {
+    if (
+        password.length < 8 ||
+        passwordByteLength(password) > PASSWORD_MAX_BYTES
+    ) {
+        details[fieldName] =
+            "Password must contain at least 8 characters and no more than 72 UTF-8 bytes.";
+    } else if (
+        !/[a-z]/.test(password) ||
+        !/[A-Z]/.test(password) ||
+        !/\d/.test(password)
+    ) {
+        details[fieldName] =
+            "Password must include uppercase and lowercase letters and a number.";
+    }
+}
 
 export function isPlainObject(value) {
     return (
@@ -39,7 +65,7 @@ export function validateLogin(body) {
     if (!identifier) {
         details.identity =
             "Enter a username or email address.";
-    } else if (identifier.length > 100) {
+    } else if (identifier.length > 120) {
         details.identity =
             "The username or email is too long.";
     } else if (
@@ -59,7 +85,10 @@ export function validateLogin(body) {
     if (!password) {
         details.password =
             "Enter a password.";
-    } else if (password.length > 200) {
+    } else if (
+        passwordByteLength(password) >
+        PASSWORD_MAX_BYTES
+    ) {
         details.password =
             "The password is too long.";
     }
@@ -67,6 +96,67 @@ export function validateLogin(body) {
     return {
         identifier,
         password,
+        details
+    };
+}
+
+export function validateRegistration(body) {
+    const values = {
+        username: cleanText(body?.username).toLowerCase(),
+        studentId: cleanText(body?.studentId).toUpperCase(),
+        name: cleanText(body?.name),
+        email: cleanText(body?.email).toLowerCase(),
+        description: cleanText(body?.description),
+        password:
+            typeof body?.password === "string"
+                ? body.password
+                : ""
+    };
+
+    const confirmPassword =
+        typeof body?.confirmPassword === "string"
+            ? body.confirmPassword
+            : "";
+
+    const details = {};
+
+    if (!USERNAME_PATTERN.test(values.username)) {
+        details.username =
+            "Use 3–50 letters, numbers, dots, underscores, or hyphens; begin and end with a letter or number.";
+    }
+
+    if (!STUDENT_ID_PATTERN.test(values.studentId)) {
+        details.studentId =
+            "Enter an RMIT student ID such as S4221230.";
+    }
+
+    if (values.name.length < 2 || values.name.length > 80) {
+        details.name =
+            "Name must contain 2 to 80 characters.";
+    }
+
+    if (
+        !EMAIL_PATTERN.test(values.email) ||
+        values.email.length > 120
+    ) {
+        details.email =
+            "Enter a valid email address.";
+    }
+
+    if (values.description.length > 300) {
+        details.description =
+            "Description must not exceed 300 characters.";
+    }
+
+    validatePassword(values.password, "password", details);
+
+    if (confirmPassword !== values.password) {
+        details.confirmPassword =
+            "Enter the same password again.";
+    }
+
+    return {
+        values,
         details
     };
 }
@@ -201,7 +291,8 @@ export function validateProfilePatch(body) {
             details.currentPassword =
                 "Enter the current password before choosing a new one.";
         } else if (
-            values.currentPassword.length > 200
+            passwordByteLength(values.currentPassword) >
+            PASSWORD_MAX_BYTES
         ) {
             details.currentPassword =
                 "The current password is too long.";
@@ -209,10 +300,11 @@ export function validateProfilePatch(body) {
 
         if (
             values.newPassword.length < 8 ||
-            values.newPassword.length > 128
+            passwordByteLength(values.newPassword) >
+            PASSWORD_MAX_BYTES
         ) {
             details.newPassword =
-                "New password must contain 8 to 128 characters.";
+                "New password must contain at least 8 characters and no more than 72 UTF-8 bytes.";
         } else if (
             !/[a-z]/.test(values.newPassword) ||
             !/[A-Z]/.test(values.newPassword) ||

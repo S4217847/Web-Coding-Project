@@ -1,81 +1,117 @@
 const express = require("express");
+const mongoose = require("mongoose");
+const { Blog, BlogComment } = require("../models/blog");
+
+const { relatedOptions, validateRelated, relatedResponse } = require("./blog-related");
 
 const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
 const DEFAULT_IMAGE = "/images/image-for-blog.png";
 const BLOG_CATEGORIES = ["Academic", "Events", "Student Life", "Technology", "Other"];
+const AUTHOR_FIELDS = "name studentId";
 
-function createBlogRouter({ blogs, getCurrentUser }) {
+function createBlogRouter({ getCurrentUser }) {
   const router = express.Router();
 
-  async function requireUser(request, response, next) {
-    try {
+  const requireUser = asyncRoute (
+    async (request, response, next) => {
       const user = await getCurrentUser(request);
       request.currentUser = normaliseUser(user);
+
       if (!request.currentUser) {
-        return response.status(401).json({ error: "You must log in first." });
+        return response.status(401).json({ error: "You must be logged in to perform this action." });
       }
       next();
-    } catch (error) {
-      next(error);
     }
-  }
+  );
 
-  router.get("/", (request, response) => {
-    response.json(blogs.filter((blog) => !blog.deleted));
+  router.get("/related-options", requireUser, asyncRoute(async (request, response) => {
+    response.json(await relatedOptions());
+  }));
+
+  router.param("id", (request, response, next, id) => {
+    if (!mongoose.isObjectIdOrHexString(id)) {
+      return response.status(400).json({ error: "Invalid blog ID." });
+    }
+    next();
   });
 
-  router.get("/:id", (request, response) => {
-    const blog = findPublicBlog(blogs, request.params.id);
-    if (!blog) return response.status(404).json({ error: "Blog not found." });
-    response.json(blog);
-  });
+  router.get("/", asyncRoute(async (request, response) => {
+    const blog = await Blog.find({ deletedAt: null }).populate("authorId", AUTHOR_FIELDS).sort({ createdAt: -1 });
+    response.json(blog.map((item) => toBlogResponse(item)));
+  }));
 
-  router.post("/", requireUser, (request, response) => {
-    const errors = validateBlog(request.body);
-    if (Object.keys(errors).length) return response.status(400).json({ errors });
+  router.get("/:id", asyncRoute(async (request, response) => {
+    const blog = await Blog.findOne({ _id: request.params.id, deletedAt: null }).populate("authorId", AUTHOR_FIELDS);
+    if (!blog) {
+      return response.status(404).json({ error: "Blog not found." });
+    }
+    const comments = await BlogComment.find({ blogId: blog._id, deletedAt: null }).populate("authorId", AUTHOR_FIELDS).sort({ createdAt: 1 });
+    response.json({ ...toBlogResponse(blog, comments), ...await relatedResponse(blog) });
+  }));
 
-    const blog = {
-      id: `blog-${Date.now()}`,
-      ...cleanBlogInput(request.body),
-      authorId: request.currentUser.id,
-      authorName: request.currentUser.name,
-      authorSid: request.currentUser.sid,
-      dateAdded: new Date().toISOString(),
-      updatedAt: null,
-      deleted: false,
-      comments: []
-    };
-    blogs.unshift(blog);
-    response.status(201).json(blog);
-  });
+  router.post("/", requireUser, asyncRoute(async (request, response) => {
+    const related = await validateRelated(request.body ?? {});
+    const errors = { ...validateBlog(request.body ?? {}), ...related.errors };
+    if (Object.keys(errors).length) {
+      return response.status(400).json({ errors });
+    }
 
-  router.put("/:id", requireUser, (request, response) => {
-    const blog = findPublicBlog(blogs, request.params.id);
-    if (!blog) return response.status(404).json({ error: "Blog not found." });
-    if (blog.authorId !== request.currentUser.id) {
+    const blog = await Blog.create({
+      ...cleanBlogInput(request.body), ...related.values, authorId: request.currentUser.id,
+    });
+    await blog.populate("authorId", AUTHOR_FIELDS);
+    response.status(201).json(toBlogResponse(blog));
+  }));
+
+  router.put("/:id", requireUser, asyncRoute(async (request, response) => {
+    const existingBlog = await Blog.findById(request.params.id);
+    if (!existingBlog || existingBlog.deletedAt) {
+      return response.status(404).json({ error: "Blog not found." });
+    }
+    if (existingBlog.authorId.toString() !== request.currentUser.id) {
       return response.status(403).json({ error: "You can edit only your own blogs." });
     }
 
-    const errors = validateBlog(request.body);
-    if (Object.keys(errors).length) return response.status(400).json({ errors });
-    Object.assign(blog, cleanBlogInput(request.body), { updatedAt: new Date().toISOString() });
-    response.json(blog);
-  });
+    const related = await validateRelated(request.body ?? {}, existingBlog);
+    const errors = { ...validateBlog(request.body ?? {}), ...related.errors };
+    if (Object.keys(errors).length) {
+      return response.status(400).json({ errors });
+    }
+    const blog = await Blog.findOneAndUpdate(
+      { _id: request.params.id, authorId: request.currentUser.id, deletedAt: null },
+      { $set: { ...cleanBlogInput(request.body), ...related.values } },
+      { returnDocument: "after", runValidators: true }
+    ).populate("authorId", AUTHOR_FIELDS);
+    if (!blog) {
+      return response.status(404).json({ error: "Blog not found." });
+    }
+    response.json(toBlogResponse(blog));
+  }));
 
-  router.delete("/:id", requireUser, (request, response) => {
-    const blog = findPublicBlog(blogs, request.params.id);
-    if (!blog) return response.status(404).json({ error: "Blog not found." });
-    if (blog.authorId !== request.currentUser.id) {
+  router.delete("/:id", requireUser, asyncRoute(async (request, response) => {
+    const existingBlog = await Blog.findById(request.params.id);
+    if (!existingBlog || existingBlog.deletedAt) {
+      return response.status(404).json({ error: "Blog not found." });
+    }
+    if (existingBlog.authorId.toString() !== request.currentUser.id) {
       return response.status(403).json({ error: "You can delete only your own blogs." });
     }
-    blog.deleted = true;
-    blog.deletedAt = new Date().toISOString();
+    const result = await Blog.findOneAndUpdate(
+      { _id: request.params.id, authorId: request.currentUser.id, deletedAt: null },
+      { $set: { deletedAt: new Date() } },
+      { returnDocument: "after", runValidators: true }
+    );
+    if (!result) {
+      return response.status(404).json({ error: "Blog is no longer available." });
+    }
     response.status(204).end();
-  });
+  }));
 
-  router.post("/:id/comments", requireUser, (request, response) => {
-    const blog = findPublicBlog(blogs, request.params.id);
-    if (!blog) return response.status(404).json({ error: "Blog not found." });
+  router.post("/:id/comments", requireUser, asyncRoute(async (request, response) => {
+    const blog = await Blog.findById(request.params.id);
+    if (!blog || blog.deletedAt) {
+      return response.status(404).json({ error: "Blog not found." });
+    }
 
     const content = typeof request.body?.content === "string" ? request.body.content.trim() : "";
     if (content.length < 2 || content.length > 500) {
@@ -84,23 +120,28 @@ function createBlogRouter({ blogs, getCurrentUser }) {
       });
     }
 
-    const comment = {
-      id: `comment-${Date.now()}`,
+    const comment = await BlogComment.create({
+      blogId: blog.id,
       authorId: request.currentUser.id,
-      authorName: request.currentUser.name,
-      authorSid: request.currentUser.sid,
-      content,
-      dateAdded: new Date().toISOString()
-    };
-    blog.comments.push(comment);
-    response.status(201).json(comment);
+      content
+    });
+    await comment.populate("authorId", AUTHOR_FIELDS);
+    response.status(201).json(toCommentResponse(comment));
+  }));
+
+  router.use((error, request, response, next) => {
+    if (error.name === "ValidationError") {
+      const errors = {};
+      for (const field in error.errors) {
+        errors[field] = error.errors[field].message;
+      }
+      response.status(400).json({ errors });
+    } else {
+      next(error);
+    }
   });
 
   return router;
-}
-
-function findPublicBlog(blogs, id) {
-  return blogs.find((blog) => blog.id === id && !blog.deleted);
 }
 
 function normaliseUser(user) {
@@ -150,4 +191,48 @@ function isValidImage(image = "") {
   return Boolean(match) && Math.ceil(match[2].length * 0.75) <= MAX_IMAGE_SIZE;
 }
 
-module.exports = { createBlogRouter, normaliseUser, MAX_IMAGE_SIZE, BLOG_CATEGORIES };
+function toCommentResponse(comment) {
+  const author = comment.authorId
+
+  return {
+    id: String(comment.id),
+    authorId: author ? String(author._id) : null,
+    authorName: author?.name || "Unknown user",
+    authorSid: author?.studentId || "",
+    content: String(comment.content),
+    dateAdded: new Date(comment.createdAt).toISOString(),
+    updatedAt: new Date(comment.updatedAt).toISOString()
+  };
+}
+
+function toBlogResponse(blog, comments = []) {
+  const author = blog.authorId
+  
+  return {
+    id: String(blog.id),
+    reviewId: blog.reviewId ? String(blog.reviewId) : null,
+    productId: blog.productId ? String(blog.productId) : null,
+    title: String(blog.title),
+    category: String(blog.category),
+    tags: blog.tags.map((tag) => String(tag)),
+    content: String(blog.content),
+    image: String(blog.image),
+
+    authorId: author ? String(author._id) : null,
+    authorName: author?.name || "Unknown user",
+    authorSid: author?.studentId || "",
+
+    dateAdded: new Date(blog.createdAt).toISOString(),
+    updatedAt: new Date(blog.updatedAt).toISOString(),
+    deleted: blog.deletedAt !== null,
+    comments: comments.map(toCommentResponse)
+  };
+}
+
+function asyncRoute(handler) {
+  return (request, response, next) => {
+    return Promise.resolve(handler(request, response, next)).catch(next);
+  };
+}
+
+module.exports = { createBlogRouter, normaliseUser, MAX_IMAGE_SIZE, BLOG_CATEGORIES, AUTHOR_FIELDS };

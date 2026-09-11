@@ -23,7 +23,7 @@
                 <li><a href="/blogs">Blogs</a></li>
                 <li><a href="/reviews/browse">Reviews</a></li>
                 <li><a href="/wishlist">Wishlist</a></li>
-                <li><a href="/editprofile.html" aria-current="page">Profile</a></li>
+                <li><a href="/profile.html" aria-current="page">Profile</a></li>
             </ul>
         </nav>
 
@@ -186,7 +186,7 @@
                                 name="currentPassword"
                                 type="password"
                                 autocomplete="current-password"
-                                maxlength="200"
+                                maxlength="72"
                                 aria-describedby="currentPasswordError">
                             <small
                                 id="currentPasswordError"
@@ -204,10 +204,10 @@
                                     name="newPassword"
                                     type="password"
                                     autocomplete="new-password"
-                                    maxlength="128"
+                                    maxlength="72"
                                     aria-describedby="newPasswordHint newPasswordError">
                                 <small id="newPasswordHint">
-                                    Use 8–128 characters with uppercase and lowercase letters and a number.
+                                    Use at least 8 characters, no more than 72 UTF-8 bytes, with uppercase and lowercase letters and a number.
                                 </small>
                                 <small
                                     id="newPasswordError"
@@ -224,7 +224,7 @@
                                     name="confirmPassword"
                                     type="password"
                                     autocomplete="new-password"
-                                    maxlength="128"
+                                    maxlength="72"
                                     aria-describedby="confirmPasswordError">
                                 <small
                                     id="confirmPasswordError"
